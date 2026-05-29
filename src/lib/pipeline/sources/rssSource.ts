@@ -1,12 +1,26 @@
 import type { RawItem } from "@/lib/types";
+import { assertSafeFeedUrl } from "@/lib/security/urlGuard";
 
 // Real, dependency-free RSS/Atom adapter. Demonstrates how live sources plug in:
 // each source just needs to return RawItem[]. Add more adapters (Companies House
 // API, gov tender portals, job board APIs) the same way.
+//
+// Defense in depth: every URL is run through the SSRF guard here as well as at
+// the API boundary, and the fetch is bounded by a timeout.
 export async function fetchRssItems(feedUrl: string): Promise<RawItem[]> {
+  let safeUrl: string;
   try {
-    const res = await fetch(feedUrl, {
+    safeUrl = await assertSafeFeedUrl(feedUrl);
+  } catch (err) {
+    console.warn(`Skipping unsafe feed URL: ${(err as Error).message}`);
+    return [];
+  }
+
+  try {
+    const res = await fetch(safeUrl, {
       headers: { "User-Agent": "SignalsForMe/0.1 (+https://signalsforme.app)" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(10_000),
       // revalidate hourly when used inside Next
       next: { revalidate: 3600 },
     } as RequestInit);

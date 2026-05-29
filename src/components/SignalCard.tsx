@@ -37,25 +37,69 @@ export function SignalCard({ signal }: { signal: SignalDTO }) {
           {signal.title}
         </h3>
       </Link>
-      <p className="mt-1.5 text-sm text-slate-400">{signal.summary}</p>
+      <p className="mt-1.5 text-sm text-slate-400">{signal.whatChanged ?? signal.summary}</p>
 
-      {signal.whyItMatters.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-          {signal.whyItMatters.map((w, i) => (
-            <li key={i} className="chip bg-white/5 text-slate-300">
-              {w}
+      {(bizCount(signal) > 0 || consCount(signal) > 0 || signal.risks.length > 0) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {bizCount(signal) > 0 && (
+            <span className="chip border border-brand-400/30 bg-brand-500/10 text-brand-200">
+              {bizCount(signal)} business {plural(bizCount(signal), "opportunity", "opportunities")}
+            </span>
+          )}
+          {consCount(signal) > 0 && (
+            <span className="chip border border-signal-consumer/30 bg-signal-consumer/10 text-signal-consumer">
+              {consCount(signal)} consumer {plural(consCount(signal), "opportunity", "opportunities")}
+            </span>
+          )}
+          {signal.risks.length > 0 && (
+            <span className="chip border border-signal-distress/30 bg-signal-distress/10 text-signal-distress">
+              {signal.risks.length} {plural(signal.risks.length, "risk", "risks")}
+            </span>
+          )}
+        </div>
+      )}
+
+      {signal.opportunities.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {signal.opportunities.slice(0, 3).map((o, i) => (
+            <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
+              <span
+                className={`chip shrink-0 ${
+                  o.audience === "consumer"
+                    ? "bg-signal-consumer/10 text-signal-consumer"
+                    : "bg-brand-500/10 text-brand-200"
+                }`}
+              >
+                {o.audience === "consumer" ? "Consumer" : "Business"}
+              </span>
+              <span className="truncate">{o.title}</span>
+              <span className="ml-auto shrink-0 text-xs text-slate-500">
+                {Math.round(o.confidence * 100)}%
+              </span>
             </li>
           ))}
         </ul>
       )}
 
-      {signal.suggestedAction && (
-        <div className="mt-3 rounded-xl border border-brand-400/20 bg-brand-500/5 px-3 py-2 text-sm text-brand-200">
-          <span className="font-semibold">Suggested action:</span> {signal.suggestedAction}
-        </div>
+      {signal.opportunities.length > 3 && (
+        <Link href={`/signals/${signal.id}`} className="mt-2 inline-block text-xs text-brand-300 hover:underline">
+          +{signal.opportunities.length - 3} more opportunities
+        </Link>
       )}
     </article>
   );
+}
+
+function bizCount(s: SignalDTO): number {
+  return s.opportunities.filter((o) => o.audience === "business").length;
+}
+
+function consCount(s: SignalDTO): number {
+  return s.opportunities.filter((o) => o.audience === "consumer").length;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
 function timeAgo(iso: string): string {

@@ -1,16 +1,27 @@
 import { prisma } from "@/lib/db";
 import { getSignalType } from "@/lib/taxonomy";
 import type { SignalDTO } from "@/lib/types";
-import type { Signal, Subscription } from "@prisma/client";
+import type { Prisma, Subscription } from "@prisma/client";
 import { cosine, embed } from "@/lib/pipeline/embedding";
 
-export function toDTO(s: Signal): SignalDTO {
-  let why: string[] = [];
+// A Signal row with its opportunities and risks loaded.
+export type SignalWithRelations = Prisma.SignalGetPayload<{
+  include: { opportunities: true; risks: true };
+}>;
+
+const withRelations = { opportunities: true, risks: true } as const;
+
+function parseJsonArray(value: string | null | undefined): string[] {
+  if (!value) return [];
   try {
-    why = JSON.parse(s.whyItMatters);
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    why = [];
+    return [];
   }
+}
+
+export function toDTO(s: SignalWithRelations): SignalDTO {
   return {
     id: s.id,
     type: s.type,
@@ -19,10 +30,26 @@ export function toDTO(s: Signal): SignalDTO {
     groupName: s.groupName,
     title: s.title,
     summary: s.summary,
+    whatChanged: s.whatChanged,
     entityName: s.entityName,
     entityDomain: s.entityDomain,
     entityLocation: s.entityLocation,
-    whyItMatters: why,
+    whyItMatters: parseJsonArray(s.whyItMatters),
+    whoBenefits: parseJsonArray(s.whoBenefits),
+    whoAtRisk: parseJsonArray(s.whoAtRisk),
+    affectedIndustries: parseJsonArray(s.affectedIndustries),
+    opportunities: s.opportunities
+      .slice()
+      .sort((a, b) => b.confidence - a.confidence)
+      .map((o) => ({
+        title: o.title,
+        audience: o.audience as "business" | "consumer",
+        confidence: o.confidence,
+      })),
+    risks: s.risks
+      .slice()
+      .sort((a, b) => b.confidence - a.confidence)
+      .map((r) => ({ title: r.title, confidence: r.confidence })),
     confidence: s.confidence,
     suggestedAction: s.suggestedAction,
     sourceUrl: s.sourceUrl,
@@ -46,9 +73,9 @@ export async function querySignals(query: SignalQuery): Promise<SignalDTO[]> {
   if (query.minConfidence) where.confidence = { gte: query.minConfidence };
   if (query.q) {
     where.OR = [
-      { title: { contains: query.q } },
-      { summary: { contains: query.q } },
-      { entityName: { contains: query.q } },
+      { title: { contains: query.q, mode: "insensitive" } },
+      { summary: { contains: query.q, mode: "insensitive" } },
+      { entityName: { contains: query.q, mode: "insensitive" } },
     ];
   }
 
@@ -56,6 +83,7 @@ export async function querySignals(query: SignalQuery): Promise<SignalDTO[]> {
     where,
     orderBy: [{ detectedAt: "desc" }, { confidence: "desc" }],
     take: query.limit ?? 100,
+    include: withRelations,
   });
   return rows.map(toDTO);
 }
@@ -74,6 +102,7 @@ export async function personalizedFeed(userId: string, limit = 100): Promise<Sig
   const all = await prisma.signal.findMany({
     orderBy: { detectedAt: "desc" },
     take: 400,
+    include: withRelations,
   });
 
   const matched = all.filter((s) => subs.some((sub) => matchesSubscription(s, sub)));
@@ -81,18 +110,34 @@ export async function personalizedFeed(userId: string, limit = 100): Promise<Sig
   return ranked.slice(0, limit).map(toDTO);
 }
 
-function matchesSubscription(s: Signal, sub: Subscription): boolean {
+function matchesSubscription(s: SignalWithRelations, sub: Subscription): boolean {
   if (s.confidence < sub.minConfidence) return false;
-  if (sub.category && s.category !== sub.category) return false;
+  // A signal matches an audience if it's the signal's primary category OR any of
+  // its opportunities target that audience (one signal can serve both).
+  if (sub.category) {
+    const audiences = new Set<string>([s.category, ...s.opportunities.map((o) => o.audience)]);
+    if (!audiences.has(sub.category)) return false;
+  }
   if (sub.signalType && s.type !== sub.signalType) return false;
   if (sub.keyword) {
-    const hay = `${s.title} ${s.summary} ${s.entityName ?? ""}`.toLowerCase();
+    const hay = [
+      s.title,
+      s.summary,
+      s.entityName ?? "",
+      ...s.opportunities.map((o) => o.title),
+      s.affectedIndustries,
+    ]
+      .join(" ")
+      .toLowerCase();
     if (!hay.includes(sub.keyword.toLowerCase())) return false;
   }
   return true;
 }
 
-function rankByInterest(signals: Signal[], subs: Subscription[]): Signal[] {
+function rankByInterest(
+  signals: SignalWithRelations[],
+  subs: Subscription[],
+): SignalWithRelations[] {
   const interestVecs = subs
     .map((s) => s.keyword)
     .filter(Boolean)
@@ -100,7 +145,7 @@ function rankByInterest(signals: Signal[], subs: Subscription[]): Signal[] {
 
   return [...signals].sort((a, b) => score(b) - score(a));
 
-  function score(s: Signal): number {
+  function score(s: SignalWithRelations): number {
     const ageHrs = (Date.now() - s.detectedAt.getTime()) / 3_600_000;
     const recency = Math.exp(-ageHrs / 72); // ~3 day half-life
     let semantic = 0;

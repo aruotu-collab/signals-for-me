@@ -13,12 +13,14 @@ export class OpenAIProvider implements AIProvider {
     const typeList = SIGNAL_TAXONOMY.map((t) => `${t.key} (${t.label}, ${t.category})`).join("\n");
 
     const system = [
-      "You are the signal-extraction engine for an Opportunity Intelligence Platform.",
+      "You are the Opportunity Engine for an Opportunity Intelligence Platform.",
+      "Other tools answer 'what happened?'. You answer 'what opportunity does this create?'.",
       "Given a raw item from the internet, decide if it indicates an OPPORTUNITY, RISK, or TREND.",
-      "If it does, classify it into exactly one signal type from the catalog and return structured JSON.",
-      "Be conservative with confidence — only score high when the evidence is explicit.",
+      "If it does, classify it into exactly one signal type from the catalog, then work out who benefits, who is at risk, and the CONCRETE opportunities it creates.",
+      "Produce 2–7 opportunities spanning BOTH business and consumer audiences where plausible, and 0–3 risks. Each opportunity/risk gets its own 0–1 confidence.",
+      "Be conservative with confidence — only score high when the evidence is explicit. Do not invent specific numbers (e.g. market sizes).",
       "Allowed signal type keys:\n" + typeList,
-      'Return JSON: {"isSignal":bool,"type":string,"category":"business"|"consumer","title":string,"summary":string,"entityName":string|null,"entityLocation":string|null,"whyItMatters":string[],"confidence":number(0-1),"suggestedAction":string|null}',
+      'Return JSON with this exact shape: {"isSignal":bool,"type":string,"category":"business"|"consumer","title":string,"summary":string,"whatChanged":string,"entityName":string|null,"entityLocation":string|null,"whyItMatters":string[],"whoBenefits":string[],"whoAtRisk":string[],"affectedIndustries":string[],"opportunities":[{"title":string,"audience":"business"|"consumer","confidence":number}],"risks":[{"title":string,"confidence":number}],"confidence":number,"suggestedAction":string|null}',
     ].join("\n\n");
 
     const user = `TITLE: ${item.title}\nSOURCE: ${item.source}\nCONTENT: ${item.content}`;

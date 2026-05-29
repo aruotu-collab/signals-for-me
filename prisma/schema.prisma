@@ -1,13 +1,14 @@
 // Signals For Me — data model
-// Dev: SQLite (zero-setup). Prod: switch `provider` to "postgresql" and add pgvector
-// for the `embedding` field (store as vector instead of JSON string).
+// Postgres (works locally and on serverless hosts like Vercel). The `embedding`
+// field is stored as a JSON string for now; upgrade to pgvector later for
+// native semantic search.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -44,22 +45,32 @@ model Subscription {
   @@index([userId])
 }
 
-// The unified Signal object — the heart of the product.
+// The unified Signal object — the heart of the product. A signal is the
+// "Opportunity Engine" output: what changed, who it affects, the concrete
+// opportunities it creates (1..many), and the risks it opens.
 model Signal {
   id              String   @id @default(cuid())
   // taxonomy type key, e.g. "funding", "hiring", "buying_intent", "travel_deal"
   type            String
-  // "business" | "consumer"
+  // "business" | "consumer" — primary audience of the signal as a whole
   category        String
   // taxonomy group, e.g. "Funding Signals"
   groupName       String
   title           String
   summary         String
+  // one-line "what changed" distinct from the longer summary
+  whatChanged     String?
   entityName      String?
   entityDomain    String?
   entityLocation  String?
-  // JSON-encoded string[]; reasons it matters
+  // JSON-encoded string[]; reasons it matters (legacy/general bullets)
   whyItMatters    String
+  // JSON-encoded string[]; who gains from this change
+  whoBenefits     String   @default("[]")
+  // JSON-encoded string[]; who is threatened by this change
+  whoAtRisk       String   @default("[]")
+  // JSON-encoded string[]; industries affected
+  affectedIndustries String @default("[]")
   confidence      Float
   suggestedAction String?
   sourceUrl       String?
@@ -71,10 +82,39 @@ model Signal {
   dedupKey        String   @unique
   detectedAt      DateTime @default(now())
   events          SignalEvent[]
+  opportunities   Opportunity[]
+  risks           Risk[]
 
   @@index([type])
   @@index([category])
   @@index([detectedAt])
+}
+
+// A concrete opportunity created by a signal. One signal yields many — mixed
+// across business and consumer audiences (e.g. "AI Chip Consulting" for
+// business, "AI Hardware Training" for consumers).
+model Opportunity {
+  id         String @id @default(cuid())
+  signalId   String
+  signal     Signal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  title      String
+  // "business" | "consumer"
+  audience   String
+  confidence Float
+
+  @@index([signalId])
+  @@index([audience])
+}
+
+// A risk created/exposed by a signal (who now has a problem).
+model Risk {
+  id         String @id @default(cuid())
+  signalId   String
+  signal     Signal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  title      String
+  confidence Float
+
+  @@index([signalId])
 }
 
 // Engagement / feedback used later to calibrate confidence + personalization.

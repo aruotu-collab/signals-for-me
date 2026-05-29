@@ -81,7 +81,7 @@ export async function runPipeline(feedUrls: string[] = []): Promise<PipelineResu
     const def = getSignalType(extracted.type);
     const embedding = embed(`${extracted.title} ${extracted.summary}`);
 
-    // 5. Store.
+    // 5. Store the signal together with its opportunities and risks.
     await prisma.signal.create({
       data: {
         type: extracted.type,
@@ -89,15 +89,32 @@ export async function runPipeline(feedUrls: string[] = []): Promise<PipelineResu
         groupName: def?.group ?? "Other",
         title: extracted.title,
         summary: extracted.summary,
+        whatChanged: extracted.whatChanged ?? null,
         entityName: extracted.entityName ?? null,
         entityLocation: extracted.entityLocation ?? null,
         whyItMatters: JSON.stringify(extracted.whyItMatters ?? []),
+        whoBenefits: JSON.stringify(extracted.whoBenefits ?? []),
+        whoAtRisk: JSON.stringify(extracted.whoAtRisk ?? []),
+        affectedIndustries: JSON.stringify(extracted.affectedIndustries ?? []),
         confidence: extracted.confidence,
         suggestedAction: extracted.suggestedAction ?? null,
         sourceUrl: item.url ?? null,
         rawSource: item.source,
         embedding: JSON.stringify(embedding),
         dedupKey,
+        opportunities: {
+          create: (extracted.opportunities ?? []).map((o) => ({
+            title: o.title,
+            audience: o.audience,
+            confidence: o.confidence,
+          })),
+        },
+        risks: {
+          create: (extracted.risks ?? []).map((r) => ({
+            title: r.title,
+            confidence: r.confidence,
+          })),
+        },
       },
     });
     kept++;

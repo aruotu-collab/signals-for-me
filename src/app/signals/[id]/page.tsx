@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SignalDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = await prisma.signal.findUnique({ where: { id } });
+  const row = await prisma.signal.findUnique({
+    where: { id },
+    include: { opportunities: true, risks: true },
+  });
   if (!row) notFound();
   const s = toDTO(row);
 
@@ -27,11 +30,108 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
         </div>
 
         <h1 className="text-2xl font-bold text-white">{s.title}</h1>
+        {s.whatChanged && (
+          <p className="mt-2 text-base font-medium text-slate-200">{s.whatChanged}</p>
+        )}
         <p className="mt-2 text-slate-300">{s.summary}</p>
 
         {s.entityName && (
           <div className="mt-4 text-sm text-slate-400">
             Entity: <span className="text-slate-200">{s.entityName}</span>
+          </div>
+        )}
+
+        {s.affectedIndustries.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {s.affectedIndustries.map((ind, i) => (
+              <span key={i} className="chip bg-white/5 text-slate-300">
+                {ind}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {s.opportunities.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Opportunities created
+            </h2>
+            <ul className="mt-2 space-y-2">
+              {s.opportunities.map((o, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                >
+                  <span
+                    className={`chip shrink-0 ${
+                      o.audience === "consumer"
+                        ? "bg-signal-consumer/10 text-signal-consumer"
+                        : "bg-brand-500/10 text-brand-200"
+                    }`}
+                  >
+                    {o.audience === "consumer" ? "Consumer" : "Business"}
+                  </span>
+                  <span className="text-slate-200">{o.title}</span>
+                  <span className="ml-auto shrink-0 text-xs text-slate-400">
+                    {Math.round(o.confidence * 100)}% confidence
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(s.whoBenefits.length > 0 || s.whoAtRisk.length > 0) && (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {s.whoBenefits.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-signal-growth">
+                  Who benefits
+                </h2>
+                <ul className="mt-2 space-y-1.5">
+                  {s.whoBenefits.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-200">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-signal-growth" />
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {s.whoAtRisk.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-signal-distress">
+                  Who&apos;s at risk
+                </h2>
+                <ul className="mt-2 space-y-1.5">
+                  {s.whoAtRisk.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-200">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-signal-distress" />
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {s.risks.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-signal-distress">Risks</h2>
+            <ul className="mt-2 space-y-2">
+              {s.risks.map((r, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-signal-distress/20 bg-signal-distress/5 px-3 py-2"
+                >
+                  <span className="text-slate-200">{r.title}</span>
+                  <span className="ml-auto shrink-0 text-xs text-slate-400">
+                    {Math.round(r.confidence * 100)}% confidence
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

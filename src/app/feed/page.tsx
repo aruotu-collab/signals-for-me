@@ -23,18 +23,24 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
 
   const groups = groupedTaxonomy(category);
 
-  let signals;
+  let signals: Awaited<ReturnType<typeof querySignals>> = [];
   let personalized = false;
-  if (view === "me") {
-    const user = await getDemoUser();
-    if (user) {
-      signals = await personalizedFeed(user.id);
-      personalized = true;
+  let dbError = false;
+  try {
+    if (view === "me") {
+      const user = await getDemoUser();
+      if (user) {
+        signals = await personalizedFeed(user.id);
+        personalized = true;
+      } else {
+        signals = await querySignals({ category, type, q, minConfidence });
+      }
     } else {
       signals = await querySignals({ category, type, q, minConfidence });
     }
-  } else {
-    signals = await querySignals({ category, type, q, minConfidence });
+  } catch (err) {
+    console.error("Feed query failed:", err);
+    dbError = true;
   }
 
   return (
@@ -57,17 +63,29 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
         <Filters groups={groups} />
 
         <section>
-          <div className="mb-3 text-sm text-slate-400">{signals.length} signals</div>
-          {signals.length === 0 ? (
-            <div className="card p-10 text-center text-slate-400">
-              No signals yet. Click <span className="text-brand-300">Scan for signals</span> to run the pipeline.
+          {dbError ? (
+            <div className="card p-10 text-center">
+              <div className="text-lg font-semibold text-white">Database not connected</div>
+              <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+                The app can&apos;t reach its database. Set a valid <span className="text-brand-300">DATABASE_URL</span> in
+                your deployment environment, then run the schema push and seed. See <span className="text-brand-300">README.md</span>.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {signals.map((s) => (
-                <SignalCard key={s.id} signal={s} />
-              ))}
-            </div>
+            <>
+              <div className="mb-3 text-sm text-slate-400">{signals.length} signals</div>
+              {signals.length === 0 ? (
+                <div className="card p-10 text-center text-slate-400">
+                  No signals yet. Click <span className="text-brand-300">Scan for signals</span> to run the pipeline.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {signals.map((s) => (
+                    <SignalCard key={s.id} signal={s} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>
