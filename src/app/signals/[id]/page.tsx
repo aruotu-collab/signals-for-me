@@ -21,7 +21,7 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
         ← Back to feed
       </Link>
 
-      <div className="card mt-4 p-7">
+      <div className="card mt-4 p-5 sm:p-7">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="chip border border-brand-400/30 bg-brand-500/10 text-brand-200">{s.typeLabel}</span>
           <span className="chip bg-white/5 text-slate-400">{s.groupName}</span>
@@ -60,7 +60,7 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
               {s.opportunities.map((o, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 sm:gap-3"
                 >
                   <span
                     className={`chip shrink-0 ${
@@ -71,9 +71,9 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
                   >
                     {o.audience === "consumer" ? "Consumer" : "Business"}
                   </span>
-                  <span className="text-slate-200">{o.title}</span>
+                  <span className="min-w-0 flex-1 break-words text-slate-200">{o.title}</span>
                   <span className="ml-auto shrink-0 text-xs text-slate-400">
-                    {Math.round(o.confidence * 100)}% confidence
+                    {Math.round(o.confidence * 100)}%<span className="hidden sm:inline"> confidence</span>
                   </span>
                 </li>
               ))}
@@ -123,11 +123,11 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
               {s.risks.map((r, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-3 rounded-xl border border-signal-distress/20 bg-signal-distress/5 px-3 py-2"
+                  className="flex items-center gap-2 rounded-xl border border-signal-distress/20 bg-signal-distress/5 px-3 py-2 sm:gap-3"
                 >
-                  <span className="text-slate-200">{r.title}</span>
+                  <span className="min-w-0 flex-1 break-words text-slate-200">{r.title}</span>
                   <span className="ml-auto shrink-0 text-xs text-slate-400">
-                    {Math.round(r.confidence * 100)}% confidence
+                    {Math.round(r.confidence * 100)}%<span className="hidden sm:inline"> confidence</span>
                   </span>
                 </li>
               ))}

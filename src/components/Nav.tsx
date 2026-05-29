@@ -8,7 +8,7 @@ export function Nav() {
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 shadow-glow">
             <SignalGlyph />
           </span>
-          <span className="italic">
+          <span className="hidden italic min-[360px]:inline">
             Signals<span className="text-brand-400">For</span>Me
           </span>
         </Link>
