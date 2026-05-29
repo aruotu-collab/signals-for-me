@@ -29,7 +29,7 @@ export function Filters({ groups }: { groups: GroupView[] }) {
   );
 
   return (
-    <aside className="card sticky top-20 h-fit p-4 text-sm">
+    <aside className="card h-fit p-4 text-sm md:sticky md:top-20">
       <Section title="View">
         <Toggle active={view === "me"} onClick={() => setParam("view", view === "me" ? "" : "me")}>
           Signals for Nelson
