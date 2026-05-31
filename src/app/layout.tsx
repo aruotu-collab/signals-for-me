@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { SITE_URL } from "@/lib/site";
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const title = "Signals For Me — Opportunity Intelligence Platform";
 const description =
@@ -43,6 +46,7 @@ export default function RootLayout({
           Signals For Me — Opportunity Intelligence Platform · Demo build
         </footer>
       </body>
+      {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
     </html>
   );
 }
