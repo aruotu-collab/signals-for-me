@@ -137,6 +137,12 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
                 across {result.rows.filter((r) => !r.opportunity.defensive).length} opportunities · estimates only, see assumptions
               </div>
             </div>
+            <Link
+              href={`/areas?business=${encodeURIComponent(business)}`}
+              className="btn-ghost whitespace-nowrap text-sm"
+            >
+              See top postcodes →
+            </Link>
           </div>
 
           {result.fallback && !usingGenericDefault && (

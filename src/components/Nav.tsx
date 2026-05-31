@@ -19,6 +19,9 @@ export async function Nav() {
           <Link href="/brief" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Opportunities
           </Link>
+          <Link href="/areas" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[480px]:inline-block sm:px-3">
+            Top Areas
+          </Link>
           <Link href="/feed" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Feed
           </Link>
