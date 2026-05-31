@@ -11,7 +11,7 @@ import { sendVerificationRequest } from "@/lib/auth/sendVerificationRequest";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "database" },
-  pages: { signIn: "/login", verifyRequest: "/login?check=1" },
+  pages: { signIn: "/login", verifyRequest: "/login?check=1", error: "/login" },
   providers: [
     {
       id: "email",

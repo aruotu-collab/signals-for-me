@@ -4,12 +4,26 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+// Map Auth.js error codes (passed as ?error=) to friendly copy.
+function authErrorMessage(code: string | null): string | null {
+  if (!code) return null;
+  switch (code) {
+    case "Verification":
+      return "That sign-in link was invalid, already used, or expired. Enter your email below to get a fresh one.";
+    case "Configuration":
+      return "Sign-in is temporarily unavailable. Please try again shortly.";
+    default:
+      return "We couldn't sign you in. Enter your email below to get a new link.";
+  }
+}
+
 export function LoginForm() {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/onboarding";
+  const authError = authErrorMessage(params.get("error"));
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    params.get("check") ? "sent" : "idle",
+    params.get("check") && !params.get("error") ? "sent" : "idle",
   );
 
   async function onSubmit(e: React.FormEvent) {
@@ -34,6 +48,11 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-3">
+      {authError && (
+        <p className="rounded-xl border border-signal-distress/30 bg-signal-distress/10 p-3 text-sm text-signal-distress">
+          {authError}
+        </p>
+      )}
       <input
         type="email"
         required
