@@ -19,7 +19,10 @@ function authErrorMessage(code: string | null): string | null {
 
 export function LoginForm() {
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/onboarding";
+  // Land everyone on their personalized feed. The feed redirects brand-new
+  // users (no saved interests yet) to onboarding, while returning customers go
+  // straight to their signals — so they're never asked to set up twice.
+  const callbackUrl = params.get("callbackUrl") || "/feed?view=me";
   const authError = authErrorMessage(params.get("error"));
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
