@@ -7,6 +7,18 @@ import type { SignalDTO } from "@/lib/types";
 // opportunity score. Deterministic + config-driven so it runs with no AI and
 // no per-call cost. A future LLM translator can replace `translate()` while
 // keeping the same output shape.
+//
+// Economics are calibrated to public UK benchmarks (2024-2026):
+//  - Household size 2.35 residents/home (ONS, Families & Households 2024).
+//  - Recruitment fee 15-30% of first-year salary; avg salary ~£30-50k
+//    => ~£4k-15k per standard placement (multiple UK agency guides, 2026).
+//  - Estate agent avg commission 1.42% inc VAT on ~£268k avg house price
+//    => ~£3.8k/sale (HomeOwners Alliance / GOV.UK HPI, 2026).
+//  - Dental: £2,000-£5,000/yr per private patient, £55 avg check-up
+//    (LaingBuisson / Remedico, 2024-26). We use a conservative blended
+//    £400-£1,500/yr new-patient value; high-value treatments are upside.
+// Capture rates are deliberately conservative estimates (not yet sourced) and
+// surfaced as editable assumptions to the user.
 // ---------------------------------------------------------------------------
 
 export type GrowthGoal = "leads" | "revenue" | "locations" | "hiring" | "partnerships";
@@ -36,9 +48,9 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Dental practice",
     customerNoun: "patient",
     keywords: ["dental", "dentist", "implant", "invisalign", "orthodont", "veneer", "teeth", "tooth", "oral", "whitening", "hygiene"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.03, 0.08],
-    customerAnnualValue: [180, 650],
+    customerAnnualValue: [400, 1500],
     workerCaptureRate: [0.02, 0.05],
     valueBasis: "per year",
   },
@@ -47,9 +59,9 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Accountancy firm",
     customerNoun: "client",
     keywords: ["account", "bookkeep", "tax", "payroll", "audit", "incorporat", "startup", "sme", "self assessment", "finance"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.005, 0.02],
-    customerAnnualValue: [600, 2500],
+    customerAnnualValue: [600, 3000],
     workerCaptureRate: [0.005, 0.02],
     valueBasis: "per year",
   },
@@ -58,9 +70,9 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Estate agency",
     customerNoun: "instruction",
     keywords: ["property", "homes", "housing", "development", "residential", "letting", "rent", "landlord", "house price", "regeneration"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.02, 0.06],
-    customerAnnualValue: [1500, 6000],
+    customerAnnualValue: [3000, 6000],
     workerCaptureRate: [0.01, 0.03],
     valueBasis: "one-off",
   },
@@ -69,9 +81,9 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Recruitment agency",
     customerNoun: "placement",
     keywords: ["hiring", "recruit", "talent", "job", "headcount", "vacanc", "staffing", "appointed", "expansion", "roles"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.01, 0.04],
-    customerAnnualValue: [8000, 30000],
+    customerAnnualValue: [4000, 15000],
     workerCaptureRate: [0.05, 0.15],
     valueBasis: "one-off",
   },
@@ -80,7 +92,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Marketing agency",
     customerNoun: "client",
     keywords: ["marketing", "brand", "advertis", "seo", "ppc", "social media", "growth", "campaign", "funding", "launch", "expansion"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.005, 0.02],
     customerAnnualValue: [6000, 36000],
     workerCaptureRate: [0.01, 0.04],
@@ -91,7 +103,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Software / SaaS company",
     customerNoun: "account",
     keywords: ["software", "saas", "platform", "api", "ai", "cloud", "digital", "tech", "app", "adoption", "migration"],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.005, 0.02],
     customerAnnualValue: [3000, 24000],
     workerCaptureRate: [0.01, 0.04],
@@ -102,7 +114,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
     label: "Other / general",
     customerNoun: "customer",
     keywords: [],
-    residentsPerHome: 2.3,
+    residentsPerHome: 2.35,
     captureRate: [0.01, 0.04],
     customerAnnualValue: [500, 5000],
     workerCaptureRate: [0.01, 0.04],

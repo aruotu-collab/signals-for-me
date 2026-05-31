@@ -105,6 +105,12 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
               ))}
             </div>
           )}
+
+          <p className="mt-6 text-xs text-slate-600">
+            Revenue figures are estimates based on public UK benchmarks (ONS household size, sector
+            fee/value averages) and conservative capture-rate assumptions shown on each card. They
+            are indicative, not guarantees.
+          </p>
         </section>
       )}
     </div>
