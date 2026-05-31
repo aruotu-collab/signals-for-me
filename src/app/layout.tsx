@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { CookieConsent } from "@/components/CookieConsent";
 import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
@@ -45,8 +45,8 @@ export default function RootLayout({
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
           Signals For Me — Opportunity Intelligence Platform · Demo build
         </footer>
+        {GA_ID ? <CookieConsent gaId={GA_ID} /> : null}
       </body>
-      {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
     </html>
   );
 }
