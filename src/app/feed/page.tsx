@@ -40,9 +40,10 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
         feedUserId = me.id;
         feedName = me.name?.trim() || me.email.split("@")[0];
       } else {
+        // Anonymous visitors see the demo feed under a generic label.
         const demo = await getDemoUser();
         feedUserId = demo?.id ?? null;
-        feedName = demo?.name?.trim() || "Nelson";
+        feedName = "You";
       }
     } catch (err) {
       console.error("Feed user lookup failed:", err);

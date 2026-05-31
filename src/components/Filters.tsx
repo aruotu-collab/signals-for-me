@@ -32,7 +32,7 @@ export function Filters({ groups }: { groups: GroupView[] }) {
     <aside className="card h-fit p-4 text-sm md:sticky md:top-20">
       <Section title="View">
         <Toggle active={view === "me"} onClick={() => setParam("view", view === "me" ? "" : "me")}>
-          Signals for Nelson
+          My Signals
         </Toggle>
         <p className="mt-1 text-xs text-slate-500">Personalized to saved subscriptions.</p>
       </Section>

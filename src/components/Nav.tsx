@@ -27,8 +27,7 @@ export async function Nav() {
             href="/feed?view=me"
             className="btn-primary ml-1 whitespace-nowrap px-2.5 py-2 sm:ml-2 sm:px-3"
           >
-            <span className="sm:hidden">My Signals</span>
-            <span className="hidden sm:inline">Signals for Nelson</span>
+            My Signals
           </Link>
         </nav>
       </div>
