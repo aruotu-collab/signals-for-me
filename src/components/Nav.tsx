@@ -16,21 +16,21 @@ export async function Nav() {
           </span>
         </Link>
         <nav className="flex items-center gap-0.5 text-sm sm:gap-1">
+          <Link href="/brief" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
+            Opportunities
+          </Link>
           <Link href="/feed" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Feed
-          </Link>
-          <Link href="/brief" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
-            Brief
           </Link>
           <Link href="/pricing" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[420px]:inline-block sm:px-3">
             Pricing
           </Link>
           <AuthButtons email={session?.user?.email ?? null} />
           <Link
-            href="/feed?view=me"
+            href="/brief"
             className="btn-primary ml-1 whitespace-nowrap px-2.5 py-2 sm:ml-2 sm:px-3"
           >
-            My Signals
+            My Opportunities
           </Link>
         </nav>
       </div>

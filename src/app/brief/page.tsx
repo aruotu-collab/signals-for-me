@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { buildBrief, type BriefRow } from "@/lib/brief";
+import { getCurrentUser } from "@/lib/session";
 import { BUSINESS_TYPES, formatGBP, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +18,32 @@ const GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partner
 
 export default async function BriefPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const business = (sp.business ?? "").trim();
-  const location = (sp.location ?? "").trim();
-  const goal = (GOALS as string[]).includes(sp.goal ?? "") ? (sp.goal as GrowthGoal) : undefined;
+
+  // Opportunity-first home: a signed-in user with a saved business profile gets
+  // their brief auto-generated — no form to fill in. Query params still override
+  // so anyone can run an ad-hoc scenario.
+  const user = await getCurrentUser();
+
+  // Brand-new signed-in users (no interests and no profile yet) set up first.
+  // redirect() throws by design, so it stays outside any try/catch.
+  if (user && user.subscriptions.length === 0 && !user.businessType) {
+    redirect("/onboarding");
+  }
+
+  const profileBusiness = user?.businessType ?? "";
+  const profileLocation = user?.location ?? "";
+  const profileGoal = user?.growthGoal ?? "";
+
+  const business = (sp.business || profileBusiness).trim();
+  const location = (sp.location || profileLocation).trim();
+  const goalRaw = (sp.goal || profileGoal).trim();
+  const goal = (GOALS as string[]).includes(goalRaw) ? (goalRaw as GrowthGoal) : undefined;
   const audience = sp.audience === "consumer" ? "consumer" : sp.audience === "business" ? "business" : undefined;
+
   const hasQuery = business.length > 0;
+  // True when the brief was auto-generated from the saved profile (no explicit
+  // business type in the URL), so we can offer an "edit profile" hint.
+  const fromProfile = !sp.business && !!profileBusiness && hasQuery;
 
   const result = hasQuery
     ? await buildBrief({ businessTypeKey: business, location, growthGoal: goal, audience, limit: 12 })
@@ -68,6 +91,15 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           Build brief
         </button>
       </form>
+
+      {fromProfile && (
+        <p className="-mt-4 mb-6 text-xs text-slate-500">
+          Auto-generated from your saved profile.{" "}
+          <Link href="/onboarding" className="text-slate-300 underline hover:text-white">
+            Edit your profile
+          </Link>
+        </p>
+      )}
 
       {!result && <EmptyState />}
 

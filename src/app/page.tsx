@@ -23,11 +23,11 @@ export default async function Home() {
           businesses and consumers — before they become obvious.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
-          <Link href="/feed" className="btn-primary px-6 py-3 text-base">
-            Explore the live feed
+          <Link href="/brief" className="btn-primary px-6 py-3 text-base">
+            See your opportunities
           </Link>
-          <Link href="/pricing" className="btn-ghost px-6 py-3 text-base">
-            See pricing
+          <Link href="/feed" className="btn-ghost px-6 py-3 text-base">
+            Explore the live feed
           </Link>
         </div>
         <div className="mt-6 text-sm text-slate-500">
@@ -129,8 +129,8 @@ export default async function Home() {
         <p className="mx-auto mt-3 max-w-xl text-slate-400">
           Helping people discover opportunities before everyone else.
         </p>
-        <Link href="/feed" className="btn-primary mt-6 px-8 py-3 text-base">
-          Open your feed
+        <Link href="/brief" className="btn-primary mt-6 px-8 py-3 text-base">
+          See your opportunities
         </Link>
       </section>
     </div>

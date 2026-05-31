@@ -64,5 +64,7 @@ export async function saveOnboarding(formData: FormData): Promise<void> {
     }
   });
 
-  redirect("/feed?view=me");
+  // Land on the opportunity-first home: with a saved profile the brief
+  // auto-generates their revenue opportunities immediately.
+  redirect("/brief");
 }
