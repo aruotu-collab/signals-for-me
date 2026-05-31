@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { personalizedFeed } from "@/lib/signals";
+import { unsubscribeUrl } from "@/lib/unsubscribe";
 import type { SignalDTO } from "@/lib/types";
 
 // Builds the "Signals For <Name>" email digest. Returns subject + HTML so it can
@@ -18,12 +19,13 @@ export async function buildDigest(userId: string): Promise<{
   const name = user.name ?? user.email.split("@")[0];
   const subject = `Signals For ${name} — ${signals.length} new opportunities`;
 
-  const html = renderHtml(name, signals);
-  const text = renderText(name, signals);
+  const unsubUrl = unsubscribeUrl(userId);
+  const html = renderHtml(name, signals, unsubUrl);
+  const text = renderText(name, signals, unsubUrl);
   return { subject, html, text, count: signals.length };
 }
 
-function renderHtml(name: string, signals: SignalDTO[]): string {
+function renderHtml(name: string, signals: SignalDTO[], unsubUrl: string): string {
   const cards = signals
     .map(
       (s) => `
@@ -52,7 +54,8 @@ function renderHtml(name: string, signals: SignalDTO[]): string {
       </td></tr>
       <tr><td><table width="100%">${cards || emptyRow()}</table></td></tr>
       <tr><td style="padding-top:18px;font-size:12px;color:#9ca3af;">
-        You're receiving this because you subscribed to signals. Manage preferences in the app.
+        You're receiving this because you subscribed to signals.
+        <a href="${escape(unsubUrl)}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>.
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
@@ -62,14 +65,16 @@ function emptyRow(): string {
   return `<tr><td style="padding:16px 0;color:#6b7280;">No high-confidence signals today. We'll keep scanning.</td></tr>`;
 }
 
-function renderText(name: string, signals: SignalDTO[]): string {
+function renderText(name: string, signals: SignalDTO[], unsubUrl: string): string {
   const lines = signals.map(
     (s) =>
       `• [${s.typeLabel} ${(s.confidence * 100).toFixed(0)}%] ${s.title}\n  ${s.summary}${
         s.suggestedAction ? `\n  → ${s.suggestedAction}` : ""
       }`,
   );
-  return `Signals For ${name}\n\n${lines.join("\n\n") || "No high-confidence signals today."}`;
+  return `Signals For ${name}\n\n${
+    lines.join("\n\n") || "No high-confidence signals today."
+  }\n\n—\nUnsubscribe: ${unsubUrl}`;
 }
 
 function escape(s: string): string {

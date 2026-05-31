@@ -24,6 +24,8 @@ model User {
   audience      String         @default("business")
   // "free" | "pro" | "team"
   plan          String         @default("free")
+  // when true, the user has unsubscribed from the email digest
+  digestOptOut  Boolean        @default(false)
   createdAt     DateTime       @default(now())
   subscriptions Subscription[]
   events        SignalEvent[]
