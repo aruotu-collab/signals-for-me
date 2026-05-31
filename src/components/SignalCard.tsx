@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SignalDTO } from "@/lib/types";
+import type { OpportunityResult } from "@/lib/opportunity";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 
 const TYPE_TONE: Record<string, string> = {
@@ -20,9 +21,16 @@ function tone(group: string, category: string) {
   );
 }
 
-export function SignalCard({ signal }: { signal: SignalDTO }) {
+export function SignalCard({
+  signal,
+  opportunity,
+}: {
+  signal: SignalDTO;
+  opportunity?: OpportunityResult;
+}) {
   return (
     <article className="card group p-5 transition hover:border-brand-400/40 hover:shadow-glow">
+      {opportunity && <OpportunityBanner opp={opportunity} />}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className={`chip border ${tone(signal.groupName, signal.category)}`}>{signal.typeLabel}</span>
         <ConfidenceBadge value={signal.confidence} />
@@ -87,6 +95,30 @@ export function SignalCard({ signal }: { signal: SignalDTO }) {
         </Link>
       )}
     </article>
+  );
+}
+
+function OpportunityBanner({ opp }: { opp: OpportunityResult }) {
+  const accent = opp.defensive ? "text-signal-distress" : "text-signal-growth";
+  const border = opp.defensive ? "border-signal-distress/30 bg-signal-distress/[0.06]" : "border-signal-growth/30 bg-signal-growth/[0.06]";
+  return (
+    <div className={`mb-3 rounded-xl border ${border} p-3`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            {opp.label}
+          </div>
+          <div className={`text-lg font-bold ${accent}`}>{opp.revenueLabel}</div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className={`text-xl font-bold ${accent}`}>{opp.score}</div>
+          <div className="text-[10px] uppercase tracking-wide text-slate-500">opp. score</div>
+        </div>
+      </div>
+      <p className="mt-1.5 break-words text-xs text-slate-300">
+        <span className="font-medium text-slate-200">Action:</span> {opp.action}
+      </p>
+    </div>
   );
 }
 

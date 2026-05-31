@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BUSINESS_TYPES, type GrowthGoal } from "@/lib/opportunity";
 
 interface TypeDef {
   key: string;
@@ -13,12 +14,17 @@ interface GroupView {
   types: TypeDef[];
 }
 
+const GROWTH_GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partnerships"];
+
 export function OnboardingForm({
   action,
   groups,
   defaultAudience,
   initialSelected = [],
   initialKeyword = "",
+  initialBusinessType = "",
+  initialLocation = "",
+  initialGoal = "",
   isEditing = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -26,6 +32,9 @@ export function OnboardingForm({
   defaultAudience: "business" | "consumer";
   initialSelected?: string[];
   initialKeyword?: string;
+  initialBusinessType?: string;
+  initialLocation?: string;
+  initialGoal?: string;
   isEditing?: boolean;
 }) {
   const [audience, setAudience] = useState<"business" | "consumer" | "both">(defaultAudience);
@@ -78,6 +87,48 @@ export function OnboardingForm({
             </button>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          About your business <span className="text-slate-600">(optional — powers revenue estimates)</span>
+        </h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Business type</span>
+            <select name="businessType" defaultValue={initialBusinessType} className={profileInputCls}>
+              <option value="">Not set</option>
+              {BUSINESS_TYPES.filter((b) => b.key !== "generic").map((b) => (
+                <option key={b.key} value={b.key}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Location</span>
+            <input
+              name="location"
+              defaultValue={initialLocation}
+              placeholder="e.g. Catford, SE6"
+              className={profileInputCls}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Main goal</span>
+            <select name="goal" defaultValue={initialGoal} className={profileInputCls}>
+              <option value="">Any</option>
+              {GROWTH_GOALS.map((g) => (
+                <option key={g} value={g}>
+                  {g[0].toUpperCase() + g.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Set this and your feed shows each signal as a revenue opportunity with a recommended action.
+        </p>
       </section>
 
       <section>
@@ -157,3 +208,6 @@ export function OnboardingForm({
     </form>
   );
 }
+
+const profileInputCls =
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-brand-400/50 focus:outline-none";

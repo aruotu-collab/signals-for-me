@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { getSignalType } from "@/lib/taxonomy";
+import { BUSINESS_TYPES } from "@/lib/opportunity";
+
+const VALID_BUSINESS_TYPES = new Set(BUSINESS_TYPES.map((b) => b.key));
+const VALID_GOALS = new Set(["leads", "revenue", "locations", "hiring", "partnerships"]);
 
 // Persists a new user's chosen interests as Subscriptions, then sends them to
 // their personalized feed. Replaces any existing subscriptions so re-running
@@ -20,8 +24,17 @@ export async function saveOnboarding(formData: FormData): Promise<void> {
   const keyword = String(formData.get("keyword") || "").trim();
   const minConfidence = Number(formData.get("minConfidence") || 0.5);
 
+  const businessTypeRaw = String(formData.get("businessType") || "").trim();
+  const businessType = VALID_BUSINESS_TYPES.has(businessTypeRaw) ? businessTypeRaw : null;
+  const location = String(formData.get("location") || "").trim() || null;
+  const goalRaw = String(formData.get("goal") || "").trim();
+  const growthGoal = VALID_GOALS.has(goalRaw) ? goalRaw : null;
+
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: user.id }, data: { audience } });
+    await tx.user.update({
+      where: { id: user.id },
+      data: { audience, businessType, location, growthGoal },
+    });
     await tx.subscription.deleteMany({ where: { userId: user.id } });
 
     const data = types.map((key) => {

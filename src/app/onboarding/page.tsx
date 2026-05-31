@@ -42,6 +42,9 @@ export default async function OnboardingPage() {
         defaultAudience={user.audience === "consumer" ? "consumer" : "business"}
         initialSelected={initialSelected}
         initialKeyword={initialKeyword}
+        initialBusinessType={user.businessType ?? ""}
+        initialLocation={user.location ?? ""}
+        initialGoal={user.growthGoal ?? ""}
         isEditing={isEditing}
       />
     </div>

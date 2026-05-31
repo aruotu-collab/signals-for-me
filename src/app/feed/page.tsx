@@ -7,6 +7,14 @@ import { querySignals, personalizedFeed } from "@/lib/signals";
 import { groupedTaxonomy } from "@/lib/taxonomy";
 import { getCurrentUser } from "@/lib/session";
 import { getDemoUser } from "@/lib/demo";
+import {
+  getBusinessType,
+  translate,
+  type BusinessType,
+  type GrowthGoal,
+  type OpportunityResult,
+} from "@/lib/opportunity";
+import type { SignalDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +42,9 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   let signedIn = false;
   let needsOnboarding = false;
   let dbError = false;
+  let profileBt: BusinessType | null = null;
+  let profileLocation = "";
+  let profileGoal: GrowthGoal | undefined;
   if (view === "me") {
     try {
       const me = await getCurrentUser();
@@ -42,6 +53,11 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
         needsOnboarding = me.subscriptions.length === 0;
         feedUserId = me.id;
         feedName = me.name?.trim() || me.email.split("@")[0];
+        if (me.businessType) {
+          profileBt = getBusinessType(me.businessType);
+          profileLocation = me.location ?? "";
+          profileGoal = (me.growthGoal as GrowthGoal | null) ?? undefined;
+        }
       } else {
         // Anonymous visitors see the demo feed under a generic label.
         const demo = await getDemoUser();
@@ -74,17 +90,35 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     }
   }
 
+  // For profiled, signed-in users on their own feed, translate each signal into
+  // a business-specific revenue opportunity shown on the card.
+  const opportunityMode = personalized && profileBt !== null;
+  function oppFor(s: SignalDTO): OpportunityResult | undefined {
+    if (!profileBt) return undefined;
+    const hay = `${s.title} ${s.summary} ${s.entityName ?? ""} ${s.entityLocation ?? ""} ${s.affectedIndustries.join(" ")}`.toLowerCase();
+    const locTerms = profileLocation.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+    const locationMatch = locTerms.some((t) => hay.includes(t));
+    const industryMatch = profileBt.keywords.some((k) => hay.includes(k));
+    return translate(s, profileBt, { location: profileLocation, growthGoal: profileGoal, locationMatch, industryMatch });
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {personalized ? `Signals For ${feedName}` : "Signal Feed"}
+            {opportunityMode
+              ? `Opportunities For ${feedName}`
+              : personalized
+                ? `Signals For ${feedName}`
+                : "Signal Feed"}
           </h1>
           <p className="text-sm text-slate-400">
-            {personalized
-              ? "Personalized to your subscriptions, ranked by confidence + recency."
-              : "Live opportunities detected across funding, hiring, government, careers, AI & more."}
+            {opportunityMode
+              ? "Each signal translated into a revenue opportunity for your business, with a recommended action."
+              : personalized
+                ? "Personalized to your subscriptions, ranked by confidence + recency."
+                : "Live opportunities detected across funding, hiring, government, careers, AI & more."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -119,7 +153,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               ) : (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {signals.map((s) => (
-                    <SignalCard key={s.id} signal={s} />
+                    <SignalCard key={s.id} signal={s} opportunity={oppFor(s)} />
                   ))}
                 </div>
               )}

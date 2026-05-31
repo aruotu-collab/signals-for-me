@@ -22,6 +22,11 @@ model User {
   image         String?
   // "consumer" | "business"
   audience      String         @default("business")
+  // Opportunity Engine business profile (optional). businessType is a key from
+  // BUSINESS_TYPES (e.g. "dentist"); growthGoal is a GrowthGoal (e.g. "leads").
+  businessType  String?
+  location      String?
+  growthGoal    String?
   // "free" | "pro" | "team"
   plan          String         @default("free")
   // when true, the user has unsubscribed from the email digest
