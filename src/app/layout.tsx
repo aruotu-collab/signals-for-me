@@ -1,11 +1,32 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { SITE_URL } from "@/lib/site";
+
+const title = "Signals For Me — Opportunity Intelligence Platform";
+const description =
+  "AI scans the internet, detects important signals, and delivers personalized opportunities before they become obvious.";
 
 export const metadata: Metadata = {
-  title: "Signals For Me — Opportunity Intelligence Platform",
-  description:
-    "AI scans the internet, detects important signals, and delivers personalized opportunities before they become obvious.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: title,
+    template: "%s · Signals For Me",
+  },
+  description,
+  applicationName: "Signals For Me",
+  openGraph: {
+    type: "website",
+    siteName: "Signals For Me",
+    title,
+    description,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({

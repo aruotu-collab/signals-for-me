@@ -1,10 +1,44 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { toDTO } from "@/lib/signals";
+import { getSignalType } from "@/lib/taxonomy";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 
 export const dynamic = "force-dynamic";
+
+// Per-signal metadata so each signal page is a rich, shareable link (Slack,
+// LinkedIn, X) and indexable by search engines.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const row = await prisma.signal.findUnique({ where: { id } }).catch(() => null);
+  if (!row) return { title: "Signal not found" };
+
+  const typeLabel = getSignalType(row.type)?.label ?? row.type;
+  const description = (row.whatChanged || row.summary || "").slice(0, 200);
+  const title = row.title;
+  const url = `/signals/${row.id}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url,
+      siteName: "Signals For Me",
+      tags: [typeLabel, row.groupName, row.category],
+    },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function SignalDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

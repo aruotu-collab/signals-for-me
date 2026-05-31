@@ -1,8 +1,10 @@
+import { redirect } from "next/navigation";
 import { Filters } from "@/components/Filters";
 import { SignalCard } from "@/components/SignalCard";
 import { IngestButton } from "@/components/IngestButton";
 import { querySignals, personalizedFeed } from "@/lib/signals";
 import { groupedTaxonomy } from "@/lib/taxonomy";
+import { getCurrentUser } from "@/lib/session";
 import { getDemoUser } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
@@ -23,24 +25,49 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
 
   const groups = groupedTaxonomy(category);
 
+  // Resolve the personalized-feed target up front. Signed-in users get their
+  // own feed; anonymous visitors fall back to the demo "Signals for Nelson"
+  // persona so the public showcase still works without an account.
+  let feedUserId: string | null = null;
+  let feedName = "you";
+  let needsOnboarding = false;
+  let dbError = false;
+  if (view === "me") {
+    try {
+      const me = await getCurrentUser();
+      if (me) {
+        needsOnboarding = me.subscriptions.length === 0;
+        feedUserId = me.id;
+        feedName = me.name?.trim() || me.email.split("@")[0];
+      } else {
+        const demo = await getDemoUser();
+        feedUserId = demo?.id ?? null;
+        feedName = demo?.name?.trim() || "Nelson";
+      }
+    } catch (err) {
+      console.error("Feed user lookup failed:", err);
+      dbError = true;
+    }
+  }
+
+  // Brand-new users have no saved interests yet → send them to onboarding.
+  // `redirect()` throws by design, so it must run OUTSIDE any try/catch.
+  if (needsOnboarding) redirect("/onboarding");
+
   let signals: Awaited<ReturnType<typeof querySignals>> = [];
   let personalized = false;
-  let dbError = false;
-  try {
-    if (view === "me") {
-      const user = await getDemoUser();
-      if (user) {
-        signals = await personalizedFeed(user.id);
+  if (!dbError) {
+    try {
+      if (view === "me" && feedUserId) {
+        signals = await personalizedFeed(feedUserId);
         personalized = true;
       } else {
         signals = await querySignals({ category, type, q, minConfidence });
       }
-    } else {
-      signals = await querySignals({ category, type, q, minConfidence });
+    } catch (err) {
+      console.error("Feed query failed:", err);
+      dbError = true;
     }
-  } catch (err) {
-    console.error("Feed query failed:", err);
-    dbError = true;
   }
 
   return (
@@ -48,7 +75,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {personalized ? "Signals For Nelson" : "Signal Feed"}
+            {personalized ? `Signals For ${feedName}` : "Signal Feed"}
           </h1>
           <p className="text-sm text-slate-400">
             {personalized

@@ -18,6 +18,10 @@ export function isAuthorizedIngest(req: Request): boolean {
   return timingSafeEqualStr(token, secret);
 }
 
+// Same bearer-token check, used by scheduled jobs (e.g. the daily digest send).
+// Vercel Cron automatically sends `Authorization: Bearer <CRON_SECRET>`.
+export const isAuthorizedCron = isAuthorizedIngest;
+
 function timingSafeEqualStr(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);

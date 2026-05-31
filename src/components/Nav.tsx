@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { AuthButtons } from "./AuthButtons";
 
-export function Nav() {
+export async function Nav() {
+  const session = await auth();
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3">
@@ -19,6 +22,7 @@ export function Nav() {
           <Link href="/pricing" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Pricing
           </Link>
+          <AuthButtons email={session?.user?.email ?? null} />
           <Link
             href="/feed?view=me"
             className="btn-primary ml-1 whitespace-nowrap px-2.5 py-2 sm:ml-2 sm:px-3"
