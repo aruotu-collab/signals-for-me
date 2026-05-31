@@ -34,22 +34,31 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   const profileLocation = user?.location ?? "";
   const profileGoal = user?.growthGoal ?? "";
 
-  const business = (sp.business || profileBusiness).trim();
+  // What the user explicitly chose (query) or saved (profile). Drives the form.
+  const formBusiness = (sp.business || profileBusiness).trim();
   const location = (sp.location || profileLocation).trim();
   const goalRaw = (sp.goal || profileGoal).trim();
   const goal = (GOALS as string[]).includes(goalRaw) ? (goalRaw as GrowthGoal) : undefined;
   const audience = sp.audience === "consumer" ? "consumer" : sp.audience === "business" ? "business" : undefined;
 
+  // A signed-in user should always get a brief. If they haven't set a business
+  // type yet, fall back to general estimates and nudge them to personalize —
+  // otherwise the "My Opportunities" CTA would just show an empty form.
+  const usingGenericDefault = !formBusiness && !!user;
+  const business = formBusiness || (usingGenericDefault ? "generic" : "");
+
   const hasQuery = business.length > 0;
   // True when the brief was auto-generated from the saved profile (no explicit
   // business type in the URL), so we can offer an "edit profile" hint.
-  const fromProfile = !sp.business && !!profileBusiness && hasQuery;
+  const fromProfile = !sp.business && !!profileBusiness;
 
   const result = hasQuery
     ? await buildBrief({ businessTypeKey: business, location, growthGoal: goal, audience, limit: 12 })
     : null;
 
-  const btLabel = BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
+  const btLabel = usingGenericDefault
+    ? "your business"
+    : BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
 
   return (
     <div>
@@ -63,7 +72,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
       <form method="get" className="card mb-8 grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-end">
         <Field label="Your business type">
-          <select name="business" defaultValue={business} className={inputCls} required>
+          <select name="business" defaultValue={formBusiness} className={inputCls} required>
             <option value="" disabled>
               Select…
             </option>
@@ -101,6 +110,16 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         </p>
       )}
 
+      {usingGenericDefault && (
+        <div className="-mt-4 mb-6 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm text-signal-buying">
+          Showing <span className="font-medium">general estimates</span>. Pick your business type above — or{" "}
+          <Link href="/onboarding" className="underline hover:text-white">
+            complete your profile
+          </Link>{" "}
+          — for revenue numbers tailored to your business.
+        </div>
+      )}
+
       {!result && <EmptyState />}
 
       {result && (
@@ -120,7 +139,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
 
-          {result.fallback && (
+          {result.fallback && !usingGenericDefault && (
             <p className="mb-4 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm text-signal-buying">
               No signals matched that exact profile yet, so we&apos;re showing the strongest current
               signals translated for your business. As local & industry sources are added, this brief
