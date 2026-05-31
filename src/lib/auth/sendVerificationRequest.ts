@@ -8,13 +8,22 @@ export async function sendVerificationRequest(params: {
   url: string;
 }): Promise<void> {
   const { identifier: to, url } = params;
-  const { host } = new URL(url);
+  const parsed = new URL(url);
+  const host = parsed.host;
+
+  // Point the email at our /verify interstitial instead of the raw Auth.js
+  // callback. Email security scanners (Gmail/Safe Browsing/antivirus) GET links
+  // to inspect them, which would otherwise consume the single-use token before
+  // the user clicks. The interstitial requires a human button press to proceed,
+  // so a scanner's GET can't burn the token. Built on the same origin as the
+  // callback to avoid any apex<->www redirect mid-flow.
+  const verifyUrl = `${parsed.origin}/verify?url=${encodeURIComponent(url)}`;
 
   await sendEmail({
     to,
     subject: `Sign in to Signals For Me`,
-    html: magicLinkHtml(url, host),
-    text: `Sign in to Signals For Me\n\nClick the link below to sign in:\n${url}\n\nIf you didn't request this, you can safely ignore this email.`,
+    html: magicLinkHtml(verifyUrl, host),
+    text: `Sign in to Signals For Me\n\nClick the link below to sign in:\n${verifyUrl}\n\nIf you didn't request this, you can safely ignore this email.`,
   });
 }
 
@@ -26,7 +35,7 @@ function magicLinkHtml(url: string, host: string): string {
       <tr><td>
         <div style="font-size:13px;color:#6b7280;letter-spacing:.04em;">SIGNALS FOR ME</div>
         <h1 style="font-size:22px;color:#0e111b;margin:8px 0 4px;">Sign in</h1>
-        <p style="font-size:14px;color:#374151;margin:0 0 24px;">Click the button below to sign in to your account. This link expires in 24 hours.</p>
+        <p style="font-size:14px;color:#374151;margin:0 0 24px;">Click the button below, then confirm on the next screen to sign in. This link expires in 24 hours.</p>
         <a href="${escapedUrl}" style="display:inline-block;background:#2f6bff;color:#fff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:10px;font-size:15px;">Sign in to Signals For Me</a>
         <p style="font-size:12px;color:#9ca3af;margin:24px 0 0;">Or paste this URL into your browser:<br>${escapedUrl}</p>
         <p style="font-size:12px;color:#9ca3af;margin:16px 0 0;">If you didn't request this email from ${host}, you can safely ignore it.</p>
