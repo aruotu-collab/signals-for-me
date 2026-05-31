@@ -265,4 +265,4 @@ function EmptyState() {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-white/10 bg-ink-900/70 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-brand-500 focus:outline-none";
+  "w-full rounded-xl border border-white/10 bg-ink-900/70 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-brand-500 focus:outline-none [&>option]:bg-ink-900 [&>option]:text-white";
