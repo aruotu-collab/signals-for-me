@@ -17,13 +17,19 @@ export function OnboardingForm({
   action,
   groups,
   defaultAudience,
+  initialSelected = [],
+  initialKeyword = "",
+  isEditing = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   groups: GroupView[];
   defaultAudience: "business" | "consumer";
+  initialSelected?: string[];
+  initialKeyword?: string;
+  isEditing?: boolean;
 }) {
   const [audience, setAudience] = useState<"business" | "consumer" | "both">(defaultAudience);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
   const [submitting, setSubmitting] = useState(false);
 
   const visibleGroups = useMemo(() => {
@@ -120,6 +126,7 @@ export function OnboardingForm({
         <input
           type="text"
           name="keyword"
+          defaultValue={initialKeyword}
           placeholder="Add a keyword (optional)"
           className="mt-3 w-full max-w-sm rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-brand-400/50 focus:outline-none"
         />
@@ -133,10 +140,18 @@ export function OnboardingForm({
           disabled={submitting || selected.size === 0}
           className="btn-primary px-5 py-2.5 disabled:opacity-50"
         >
-          {submitting ? "Building your feed…" : "Build my feed"}
+          {submitting
+            ? "Saving…"
+            : isEditing
+              ? "Save changes"
+              : "Build my feed"}
         </button>
         <span className="text-xs text-slate-500">
-          {selected.size === 0 ? "Pick at least one signal to continue." : "You can refine these later."}
+          {selected.size === 0
+            ? "Pick at least one signal to continue."
+            : isEditing
+              ? "Changes apply right away."
+              : "You can refine these anytime from your feed."}
         </span>
       </div>
     </form>

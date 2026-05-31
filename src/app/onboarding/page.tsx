@@ -12,14 +12,27 @@ export default async function OnboardingPage() {
 
   const groups = groupedTaxonomy();
 
+  // Pre-load the user's current interests so this page doubles as a
+  // "manage interests" screen for returning users.
+  const isEditing = user.subscriptions.length > 0;
+  const initialSelected = Array.from(
+    new Set(user.subscriptions.map((s) => s.signalType).filter((t): t is string => Boolean(t))),
+  );
+  const initialKeyword = user.subscriptions.find((s) => s.keyword)?.keyword ?? "";
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mt-6">
-        <div className="text-xs uppercase tracking-wide text-slate-500">Welcome</div>
-        <h1 className="mt-1 text-3xl font-bold text-white">What should we watch for you?</h1>
+        <div className="text-xs uppercase tracking-wide text-slate-500">
+          {isEditing ? "Your interests" : "Welcome"}
+        </div>
+        <h1 className="mt-1 text-3xl font-bold text-white">
+          {isEditing ? "Refine your signals" : "What should we watch for you?"}
+        </h1>
         <p className="mt-2 text-slate-400">
-          Pick the signals you care about. We&apos;ll build your personalized feed and daily digest
-          around them. You can change these anytime.
+          {isEditing
+            ? "Update what we track for you. Your feed and daily digest adjust to match."
+            : "Pick the signals you care about. We'll build your personalized feed and daily digest around them. You can change these anytime."}
         </p>
       </div>
 
@@ -27,6 +40,9 @@ export default async function OnboardingPage() {
         action={saveOnboarding}
         groups={groups}
         defaultAudience={user.audience === "consumer" ? "consumer" : "business"}
+        initialSelected={initialSelected}
+        initialKeyword={initialKeyword}
+        isEditing={isEditing}
       />
     </div>
   );

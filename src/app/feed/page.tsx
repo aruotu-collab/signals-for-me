@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Filters } from "@/components/Filters";
 import { SignalCard } from "@/components/SignalCard";
@@ -30,12 +31,14 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // persona so the public showcase still works without an account.
   let feedUserId: string | null = null;
   let feedName = "you";
+  let signedIn = false;
   let needsOnboarding = false;
   let dbError = false;
   if (view === "me") {
     try {
       const me = await getCurrentUser();
       if (me) {
+        signedIn = true;
         needsOnboarding = me.subscriptions.length === 0;
         feedUserId = me.id;
         feedName = me.name?.trim() || me.email.split("@")[0];
@@ -84,7 +87,14 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               : "Live opportunities detected across funding, hiring, government, careers, AI & more."}
           </p>
         </div>
-        <IngestButton />
+        <div className="flex items-center gap-3">
+          {personalized && signedIn && (
+            <Link href="/onboarding" className="btn-ghost text-sm">
+              Edit interests
+            </Link>
+          )}
+          <IngestButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[260px_1fr]">
