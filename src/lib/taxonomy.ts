@@ -62,7 +62,7 @@ export const SIGNAL_TAXONOMY: SignalTypeDef[] = [
   t("smart_city", "Smart city / infrastructure", "Government Signals", "business", ["smart city", "infrastructure programme", "public transport investment"]),
 
   // Property & construction
-  t("development", "Property development", "Property & Construction Signals", "business", ["development", "planning permission", "construction", "build-to-rent", "regeneration", "warehouse"]),
+  t("development", "Property development", "Property & Construction Signals", "business", ["development", "planning permission", "construction", "build-to-rent", "regeneration", "warehouse", "dwelling", "dwellings", "new homes", "residential", "affordable homes", "housing development"]),
   t("contractor_appointment", "Contractor appointment", "Property & Construction Signals", "business", ["contractor appointed", "main contractor", "construction tender"]),
 
   // Competitive

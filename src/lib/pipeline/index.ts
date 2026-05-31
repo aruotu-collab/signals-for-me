@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getAIProvider } from "./ai/provider";
 import { fetchMockItems } from "./sources/mockSource";
 import { fetchRssItems } from "./sources/rssSource";
+import { fetchPlanningItems } from "./sources/planningSource";
 import { embed } from "./embedding";
 import { getSignalType } from "@/lib/taxonomy";
 import type { RawItem, ExtractedSignal } from "@/lib/types";
@@ -23,7 +24,10 @@ function looksInteresting(item: RawItem): boolean {
 
 function normalizeKey(s: ExtractedSignal): string {
   const entity = (s.entityName ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  return `${s.type}:${entity || hashTitle(s.title)}`;
+  // Always fold the title hash in so distinct items that share a generic entity
+  // (e.g. many planning applications whose text starts "Erection of...") are not
+  // collapsed into a single signal. Stable titles keep run-to-run dedup intact.
+  return `${s.type}:${entity || "_"}:${hashTitle(s.title)}`;
 }
 
 function hashTitle(t: string): string {
@@ -40,6 +44,18 @@ export async function runPipeline(feedUrls: string[] = []): Promise<PipelineResu
 
   // 1. Ingest from all configured sources.
   const items: RawItem[] = [...(await fetchMockItems())];
+
+  // Real public data source: UK planning / new-housing applications.
+  // Enabled by default; set INGEST_PLANNING=0 to disable. Failures here must
+  // never break the rest of the run, so it is fully wrapped.
+  if (process.env.INGEST_PLANNING !== "0") {
+    try {
+      items.push(...(await fetchPlanningItems(20)));
+    } catch (err) {
+      console.error("Planning source failed:", err);
+    }
+  }
+
   for (const url of feedUrls) {
     items.push(...(await fetchRssItems(url)));
   }
