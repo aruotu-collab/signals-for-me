@@ -28,9 +28,11 @@ export function LoginForm() {
     return (
       <div className="mt-6 rounded-xl border border-brand-400/20 bg-brand-500/5 p-4 text-sm text-brand-100">
         Check your inbox for a sign-in link. You can close this tab.
-        <div className="mt-2 text-xs text-slate-400">
-          In local dev (no email provider configured), the link is printed in the server console.
-        </div>
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-2 text-xs text-slate-400">
+            In local dev (no email provider configured), the link is printed in the server console.
+          </div>
+        )}
       </div>
     );
   }
