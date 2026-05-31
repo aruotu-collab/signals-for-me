@@ -46,7 +46,11 @@ export function CookieConsent({ gaId }: { gaId: string }) {
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-300">
               We use cookies for anonymous analytics to understand how the site is used.
-              No tracking runs until you accept.
+              No tracking runs until you accept. See our{" "}
+              <a href="/privacy" className="text-slate-100 underline hover:text-white">
+                Privacy Policy
+              </a>
+              .
             </p>
             <div className="flex shrink-0 gap-2">
               <button
