@@ -6,7 +6,7 @@ export async function Nav() {
   const session = await auth();
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-bold tracking-tight text-white">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 shadow-glow">
             <SignalGlyph />
@@ -15,33 +15,35 @@ export async function Nav() {
             Signals<span className="text-brand-400">For</span>Me
           </span>
         </Link>
-        <nav className="flex items-center gap-0.5 text-sm sm:gap-1">
-          <Link href="/brief" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
+        {/* On mobile the links scroll horizontally instead of being hidden, so
+            every section stays reachable. Scrollbar is visually hidden. */}
+        <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto whitespace-nowrap text-sm sm:gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Link href="/brief" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Opportunities
           </Link>
-          <Link href="/summary" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[640px]:inline-block sm:px-3">
+          <Link href="/summary" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Summary
           </Link>
-          <Link href="/areas" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[480px]:inline-block sm:px-3">
+          <Link href="/areas" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Top Areas
           </Link>
-          <Link href="/feed" className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
+          <Link href="/feed" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Feed
           </Link>
-          <Link href="/shortlist" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[560px]:inline-block sm:px-3">
+          <Link href="/shortlist" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Portfolio
           </Link>
-          <Link href="/pricing" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[420px]:inline-block sm:px-3">
+          <Link href="/pricing" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Pricing
           </Link>
           <AuthButtons email={session?.user?.email ?? null} />
-          <Link
-            href="/brief"
-            className="btn-primary ml-1 whitespace-nowrap px-2.5 py-2 sm:ml-2 sm:px-3"
-          >
-            My Opportunities
-          </Link>
         </nav>
+        <Link
+          href="/brief"
+          className="btn-primary ml-1 shrink-0 whitespace-nowrap px-2.5 py-2 sm:ml-2 sm:px-3"
+        >
+          My Opportunities
+        </Link>
       </div>
     </header>
   );

@@ -10,7 +10,7 @@ export function AuthButtons({ email }: { email: string | null }) {
     return (
       <Link
         href="/login"
-        className="rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
+        className="shrink-0 whitespace-nowrap rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
       >
         Sign in
       </Link>
@@ -20,7 +20,7 @@ export function AuthButtons({ email }: { email: string | null }) {
   return (
     <button
       onClick={() => signOut({ callbackUrl: "/" })}
-      className="rounded-lg px-2 py-2 text-slate-400 hover:bg-white/5 hover:text-white sm:px-3"
+      className="shrink-0 whitespace-nowrap rounded-lg px-2 py-2 text-slate-400 hover:bg-white/5 hover:text-white sm:px-3"
       title={email}
     >
       Sign out
