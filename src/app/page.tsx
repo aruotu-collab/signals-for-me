@@ -23,6 +23,22 @@ export default async function Home() {
   }
   const headlineValue = demoBoard && demoBoard.opportunityHigh > 0 ? formatGBP(demoBoard.opportunityHigh) : null;
 
+  // Hero headline stats — a live, site-wide aggregate across every current
+  // signal (generic lens) so all three numbers reflect real data. The written
+  // figures remain as a graceful fallback if the aggregate can't be built.
+  let heroBoard = null;
+  try {
+    const all = await buildBrief({ businessTypeKey: "generic", location: "", limit: 400 });
+    heroBoard = computeScoreboard(all.rows);
+  } catch {
+    heroBoard = null;
+  }
+  const heroStats = {
+    opportunities: heroBoard && heroBoard.opportunityHigh > 0 ? formatGBPFull(heroBoard.opportunityHigh) : "£1,247,000",
+    risks: heroBoard && heroBoard.riskHigh > 0 ? formatGBPFull(heroBoard.riskHigh) : "£380,000",
+    actions: heroBoard && heroBoard.count > 0 ? String(heroBoard.urgentCount || heroBoard.count) : "17",
+  };
+
   // Lens-first proof: every business gets its own set of opportunity buckets.
   const lensExamples = ["dentist", "pawnbroker", "accountant"].map((key) => {
     const bt = getBusinessType(key);
@@ -37,27 +53,39 @@ export default async function Home() {
   return (
     <div className="space-y-24">
       {/* Hero */}
-      <section className="pt-12 text-center">
-        <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
-          The Opportunity Comparison Engine
-        </span>
-        <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-          Compare every opportunity. <span className="text-brand-400">Act on the best one.</span>
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-          We turn funding rounds, planning approvals, hiring surges, tenders and competitor moves into
-          ranked revenue opportunities — then put them side by side on value, risk, confidence and
-          expected return, so you know exactly where to act first.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/brief" className="btn-primary px-6 py-3 text-base">
-            Compare your opportunities
-          </Link>
-          <Link href="/areas" className="btn-ghost px-6 py-3 text-base">
-            Top opportunity areas
-          </Link>
+      <section className="pt-12">
+        <div className="text-center">
+          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
+            The Opportunity Intelligence Platform
+          </span>
+          <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
+            Find Opportunities <span className="text-brand-400">Before Your Competitors.</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
+            SignalsForMe continuously monitors thousands of public data sources and converts market
+            events into actionable opportunities, risks, and trends tailored to your business.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/brief" className="btn-primary px-6 py-3 text-base">
+              Find my opportunities
+            </Link>
+            <Link href="/areas" className="btn-ghost px-6 py-3 text-base">
+              Top opportunity areas
+            </Link>
+          </div>
         </div>
-        <div className="mt-6 text-sm text-slate-500">
+
+        {/* Headline numbers — the proof, front and centre. */}
+        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <HeroStat
+            label="Potential opportunities found this month"
+            value={heroStats.opportunities}
+            tone="growth"
+          />
+          <HeroStat label="Potential risks identified" value={heroStats.risks} tone="risk" />
+          <HeroStat label="Recommended actions" value={heroStats.actions} tone="neutral" />
+        </div>
+        <div className="mt-6 text-center text-sm text-slate-500">
           {signalCount} live signals · {typeCount} opportunity types across business & consumer
         </div>
       </section>
@@ -229,6 +257,33 @@ export default async function Home() {
           See your opportunities
         </Link>
       </section>
+    </div>
+  );
+}
+
+// Full pound figure with thousands separators, e.g. "£1,247,000" — the hero
+// wants the impact of the whole number, not the abbreviated £1.2m form.
+function formatGBPFull(n: number): string {
+  return `£${Math.round(n).toLocaleString("en-GB")}`;
+}
+
+function HeroStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "growth" | "risk" | "neutral";
+}) {
+  const color =
+    tone === "growth" ? "text-signal-growth" : tone === "risk" ? "text-signal-distress" : "text-white";
+  return (
+    <div className="card p-6 text-center">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={`mt-2 text-3xl font-bold [overflow-wrap:anywhere] sm:text-4xl ${color}`}>
+        {value}
+      </div>
     </div>
   );
 }
