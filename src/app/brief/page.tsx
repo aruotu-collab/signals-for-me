@@ -130,35 +130,91 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         </p>
       </header>
 
-      <form method="get" className="card mb-8 grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-end">
-        <Field label="Your business type">
-          <select name="business" defaultValue={formBusiness} className={inputCls} required>
-            <option value="" disabled>
-              Select…
-            </option>
-            {BUSINESS_TYPES.map((b) => (
-              <option key={b.key} value={b.key}>
-                {b.label}
+      {/* One unified control panel: business context + comparison filters in a
+          single form, so everything submits together and stays in sync. */}
+      <form method="get" className="card mb-6 p-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
+          <Field label="Your business type">
+            <select name="business" defaultValue={formBusiness} className={inputCls} required>
+              <option value="" disabled>
+                Select…
               </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Location">
-          <input name="location" defaultValue={location} placeholder="e.g. Catford, SE6" className={inputCls} />
-        </Field>
-        <Field label="Goal (optional)">
-          <select name="goal" defaultValue={goal ?? ""} className={inputCls}>
-            <option value="">Any</option>
-            {GOALS.map((g) => (
-              <option key={g} value={g}>
-                {g[0].toUpperCase() + g.slice(1)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <button type="submit" className="btn-primary h-[42px] whitespace-nowrap">
-          Build brief
-        </button>
+              {BUSINESS_TYPES.map((b) => (
+                <option key={b.key} value={b.key}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Location">
+            <input name="location" defaultValue={location} placeholder="e.g. Catford, SE6" className={inputCls} />
+          </Field>
+          <Field label="Goal (optional)">
+            <select name="goal" defaultValue={goal ?? ""} className={inputCls}>
+              <option value="">Any</option>
+              {GOALS.map((g) => (
+                <option key={g} value={g}>
+                  {g[0].toUpperCase() + g.slice(1)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        {result && (
+          <>
+            <div className="my-4 border-t border-white/10" />
+            <div className="flex flex-wrap items-end gap-2">
+              <Mini label="View">
+                <select name="view" defaultValue={layout} className={miniCls}>
+                  <option value="table">Table</option>
+                  <option value="cards">Cards</option>
+                </select>
+              </Mini>
+              <Mini label="Sort by">
+                <select name="sort" defaultValue={sort} className={miniCls}>
+                  <option value="expected">Expected value</option>
+                  <option value="value">Highest value</option>
+                  <option value="confidence">Highest confidence</option>
+                  <option value="urgency">Most urgent</option>
+                  <option value="recent">Most recent</option>
+                </select>
+              </Mini>
+              <Mini label="Type">
+                <select name="kind" defaultValue={kind ?? ""} className={miniCls}>
+                  <option value="">All types</option>
+                  {ARCHETYPES.map((a) => (
+                    <option key={a} value={a}>
+                      {ARCHETYPE_LABELS[a]}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              <Mini label="Urgency">
+                <select name="urg" defaultValue={urgFilter ?? ""} className={miniCls}>
+                  <option value="">Any</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </Mini>
+              <Mini label="Min value">
+                <select name="min" defaultValue={minValue ? String(minValue) : ""} className={miniCls}>
+                  <option value="">Any</option>
+                  <option value="10000">£10k+</option>
+                  <option value="50000">£50k+</option>
+                  <option value="100000">£100k+</option>
+                </select>
+              </Mini>
+            </div>
+          </>
+        )}
+
+        <div className="mt-4">
+          <button type="submit" className="btn-primary h-[42px] whitespace-nowrap px-5">
+            Update scoreboard
+          </button>
+        </div>
       </form>
 
       {fromProfile && (
@@ -216,8 +272,6 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
 
-          <FilterForm ctx={ctxParams} layout={layout} sort={sort} kind={kind} urg={urgFilter} min={minValue} />
-
           {result.rows.length === 0 ? (
             <p className="text-sm text-slate-400">No signals available.</p>
           ) : layout === "table" ? (
@@ -238,74 +292,6 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         </section>
       )}
     </div>
-  );
-}
-
-function FilterForm({
-  ctx,
-  layout,
-  sort,
-  kind,
-  urg,
-  min,
-}: {
-  ctx: Record<string, string>;
-  layout: string;
-  sort: Sort;
-  kind?: Archetype;
-  urg?: string;
-  min: number;
-}) {
-  return (
-    <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
-      {Object.entries(ctx).map(([k, v]) => (
-        <input key={k} type="hidden" name={k} value={v} />
-      ))}
-      <Mini label="View">
-        <select name="view" defaultValue={layout} className={miniCls}>
-          <option value="table">Table</option>
-          <option value="cards">Cards</option>
-        </select>
-      </Mini>
-      <Mini label="Sort by">
-        <select name="sort" defaultValue={sort} className={miniCls}>
-          <option value="expected">Expected value</option>
-          <option value="value">Highest value</option>
-          <option value="confidence">Highest confidence</option>
-          <option value="urgency">Most urgent</option>
-          <option value="recent">Most recent</option>
-        </select>
-      </Mini>
-      <Mini label="Type">
-        <select name="kind" defaultValue={kind ?? ""} className={miniCls}>
-          <option value="">All types</option>
-          {ARCHETYPES.map((a) => (
-            <option key={a} value={a}>
-              {ARCHETYPE_LABELS[a]}
-            </option>
-          ))}
-        </select>
-      </Mini>
-      <Mini label="Urgency">
-        <select name="urg" defaultValue={urg ?? ""} className={miniCls}>
-          <option value="">Any</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-      </Mini>
-      <Mini label="Min value">
-        <select name="min" defaultValue={min ? String(min) : ""} className={miniCls}>
-          <option value="">Any</option>
-          <option value="10000">£10k+</option>
-          <option value="50000">£50k+</option>
-          <option value="100000">£100k+</option>
-        </select>
-      </Mini>
-      <button type="submit" className="btn-ghost h-[38px] text-sm">
-        Apply
-      </button>
-    </form>
   );
 }
 
