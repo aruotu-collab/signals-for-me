@@ -109,39 +109,6 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      {/* Clickable lens filter — each chip opens that lens's own page. */}
-      {result && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500">Jump to a lens:</span>
-          {lensOptions
-            .filter((l) => l.key !== "other")
-            .map((l) => {
-              const count = lensCount.get(l.key) ?? 0;
-              if (count === 0) {
-                return (
-                  <span
-                    key={l.key}
-                    className="chip cursor-default bg-white/[0.03] text-slate-600"
-                    title="No live opportunities in this lens right now"
-                  >
-                    {l.label}
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={l.key}
-                  href={lensHref(l.key)}
-                  className="chip bg-white/5 text-slate-300 transition hover:bg-white/10"
-                >
-                  {l.label}
-                  <span className="ml-1 text-[10px] text-slate-500">{count}</span>
-                </Link>
-              );
-            })}
-        </div>
-      )}
-
       {/* Control panel: the business context that drives the whole brief. */}
       <form method="get" className="card mb-6 p-4">
         <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr_auto]">
@@ -218,6 +185,37 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
               gets sharper.
             </p>
           )}
+
+          {/* Clickable lens filter — each chip opens that lens's own page. */}
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">Jump to a lens:</span>
+            {lensOptions
+              .filter((l) => l.key !== "other")
+              .map((l) => {
+                const count = lensCount.get(l.key) ?? 0;
+                if (count === 0) {
+                  return (
+                    <span
+                      key={l.key}
+                      className="chip cursor-default bg-white/[0.03] text-slate-600"
+                      title="No live opportunities in this lens right now"
+                    >
+                      {l.label}
+                    </span>
+                  );
+                }
+                return (
+                  <Link
+                    key={l.key}
+                    href={lensHref(l.key)}
+                    className="chip bg-white/5 text-slate-300 transition hover:bg-white/10"
+                  >
+                    {l.label}
+                    <span className="ml-1 text-[10px] text-slate-500">{count}</span>
+                  </Link>
+                );
+              })}
+          </div>
 
           {lensGroups.length === 0 ? (
             <p className="text-sm text-slate-400">No opportunities available.</p>
