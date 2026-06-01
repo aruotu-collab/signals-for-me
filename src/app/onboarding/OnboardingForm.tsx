@@ -143,7 +143,8 @@ export function OnboardingForm({
               Your opportunity lenses
             </div>
             <p className="mt-0.5 text-xs text-slate-400">
-              Every market signal gets sorted into these {activeLenses.length} money-buckets, ranked by expected value:
+              Every market signal is interpreted for your business and sorted into these money-buckets,
+              ranked by expected value:
             </p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {activeLenses.map((l) => (

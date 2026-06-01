@@ -14,6 +14,9 @@ export function OpportunityCard({ row, from }: { row: BriefRow; from?: string })
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-white">{opp.label}</h3>
+            {opp.topicTag && (
+              <span className="chip bg-brand-500/10 text-brand-200">{opp.topicTag}</span>
+            )}
             {opp.defensive && <span className="chip bg-signal-distress/15 text-signal-distress">defensive</span>}
             <span className="chip bg-white/5 text-slate-300">{row.trend}</span>
             {row.locationMatch && (

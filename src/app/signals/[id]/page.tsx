@@ -126,8 +126,12 @@ export default async function SignalDetail({
         {/* Opportunity panel — the signal translated into money for your business */}
         <div className="mt-6 rounded-2xl border border-signal-growth/25 bg-signal-growth/[0.05] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-signal-growth">
-              {opp.defensive ? "Revenue at risk for a" : "Opportunity for a"} {btLabel.toLowerCase()}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-signal-growth">
+                {opp.defensive ? "Revenue at risk for a" : "Opportunity for a"} {btLabel.toLowerCase()}
+              </div>
+              <span className="chip bg-brand-500/10 text-brand-200">{opp.lensLabel}</span>
+              {opp.topicTag && <span className="chip bg-white/5 text-slate-300">{opp.topicTag}</span>}
             </div>
             <span className="rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-300" title="Opportunity score / 100">
               {opp.score} / 100

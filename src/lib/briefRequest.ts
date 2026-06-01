@@ -48,7 +48,7 @@ export interface ResolvedBrief {
   /** whether we had enough to run a brief at all */
   hasQuery: boolean;
   btLabel: string;
-  lensOptions: { key: string; label: string }[];
+  lensOptions: { key: string; label: string; comingSoon?: boolean }[];
   lensKeys: string[];
   result: BriefResult | null;
   board: Scoreboard | null;

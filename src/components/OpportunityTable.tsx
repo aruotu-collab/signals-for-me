@@ -130,8 +130,13 @@ export function OpportunityTable({
                     </td>
                     <td className="px-3 py-3 text-slate-500">{i + 1}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-white">{o.label}</span>
+                        {o.topicTag && (
+                          <span className="rounded-md bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-brand-200">
+                            {o.topicTag}
+                          </span>
+                        )}
                         <ScoreBadge score={o.score} />
                       </div>
                       <Link

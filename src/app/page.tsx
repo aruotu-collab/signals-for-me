@@ -4,7 +4,7 @@ import { SIGNAL_TAXONOMY } from "@/lib/taxonomy";
 import { buildBrief } from "@/lib/brief";
 import { computeScoreboard } from "@/lib/scoreboard";
 import { Scoreboard } from "@/components/Scoreboard";
-import { formatGBP, getBusinessType, getLenses } from "@/lib/opportunity";
+import { formatGBP, GOAL_LENSES } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 
@@ -39,16 +39,12 @@ export default async function Home() {
     actions: heroBoard && heroBoard.count > 0 ? String(heroBoard.urgentCount || heroBoard.count) : "17",
   };
 
-  // Lens-first proof: every business gets its own set of opportunity buckets.
-  const lensExamples = ["dentist", "pawnbroker", "accountant"].map((key) => {
-    const bt = getBusinessType(key);
-    return {
-      label: bt.label,
-      lenses: getLenses(bt)
-        .filter((l) => l.key !== "other")
-        .map((l) => l.label),
-    };
-  });
+  // Same signal, different lens depending on who's looking — the core idea.
+  const interpretations = [
+    { business: "Pawnbroker", lens: "Investment & Acquisition", takeaway: "more gold & asset sellers walk in" },
+    { business: "Recruiter", lens: "Hiring & Talent", takeaway: "a pool of candidates to place" },
+    { business: "Café", lens: "Risk Intelligence", takeaway: "local spending could tighten — defend it" },
+  ];
 
   return (
     <div className="space-y-24">
@@ -114,38 +110,56 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Lens-first: every business sees its own opportunity buckets */}
+      {/* Goal lenses: one universal menu, interpreted for your business */}
       <section>
         <div className="mb-6 text-center">
           <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
-            Built around your business
+            One operating system for opportunity
           </span>
           <h2 className="mt-4 text-2xl font-bold text-white">
-            Every business gets its own opportunity lenses.
+            Organised by your goals, not industry jargon.
           </h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
-            We don&apos;t hand you a generic feed. Tell us what you do and the same market signals get
-            split into the money-buckets that matter to <span className="text-slate-200">you</span> —
-            each ranked by expected value, so you know which bucket to work first.
+            Every business works the same set of money-lenses — starting with{" "}
+            <span className="text-slate-200">Revenue</span>. The lenses don&apos;t change; what changes is
+            how each signal is <span className="text-slate-200">interpreted</span> for your business.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {lensExamples.map((ex) => (
-            <div key={ex.label} className="card p-5">
-              <div className="text-sm font-semibold text-white">{ex.label}</div>
-              <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
-                {ex.lenses.length} lenses
+
+        {/* The universal lens menu. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {GOAL_LENSES.map((l, i) => (
+            <div
+              key={l.key}
+              className={`card p-4 ${i === 0 ? "border-brand-400/40 bg-brand-500/[0.06]" : ""}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-white">{l.label}</div>
+                {i === 0 && <span className="chip bg-brand-500/15 text-brand-200">primary</span>}
+                {l.comingSoon && <span className="chip bg-white/5 text-slate-500">soon</span>}
               </div>
-              <ul className="mt-3 flex flex-wrap gap-1.5">
-                {ex.lenses.map((l) => (
-                  <li key={l} className="chip bg-white/5 text-slate-300">
-                    {l}
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-1 text-xs text-slate-400">{l.question}</p>
             </div>
           ))}
         </div>
+
+        {/* Same signal, different interpretation. */}
+        <div className="mt-8 rounded-2xl border border-white/10 bg-ink-900/60 p-5">
+          <div className="text-center text-sm text-slate-400">
+            One signal — <span className="font-medium text-slate-200">“a wave of local redundancies”</span> —
+            three businesses, three lenses:
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {interpretations.map((it) => (
+              <div key={it.business} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <div className="text-sm font-semibold text-white">{it.business}</div>
+                <div className="mt-1 text-xs font-medium text-brand-200">{it.lens}</div>
+                <p className="mt-1 text-xs text-slate-400">{it.takeaway}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-6 text-center">
           <Link href="/brief" className="btn-primary px-6 py-2.5">
             See your lenses

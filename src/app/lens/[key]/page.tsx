@@ -6,7 +6,7 @@ import { resolveBrief } from "@/lib/briefRequest";
 import { getCurrentUser } from "@/lib/session";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { OpportunityCard } from "@/components/OpportunityCard";
-import { formatGBP, formatGBPSigned } from "@/lib/opportunity";
+import { formatGBPSigned, getGoalLens } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -58,19 +58,29 @@ export default async function LensPage({
 
   const group = lensGroups.find((g) => g.key === key) ?? null;
   const validKey = lensKeys.includes(key);
+  const goalLens = getGoalLens(key);
 
-  // Nothing to show: either the lens isn't valid for this business, or it has no
-  // live opportunities right now. Send the user back to the board.
+  // Nothing to show: the lens is coming soon (no data pipeline yet), isn't valid
+  // for this business, or has no live opportunities right now.
   if (!result || !group) {
+    const headline = goalLens?.comingSoon
+      ? `${goalLens.label} is coming soon.`
+      : validKey
+        ? "No live opportunities in this lens right now."
+        : "Unknown lens.";
     return (
       <div>
         <Link href={boardHref} className="text-sm text-brand-300 hover:text-brand-200 hover:underline">
           ← All lenses
         </Link>
         <div className="card mt-4 p-6 text-sm text-slate-300">
-          <p className="font-medium text-white">
-            {validKey ? "No live opportunities in this lens right now." : "Unknown lens."}
-          </p>
+          <p className="font-medium text-white">{headline}</p>
+          {goalLens?.comingSoon && (
+            <p className="mt-1 text-slate-400">
+              {goalLens.question} We&apos;re wiring up the data source for this lens — it&apos;ll light up
+              automatically once it&apos;s live.
+            </p>
+          )}
           <p className="mt-1 text-slate-400">
             Head back to your{" "}
             <Link href={boardHref} className="text-brand-300 underline hover:text-white">
@@ -172,6 +182,9 @@ export default async function LensPage({
                 <span className="chip bg-signal-buying/15 text-signal-buying">{group.urgentCount} urgent</span>
               )}
             </div>
+            {goalLens?.question && (
+              <p className="mt-0.5 text-sm italic text-slate-500">{goalLens.question}</p>
+            )}
             <p className="mt-1 text-sm text-slate-400">
               <span className={group.defensive ? "font-semibold text-signal-distress" : "font-semibold text-signal-growth"}>
                 {formatGBPSigned(group.expectedValue)}

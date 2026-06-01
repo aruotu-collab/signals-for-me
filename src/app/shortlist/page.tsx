@@ -48,8 +48,8 @@ export default async function ShortlistPage() {
   const compareAll = `/compare?business=${encodeURIComponent(businessKey)}&ids=${rows.slice(0, 4).map((r) => r.signal.id).join(",")}`;
 
   const board = rows.length ? computeScoreboard(rows) : null;
-  // Same lens roll-up as the dashboard, so the portfolio speaks the user's
-  // language (Gold, Distress, Implants…) instead of generic types.
+  // Same goal-lens roll-up as the dashboard (Revenue, Customers, Risk…), so the
+  // portfolio is bucketed exactly like the workspace.
   const lensGroups = groupByLens(rows, getLenses(getBusinessType(businessKey)));
 
   return (

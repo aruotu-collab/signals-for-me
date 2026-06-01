@@ -13,14 +13,16 @@ export default async function OnboardingPage() {
 
   const groups = groupedTaxonomy();
 
-  // The lenses each business type unlocks — so onboarding can show the payoff
-  // ("here are your money-buckets") the moment a type is chosen.
+  // The goal lenses are universal — picking a type doesn't change the lenses,
+  // it changes how each signal is interpreted. We still surface the menu the
+  // moment a type is chosen so onboarding shows the payoff.
+  const goalLensLabels = getLenses()
+    .filter((l) => !l.comingSoon)
+    .map((l) => l.label);
   const lensesByType: Record<string, string[]> = {};
   for (const bt of BUSINESS_TYPES) {
     if (bt.key === "generic") continue;
-    lensesByType[bt.key] = getLenses(bt)
-      .filter((l) => l.key !== "other")
-      .map((l) => l.label);
+    lensesByType[bt.key] = goalLensLabels;
   }
 
   // Pre-load the user's current interests so this page doubles as a

@@ -229,18 +229,75 @@ export function getBusinessType(key?: string | null): BusinessType {
   return (key && BY_KEY.get(key)) || BY_KEY.get("generic")!;
 }
 
-const DEFAULT_LENSES: { key: string; label: string }[] = [
-  { key: "new_resident", label: "New residents" },
-  { key: "employer", label: "New employers" },
-  { key: "competitor", label: "Competitor / threats" },
-  { key: "distress", label: "Local distress" },
-  { key: "demand", label: "Market demand" },
+/**
+ * A universal, goal-based opportunity lens. Unlike the per-industry `Lens`
+ * (which now only supplies an optional flavour tag + economics hint), goal
+ * lenses are the SAME for every business — "where can I make money / save money
+ * / who's a threat". Industry only changes the *interpretation* (economics +
+ * which lens a signal lands in), not the lens set. This is what lets the app
+ * scale to any industry without bespoke config.
+ */
+export interface GoalLens {
+  key: string;
+  label: string;
+  /** the owner question this lens answers */
+  question: string;
+  /** no data pipeline yet — surfaced but flagged as coming soon */
+  comingSoon?: boolean;
+}
+
+// Revenue leads (every owner understands "show me where I can make more money").
+// The rest are flat peers. Order here is the canonical display order.
+export const GOAL_LENSES: GoalLens[] = [
+  { key: "revenue", label: "Revenue Opportunities", question: "Where can I make more money?" },
+  { key: "customers", label: "Customer Acquisition", question: "Where are new customers appearing?" },
+  { key: "demand", label: "Market Demand", question: "What are customers starting to want?" },
+  { key: "competitors", label: "Competitor Intelligence", question: "What are competitors doing?" },
+  { key: "growth", label: "Growth & Expansion", question: "Where should I expand?" },
+  { key: "risk", label: "Risk Intelligence", question: "What could hurt my business?" },
+  { key: "talent", label: "Hiring & Talent", question: "How do I hire better people?" },
+  { key: "funding", label: "Government & Funding", question: "What support is available?" },
+  { key: "acquisitions", label: "Investment & Acquisition", question: "What assets should I buy?" },
+  { key: "savings", label: "Cost Saving", question: "Where can I save money?", comingSoon: true },
 ];
 
-/** The opportunity lenses a business sees — its custom set, or the generic ones. */
-export function getLenses(bt: BusinessType): { key: string; label: string }[] {
-  if (bt.lenses?.length) return bt.lenses.map((l) => ({ key: l.key, label: l.label }));
-  return DEFAULT_LENSES;
+const GOAL_LENS_LABEL = new Map(GOAL_LENSES.map((l) => [l.key, l.label] as const));
+
+export function getGoalLens(key: string): GoalLens | undefined {
+  return GOAL_LENSES.find((l) => l.key === key);
+}
+
+/** The opportunity lenses every business sees — the universal goal taxonomy. */
+export function getLenses(_bt?: BusinessType): { key: string; label: string; comingSoon?: boolean }[] {
+  return GOAL_LENSES.map((l) => ({ key: l.key, label: l.label, comingSoon: l.comingSoon }));
+}
+
+/**
+ * Map an opportunity to its goal lens. Same signal, different bucket depending
+ * on how the business interprets it (driven by archetype + benefitsFromDistress).
+ * e.g. redundancies → "acquisitions" for a pawnbroker, "talent" for a recruiter,
+ * "risk" for a café.
+ */
+function goalLensOf(s: SignalDTO, archetype: Archetype, defensive: boolean, bt: BusinessType): string {
+  const type = s.type;
+  if (defensive) return archetype === "competitor" ? "competitors" : "risk";
+  // A recruiter's whole product is hiring & talent — placements, scaling teams,
+  // and outplacement from redundancies all live in the Talent lens.
+  if (bt.key === "recruiter" && (archetype === "employer" || archetype === "distress")) return "talent";
+  if (["funding", "venture_debt", "new_investor", "gov_grant", "gov_tender", "smart_city"].includes(type)) {
+    return "funding";
+  }
+  if (type === "acquisition") return "acquisitions";
+  // Offensive distress only reaches here for benefitsFromDistress businesses
+  // (pawnbroker assets, estate distressed sales, accountant insolvency work).
+  if (archetype === "distress") return "acquisitions";
+  if (["expansion", "partnership", "product_launch", "revenue_milestone"].includes(type)) return "growth";
+  if (archetype === "new_resident" || archetype === "employer") return "customers";
+  if (["trend", "viral_product", "emerging_career", "investment_trend", "ai_tech", "ai_tool", "freelance", "local_event", "deal"].includes(type)) {
+    return "demand";
+  }
+  // Active buying intent + generic demand = direct revenue to go win.
+  return "revenue";
 }
 
 export type Archetype = "new_resident" | "employer" | "competitor" | "demand" | "distress";
@@ -294,10 +351,12 @@ export interface OpportunityResult {
   horizon: Horizon;
   /** ordered, concrete steps to capture the opportunity */
   actionPlan: string[];
-  /** the business-specific lens this opportunity falls under (for filtering) */
+  /** the goal lens this opportunity falls under (for filtering/grouping) */
   lensKey: string;
-  /** human label of the lens (== label) */
+  /** human label of the goal lens */
   lensLabel: string;
+  /** optional industry-specific flavour (e.g. "Implant", "Gold") shown as a tag */
+  topicTag?: string;
 }
 
 // translateCore returns everything except the derived value/risk/urgency/effort
@@ -556,19 +615,25 @@ type ArchetypeResult = Omit<CoreResult, "lensKey" | "lensLabel">;
 // economics archetype, and (optionally) the framing. Falls back to inferred
 // archetype + generic labels for business types with no custom lenses.
 function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): CoreResult {
+  // The per-industry lens no longer defines the bucket — it supplies the
+  // economics archetype hint and an optional flavour tag (Implant, Gold, …).
   const lens = selectLens(s, bt);
   const archetype: Archetype = lens && lens.archetype !== "auto" ? lens.archetype : classify(s);
   const base = computeArchetype(s, bt, ctx, archetype);
-  const label = lens?.label ?? base.label;
   const defensive = lens?.defensive ?? base.defensive;
   const action = lens?.action ? `${lens.action}${goalSuffix(ctx.growthGoal)}` : base.action;
+  // Bucket by the universal goal lens; carry the industry flavour as a tag.
+  const goalKey = goalLensOf(s, archetype, defensive, bt);
+  const goalLabel = GOAL_LENS_LABEL.get(goalKey) ?? base.label;
+  const topicTag = lens && lens.key !== "other" ? lens.label : undefined;
   return {
     ...base,
-    label,
+    label: base.label,
     defensive,
     action,
-    lensKey: lens?.key ?? base.archetype,
-    lensLabel: label,
+    lensKey: goalKey,
+    lensLabel: goalLabel,
+    topicTag,
   };
 }
 
