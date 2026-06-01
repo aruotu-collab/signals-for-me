@@ -103,6 +103,14 @@ export const BUSINESS_TYPES: BusinessType[] = [
     valueBasis: "per year",
     // Insolvency, restructuring and administration work is opportunity, not risk.
     benefitsFromDistress: true,
+    lenses: [
+      { key: "new_business", label: "New business formations", keywords: ["incorporat", "startup", "new business", "company formation", "founded", "registered", "sole trader"], archetype: "demand" },
+      { key: "funded", label: "Funded businesses", keywords: ["funding", "raised", "investment", "seed", "series a", "series b", "grant"], archetype: "demand" },
+      { key: "employer", label: "Hiring & payroll growth", keywords: ["hiring", "headcount", "payroll", "staff", "jobs", "expansion"], archetype: "employer" },
+      { key: "distress", label: "Insolvency & restructuring", types: ["closure", "insolvency", "redundancy"], keywords: ["insolven", "administration", "liquidation", "redundan", "closure", "winding up", "restructur"], archetype: "distress" },
+      { key: "competitor", label: "Competitor moves", keywords: ["competitor", "acquired", "merger", "acquisition"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "estate_agent",
@@ -116,6 +124,13 @@ export const BUSINESS_TYPES: BusinessType[] = [
     valueBasis: "one-off",
     // Forced/distressed sales (repossessions, relocations) create instructions.
     benefitsFromDistress: true,
+    lenses: [
+      { key: "new_homes", label: "New developments", types: ["development", "contractor_appointment"], keywords: ["homes", "dwelling", "residential", "housing", "development", "regeneration"], archetype: "new_resident" },
+      { key: "employer", label: "Employer relocations", keywords: ["relocat", "new office", "headquarters", "hiring", "expansion", "workforce"], archetype: "employer" },
+      { key: "distress", label: "Forced & distressed sales", types: ["closure", "insolvency"], keywords: ["repossession", "probate", "divorce", "insolven", "relocat", "downsiz"], archetype: "distress" },
+      { key: "competitor", label: "Competitor agencies", keywords: ["competitor", "estate agent", "branch", "merger", "acquired"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "recruiter",
@@ -127,6 +142,15 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [4000, 15000],
     workerCaptureRate: [0.05, 0.15],
     valueBasis: "one-off",
+    // Redundancies free up candidates and create outplacement contracts.
+    benefitsFromDistress: true,
+    lenses: [
+      { key: "hiring", label: "Hiring contracts", keywords: ["hiring", "jobs", "vacanc", "roles", "headcount", "recruit", "appointed"], archetype: "employer" },
+      { key: "funded", label: "Funded & scaling firms", keywords: ["funding", "raised", "investment", "series", "expansion", "scale"], archetype: "employer" },
+      { key: "distress", label: "Redundancies & outplacement", types: ["closure", "insolvency", "redundancy"], keywords: ["redundan", "layoff", "job cuts", "closure", "restructur", "insolven"], archetype: "distress" },
+      { key: "competitor", label: "Competitor agencies", keywords: ["competitor", "agency", "merger", "acquired"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "marketing_agency",
@@ -138,6 +162,13 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [6000, 36000],
     workerCaptureRate: [0.01, 0.04],
     valueBasis: "per year",
+    lenses: [
+      { key: "funded", label: "Funded brands (new budgets)", keywords: ["funding", "raised", "investment", "seed", "series"], archetype: "demand" },
+      { key: "launch", label: "Launches & rebrands", keywords: ["launch", "rebrand", "new product", "campaign", "opening", "relaunch"], archetype: "demand" },
+      { key: "employer", label: "Expanding businesses", keywords: ["expansion", "hiring", "new location", "scaling", "headcount"], archetype: "employer" },
+      { key: "competitor", label: "Competitor agencies", keywords: ["competitor", "agency", "merger", "acquired"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "saas",
@@ -149,6 +180,13 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [3000, 24000],
     workerCaptureRate: [0.01, 0.04],
     valueBasis: "per year",
+    lenses: [
+      { key: "funded", label: "Funded buyers", keywords: ["funding", "raised", "investment", "seed", "series"], archetype: "demand" },
+      { key: "employer", label: "Scaling teams (tooling need)", keywords: ["hiring", "headcount", "expansion", "scaling", "workforce"], archetype: "employer" },
+      { key: "digital", label: "Digital / AI adoption", keywords: ["ai", "cloud", "migration", "digital", "automation", "transformation", "software"], archetype: "demand" },
+      { key: "competitor", label: "Competitor products", keywords: ["competitor", "product launch", "platform", "acquired", "partnership"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "pawnbroker",

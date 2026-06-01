@@ -20,6 +20,7 @@ export function OnboardingForm({
   action,
   groups,
   defaultAudience,
+  lensesByType = {},
   initialSelected = [],
   initialKeyword = "",
   initialBusinessType = "",
@@ -30,6 +31,8 @@ export function OnboardingForm({
   action: (formData: FormData) => void | Promise<void>;
   groups: GroupView[];
   defaultAudience: "business" | "consumer";
+  /** business-type key → the opportunity lens labels that business will see */
+  lensesByType?: Record<string, string[]>;
   initialSelected?: string[];
   initialKeyword?: string;
   initialBusinessType?: string;
@@ -39,7 +42,10 @@ export function OnboardingForm({
 }) {
   const [audience, setAudience] = useState<"business" | "consumer" | "both">(defaultAudience);
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [bizType, setBizType] = useState(initialBusinessType);
   const [submitting, setSubmitting] = useState(false);
+
+  const activeLenses = bizType ? lensesByType[bizType] ?? [] : [];
 
   const visibleGroups = useMemo(() => {
     if (audience === "both") return groups;
@@ -96,7 +102,12 @@ export function OnboardingForm({
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-400">Business type</span>
-            <select name="businessType" defaultValue={initialBusinessType} className={profileInputCls}>
+            <select
+              name="businessType"
+              value={bizType}
+              onChange={(e) => setBizType(e.target.value)}
+              className={profileInputCls}
+            >
               <option value="">Not set</option>
               {BUSINESS_TYPES.filter((b) => b.key !== "generic").map((b) => (
                 <option key={b.key} value={b.key}>
@@ -126,6 +137,23 @@ export function OnboardingForm({
             </select>
           </label>
         </div>
+        {activeLenses.length > 0 && (
+          <div className="mt-3 rounded-xl border border-brand-400/30 bg-brand-500/10 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-200">
+              Your opportunity lenses
+            </div>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Every market signal gets sorted into these {activeLenses.length} money-buckets, ranked by expected value:
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {activeLenses.map((l) => (
+                <li key={l} className="chip bg-white/10 text-slate-200">
+                  {l}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="mt-2 text-xs text-slate-500">
           Set this and your feed shows each signal as a revenue opportunity with a recommended action.
         </p>

@@ -89,3 +89,87 @@ export function computeScoreboard(items: ScoredItem[]): Scoreboard {
     topRisk,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Lens roll-up: the spine of the lens-driven app. Every opportunity belongs to
+// exactly one business-specific lens (Gold, Distress, Implants, …). Grouping by
+// lens turns the flat list into "your money, split into your buckets" — which is
+// how an owner actually thinks about where to act.
+// ---------------------------------------------------------------------------
+
+export interface LensGroup {
+  key: string;
+  label: string;
+  /** number of live opportunities in this lens */
+  count: number;
+  /** confidence-weighted net £ in this lens (+ win, − at risk) */
+  expectedValue: number;
+  expectedGain: number;
+  expectedRisk: number;
+  /** headline £ range across the lens */
+  valueLow: number;
+  valueHigh: number;
+  /** best ROI multiple available in the lens */
+  topRoi: number;
+  urgentCount: number;
+  /** the lens nets out negative (a defend-this bucket) */
+  defensive: boolean;
+  /** strongest single opportunity in the lens, by |expected value| */
+  top: ScoredItem | null;
+}
+
+/**
+ * Roll a set of opportunities up into their business lenses.
+ * `lenses` provides the label + canonical ordering; only lenses that actually
+ * have at least one opportunity are returned, sorted by expected value.
+ */
+export function groupByLens(
+  items: ScoredItem[],
+  lenses: { key: string; label: string }[],
+): LensGroup[] {
+  const order = new Map(lenses.map((l, i) => [l.key, i] as const));
+  const labelOf = new Map(lenses.map((l) => [l.key, l.label] as const));
+  const byKey = new Map<string, LensGroup>();
+
+  for (const it of items) {
+    const o = it.opportunity;
+    const key = o.lensKey || o.archetype;
+    let g = byKey.get(key);
+    if (!g) {
+      g = {
+        key,
+        label: o.lensLabel || labelOf.get(key) || o.label,
+        count: 0,
+        expectedValue: 0,
+        expectedGain: 0,
+        expectedRisk: 0,
+        valueLow: 0,
+        valueHigh: 0,
+        topRoi: 0,
+        urgentCount: 0,
+        defensive: false,
+        top: null,
+      };
+      byKey.set(key, g);
+    }
+    g.count += 1;
+    g.expectedValue += o.expectedValue;
+    if (o.expectedValue >= 0) g.expectedGain += o.expectedValue;
+    else g.expectedRisk += -o.expectedValue;
+    g.valueLow += o.defensive ? o.riskLow : o.valueLow;
+    g.valueHigh += o.defensive ? o.riskHigh : o.valueHigh;
+    if (o.roi > g.topRoi) g.topRoi = o.roi;
+    if (o.urgency === "high") g.urgentCount += 1;
+    if (!g.top || Math.abs(o.expectedValue) > Math.abs(g.top.opportunity.expectedValue)) {
+      g.top = it;
+    }
+  }
+
+  const groups = Array.from(byKey.values());
+  for (const g of groups) g.defensive = g.expectedValue < 0;
+  groups.sort((a, b) => {
+    if (b.expectedValue !== a.expectedValue) return b.expectedValue - a.expectedValue;
+    return (order.get(a.key) ?? 99) - (order.get(b.key) ?? 99);
+  });
+  return groups;
+}

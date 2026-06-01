@@ -10,11 +10,14 @@ export function Scoreboard({
   businessLabel,
   location,
   heading = "Your business this month",
+  lensCount,
 }: {
   board: ScoreboardData;
   businessLabel: string;
   location?: string;
   heading?: string;
+  /** how many opportunity lenses are in play — shown in the sub-line */
+  lensCount?: number;
 }) {
   return (
     <section className="mb-8">
@@ -23,6 +26,7 @@ export function Scoreboard({
         <span className="text-xs text-slate-500">
           {businessLabel}
           {location ? ` · ${location}` : ""}
+          {lensCount ? ` · ${board.count} opportunities across ${lensCount} ${lensCount === 1 ? "lens" : "lenses"}` : ""}
         </span>
       </div>
 

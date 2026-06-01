@@ -1,25 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buildBriefForIds, type BriefRow } from "@/lib/brief";
+import { buildBriefForIds } from "@/lib/brief";
 import { getCurrentUser } from "@/lib/session";
 import { savedSignalIds } from "@/lib/shortlist";
-import { BUSINESS_TYPES, formatGBPSigned, type GrowthGoal } from "@/lib/opportunity";
-import { computeScoreboard } from "@/lib/scoreboard";
+import { BUSINESS_TYPES, getBusinessType, getLenses, type GrowthGoal } from "@/lib/opportunity";
+import { computeScoreboard, groupByLens } from "@/lib/scoreboard";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
-
-// Group the portfolio by the business-specific lens (e.g. Gold, Distress,
-// Implants) so the breakdown speaks the user's language.
-function byType(rows: BriefRow[]): { label: string; total: number }[] {
-  const sums = new Map<string, number>();
-  for (const r of rows) {
-    const label = r.opportunity.lensLabel || "Other";
-    sums.set(label, (sums.get(label) ?? 0) + r.opportunity.expectedValue);
-  }
-  return Array.from(sums.entries())
-    .map(([label, total]) => ({ label, total }))
-    .sort((x, y) => y.total - x.total);
-}
+import { LensBoard } from "@/components/LensBoard";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -60,7 +48,9 @@ export default async function ShortlistPage() {
   const compareAll = `/compare?business=${encodeURIComponent(businessKey)}&ids=${rows.slice(0, 4).map((r) => r.signal.id).join(",")}`;
 
   const board = rows.length ? computeScoreboard(rows) : null;
-  const breakdown = byType(rows);
+  // Same lens roll-up as the dashboard, so the portfolio speaks the user's
+  // language (Gold, Distress, Implants…) instead of generic types.
+  const lensGroups = groupByLens(rows, getLenses(getBusinessType(businessKey)));
 
   return (
     <div>
@@ -92,23 +82,17 @@ export default async function ShortlistPage() {
         </div>
       ) : (
         <>
-          {board && <Scoreboard board={board} businessLabel={btLabel} location={location} heading="Portfolio summary" />}
-
-          {breakdown.length > 0 && (
-            <section className="mb-8">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">By type</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {breakdown.map((b) => (
-                  <div key={b.label} className="card p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{b.label}</div>
-                    <div className={`mt-1 text-xl font-bold ${b.total >= 0 ? "text-signal-growth" : "text-signal-distress"}`}>
-                      {formatGBPSigned(b.total)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+          {board && (
+            <Scoreboard
+              board={board}
+              businessLabel={btLabel}
+              location={location}
+              heading="Portfolio summary"
+              lensCount={lensGroups.length}
+            />
           )}
+
+          <LensBoard groups={lensGroups} interactive={false} heading="Portfolio by lens" />
 
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Holdings</h2>
           <OpportunityTable items={rows} compareBase={compareBase} />

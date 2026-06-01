@@ -4,7 +4,7 @@ import { SIGNAL_TAXONOMY } from "@/lib/taxonomy";
 import { buildBrief } from "@/lib/brief";
 import { computeScoreboard } from "@/lib/scoreboard";
 import { Scoreboard } from "@/components/Scoreboard";
-import { formatGBP } from "@/lib/opportunity";
+import { formatGBP, getBusinessType, getLenses } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,17 @@ export default async function Home() {
     demoBoard = null;
   }
   const headlineValue = demoBoard && demoBoard.opportunityHigh > 0 ? formatGBP(demoBoard.opportunityHigh) : null;
+
+  // Lens-first proof: every business gets its own set of opportunity buckets.
+  const lensExamples = ["dentist", "pawnbroker", "accountant"].map((key) => {
+    const bt = getBusinessType(key);
+    return {
+      label: bt.label,
+      lenses: getLenses(bt)
+        .filter((l) => l.key !== "other")
+        .map((l) => l.label),
+    };
+  });
 
   return (
     <div className="space-y-24">
@@ -75,6 +86,45 @@ export default async function Home() {
         </section>
       )}
 
+      {/* Lens-first: every business sees its own opportunity buckets */}
+      <section>
+        <div className="mb-6 text-center">
+          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
+            Built around your business
+          </span>
+          <h2 className="mt-4 text-2xl font-bold text-white">
+            Every business gets its own opportunity lenses.
+          </h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
+            We don&apos;t hand you a generic feed. Tell us what you do and the same market signals get
+            split into the money-buckets that matter to <span className="text-slate-200">you</span> —
+            each ranked by expected value, so you know which bucket to work first.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {lensExamples.map((ex) => (
+            <div key={ex.label} className="card p-5">
+              <div className="text-sm font-semibold text-white">{ex.label}</div>
+              <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
+                {ex.lenses.length} lenses
+              </div>
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {ex.lenses.map((l) => (
+                  <li key={l} className="chip bg-white/5 text-slate-300">
+                    {l}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 text-center">
+          <Link href="/brief" className="btn-primary px-6 py-2.5">
+            See your lenses
+          </Link>
+        </div>
+      </section>
+
       {/* The transformation */}
       <section className="grid grid-cols-1 items-center gap-6 md:grid-cols-2">
         <div className="card border-white/5 bg-ink-800/50 p-6">
@@ -112,7 +162,7 @@ export default async function Home() {
             { n: "01", t: "Ingest", d: "Continuously pull from news, Companies House, planning approvals, tenders, job boards & search trends." },
             { n: "02", t: "Detect", d: "AI asks: is there an opportunity, risk or trend here? If yes, it’s captured." },
             { n: "03", t: "Value", d: "Translate it into £ value, £ risk, confidence and the action to take — for your business." },
-            { n: "04", t: "Compare", d: "Rank every opportunity on one scoreboard so you know exactly where to act first." },
+            { n: "04", t: "Bucket", d: "Sort every opportunity into your business lenses, ranked by expected value, so you know which bucket to work first." },
           ].map((s) => (
             <div key={s.n} className="card p-5">
               <div className="text-sm font-bold text-brand-400">{s.n}</div>

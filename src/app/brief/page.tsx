@@ -6,7 +6,8 @@ import { getCurrentUser } from "@/lib/session";
 import { savedSignalIds } from "@/lib/shortlist";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
-import { computeScoreboard } from "@/lib/scoreboard";
+import { LensBoard } from "@/components/LensBoard";
+import { computeScoreboard, groupByLens } from "@/lib/scoreboard";
 import { BUSINESS_TYPES, formatGBP, formatGBPSigned, getBusinessType, getLenses, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,10 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   // the active filters + sort.
   const board = result ? computeScoreboard(result.rows) : null;
 
+  // Lens roll-up: every opportunity bucketed into the business's lenses. This is
+  // the spine of the dashboard — owners pick a money-bucket, then drill in.
+  const lensGroups = result ? groupByLens(result.rows, lensOptions) : [];
+
   // "Missed opportunity": expected upside the user hasn't shortlisted yet — a
   // gentle nudge to start acting on (and saving) opportunities.
   let missedValue = 0;
@@ -133,6 +138,33 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   if (sp.business || formBusiness) ctxParams.business = business;
   if (location) ctxParams.location = location;
   if (goal) ctxParams.goal = goal;
+
+  // Links from the Lens Board preserve context + the current sort/view so
+  // drilling into a lens never loses the user's setup.
+  const lensBase: Record<string, string> = { ...ctxParams };
+  if (sort !== "expected") lensBase.sort = sort;
+  if (layout !== "table") lensBase.view = layout;
+
+  const activeLens = kind ? lensGroups.find((g) => g.key === kind) ?? null : null;
+
+  // A combined "play" for the active lens: the distinct action steps across its
+  // opportunities, in priority order, capped to a tight checklist.
+  const lensPlan: string[] = [];
+  if (activeLens) {
+    const seen = new Set<string>();
+    for (const r of displayed) {
+      for (const step of r.opportunity.actionPlan) {
+        const k = step.trim().toLowerCase();
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          lensPlan.push(step);
+        }
+      }
+    }
+  }
+  const lensPlanTop = lensPlan.slice(0, 5);
+  // Shareable deep-link to this exact lens view.
+  const shareHref = activeLens ? `/brief?${new URLSearchParams({ ...lensBase, kind: activeLens.key }).toString()}` : "";
 
   return (
     <div>
@@ -267,7 +299,14 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
       {result && board && (
         <section>
-          <Scoreboard board={board} businessLabel={btLabel} location={location} />
+          <Scoreboard
+            board={board}
+            businessLabel={btLabel}
+            location={location}
+            lensCount={lensGroups.length}
+          />
+
+          <LensBoard groups={lensGroups} base={lensBase} activeKey={kind} />
 
           {missedCount > 0 && missedValue > 0 && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm">
@@ -289,38 +328,100 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
             </p>
           )}
 
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-                Compare opportunities
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Sort by any column, then tick rows to put them head-to-head.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/shortlist" className="btn-ghost whitespace-nowrap text-sm">
-                Portfolio
-              </Link>
-              <Link
-                href={`/areas?business=${encodeURIComponent(business)}`}
-                className="btn-ghost whitespace-nowrap text-sm"
-              >
-                See top postcodes →
-              </Link>
-            </div>
-          </div>
-
           {result.rows.length === 0 ? (
             <p className="text-sm text-slate-400">No signals available.</p>
-          ) : layout === "table" ? (
-            <OpportunityTable items={displayed} compareBase={ctxParams} />
-          ) : (
-            <div className="space-y-4">
-              {displayed.map((row) => (
-                <OpportunityCard key={row.signal.id} row={row} />
-              ))}
+          ) : !activeLens ? (
+            // Lenses-only home: no flat list. Choose a lens to see its opportunities.
+            <div className="card border-dashed border-white/15 p-6 text-center">
+              <p className="text-sm font-medium text-white">Pick a lens to dive in.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
+                Each lens above is a revenue bucket for your business, sized by expected value. Open one
+                to see its opportunities, a combined action plan, and head-to-head comparison.
+              </p>
+              {lensGroups[0] && (
+                <Link
+                  href={`/brief?${new URLSearchParams({ ...lensBase, kind: lensGroups[0].key }).toString()}`}
+                  className="btn-primary mt-4 inline-block px-5 py-2.5"
+                >
+                  Open “{lensGroups[0].label}” →
+                </Link>
+              )}
             </div>
+          ) : (
+            <>
+              {/* Lens detail: totals + a combined play, then the opportunities. */}
+              <div className="card mb-4 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-bold text-white">{activeLens.label}</h2>
+                      {activeLens.defensive && (
+                        <span className="chip bg-signal-distress/15 text-signal-distress">defend</span>
+                      )}
+                      {activeLens.urgentCount > 0 && (
+                        <span className="chip bg-signal-buying/15 text-signal-buying">
+                          {activeLens.urgentCount} urgent
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      <span className={activeLens.defensive ? "font-semibold text-signal-distress" : "font-semibold text-signal-growth"}>
+                        {formatGBPSigned(activeLens.expectedValue)}
+                      </span>{" "}
+                      expected value · {activeLens.count}{" "}
+                      {activeLens.count === 1 ? "opportunity" : "opportunities"}
+                      {activeLens.topRoi > 0 ? ` · up to ${activeLens.topRoi}x ROI` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={shareHref} className="btn-ghost whitespace-nowrap text-xs" title="Shareable link to this lens">
+                      Share lens
+                    </Link>
+                    <Link href="/shortlist" className="btn-ghost whitespace-nowrap text-xs">
+                      Portfolio
+                    </Link>
+                    <Link
+                      href={`/areas?business=${encodeURIComponent(business)}`}
+                      className="btn-ghost whitespace-nowrap text-xs"
+                    >
+                      Top postcodes →
+                    </Link>
+                  </div>
+                </div>
+
+                {lensPlanTop.length > 0 && (
+                  <div className="mt-4 rounded-xl border border-signal-hiring/30 bg-signal-hiring/[0.06] p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-signal-hiring">
+                      Recommended play for this lens
+                    </div>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-200">
+                      {lensPlanTop.map((step, i) => (
+                        <li key={i} className="break-words">
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                  Opportunities in this lens
+                </h3>
+                <span className="text-xs text-slate-500">Sort above · tick rows to compare</span>
+              </div>
+
+              {layout === "table" ? (
+                <OpportunityTable items={displayed} compareBase={ctxParams} />
+              ) : (
+                <div className="space-y-4">
+                  {displayed.map((row) => (
+                    <OpportunityCard key={row.signal.id} row={row} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <p className="mt-6 text-xs text-slate-600">

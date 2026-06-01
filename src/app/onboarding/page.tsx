@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { groupedTaxonomy } from "@/lib/taxonomy";
+import { BUSINESS_TYPES, getLenses } from "@/lib/opportunity";
 import { OnboardingForm } from "./OnboardingForm";
 import { saveOnboarding } from "./actions";
 
@@ -11,6 +12,16 @@ export default async function OnboardingPage() {
   if (!user) redirect("/login?callbackUrl=/onboarding");
 
   const groups = groupedTaxonomy();
+
+  // The lenses each business type unlocks — so onboarding can show the payoff
+  // ("here are your money-buckets") the moment a type is chosen.
+  const lensesByType: Record<string, string[]> = {};
+  for (const bt of BUSINESS_TYPES) {
+    if (bt.key === "generic") continue;
+    lensesByType[bt.key] = getLenses(bt)
+      .filter((l) => l.key !== "other")
+      .map((l) => l.label);
+  }
 
   // Pre-load the user's current interests so this page doubles as a
   // "manage interests" screen for returning users.
@@ -39,6 +50,7 @@ export default async function OnboardingPage() {
       <OnboardingForm
         action={saveOnboarding}
         groups={groups}
+        lensesByType={lensesByType}
         defaultAudience={user.audience === "consumer" ? "consumer" : "business"}
         initialSelected={initialSelected}
         initialKeyword={initialKeyword}
