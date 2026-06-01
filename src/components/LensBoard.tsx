@@ -23,13 +23,10 @@ export function LensBoard({
 }) {
   if (groups.length === 0) return null;
 
-  const hrefFor = (kind?: string) => {
-    const params = new URLSearchParams(base ?? {});
-    if (kind) params.set("kind", kind);
-    else params.delete("kind");
-    const qs = params.toString();
-    return `/brief${qs ? `?${qs}` : ""}`;
-  };
+  const qs = new URLSearchParams(base ?? {}).toString();
+  // A lens card opens its own dedicated page; "All lenses" returns to the board.
+  const hrefFor = (kind?: string) =>
+    kind ? `/lens/${kind}${qs ? `?${qs}` : ""}` : `/brief${qs ? `?${qs}` : ""}`;
 
   return (
     <section className="mb-8">
