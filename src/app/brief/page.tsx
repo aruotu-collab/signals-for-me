@@ -3,7 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { buildBrief, type BriefRow } from "@/lib/brief";
 import { getCurrentUser } from "@/lib/session";
-import { BUSINESS_TYPES, formatGBP, type GrowthGoal } from "@/lib/opportunity";
+import { Scoreboard } from "@/components/Scoreboard";
+import { OpportunityTable } from "@/components/OpportunityTable";
+import { computeScoreboard } from "@/lib/scoreboard";
+import { BUSINESS_TYPES, type Archetype, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -12,9 +15,29 @@ export const metadata: Metadata = {
     "Turn live market signals into revenue opportunities for your business — with estimated value and a recommended action.",
 };
 
-type SP = { business?: string; location?: string; goal?: string; audience?: string };
+type SP = {
+  business?: string;
+  location?: string;
+  goal?: string;
+  audience?: string;
+  view?: string;
+  sort?: string;
+  kind?: string;
+  urg?: string;
+  min?: string;
+};
 
 const GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partnerships"];
+const SORTS = ["value", "confidence", "urgency", "recent"] as const;
+type Sort = (typeof SORTS)[number];
+const ARCHETYPES: Archetype[] = ["new_resident", "employer", "competitor", "demand"];
+const ARCHETYPE_LABELS: Record<Archetype, string> = {
+  new_resident: "New residents",
+  employer: "New employers",
+  competitor: "Competitor / threats",
+  demand: "Market demand",
+};
+const URGENCY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 export default async function BriefPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -59,6 +82,42 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   const btLabel = usingGenericDefault
     ? "your business"
     : BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
+
+  // Scoreboard reflects the whole opportunity set; the table/cards below reflect
+  // the active filters + sort.
+  const board = result ? computeScoreboard(result.rows) : null;
+
+  const layout = sp.view === "cards" ? "cards" : "table";
+  const sort: Sort = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as Sort) : "value";
+  const kind = (ARCHETYPES as string[]).includes(sp.kind ?? "") ? (sp.kind as Archetype) : undefined;
+  const urgFilter = ["high", "medium", "low"].includes(sp.urg ?? "") ? (sp.urg as string) : undefined;
+  const minValue = Number(sp.min) > 0 ? Number(sp.min) : 0;
+
+  let displayed: BriefRow[] = result ? result.rows.slice() : [];
+  if (kind) displayed = displayed.filter((r) => r.opportunity.archetype === kind);
+  if (urgFilter) displayed = displayed.filter((r) => r.opportunity.urgency === urgFilter);
+  if (minValue) {
+    displayed = displayed.filter(
+      (r) => Math.max(r.opportunity.valueHigh, r.opportunity.riskHigh) >= minValue,
+    );
+  }
+  displayed.sort((a, b) => {
+    const A = a.opportunity;
+    const B = b.opportunity;
+    if (sort === "confidence") return b.signal.confidence - a.signal.confidence;
+    if (sort === "recent") return Date.parse(b.signal.detectedAt) - Date.parse(a.signal.detectedAt);
+    if (sort === "urgency") {
+      const d = URGENCY_RANK[B.urgency] - URGENCY_RANK[A.urgency];
+      if (d) return d;
+    }
+    return Math.max(B.valueHigh, B.riskHigh) - Math.max(A.valueHigh, A.riskHigh);
+  });
+
+  // Carry the brief context (business/location/goal) through the filter form.
+  const ctxParams: Record<string, string> = {};
+  if (sp.business || formBusiness) ctxParams.business = business;
+  if (location) ctxParams.location = location;
+  if (goal) ctxParams.goal = goal;
 
   return (
     <div>
@@ -122,28 +181,9 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
       {!result && <EmptyState />}
 
-      {result && (
+      {result && board && (
         <section>
-          <div className="card mb-6 flex flex-wrap items-center justify-between gap-3 border-signal-growth/20 p-5">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Estimated opportunity · {btLabel}
-                {location ? ` · ${location}` : ""}
-              </div>
-              <div className="mt-1 text-3xl font-bold text-white">
-                {formatGBP(result.totalRevenueLow)}–{formatGBP(result.totalRevenueHigh)}
-              </div>
-              <div className="text-xs text-slate-500">
-                across {result.rows.filter((r) => !r.opportunity.defensive).length} opportunities · estimates only, see assumptions
-              </div>
-            </div>
-            <Link
-              href={`/areas?business=${encodeURIComponent(business)}`}
-              className="btn-ghost whitespace-nowrap text-sm"
-            >
-              See top postcodes →
-            </Link>
-          </div>
+          <Scoreboard board={board} businessLabel={btLabel} location={location} />
 
           {result.fallback && !usingGenericDefault && (
             <p className="mb-4 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm text-signal-buying">
@@ -153,11 +193,27 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
             </p>
           )}
 
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Compare opportunities
+            </h2>
+            <Link
+              href={`/areas?business=${encodeURIComponent(business)}`}
+              className="btn-ghost whitespace-nowrap text-sm"
+            >
+              See top postcodes →
+            </Link>
+          </div>
+
+          <FilterForm ctx={ctxParams} layout={layout} sort={sort} kind={kind} urg={urgFilter} min={minValue} />
+
           {result.rows.length === 0 ? (
             <p className="text-sm text-slate-400">No signals available.</p>
+          ) : layout === "table" ? (
+            <OpportunityTable items={displayed} />
           ) : (
             <div className="space-y-4">
-              {result.rows.map((row) => (
+              {displayed.map((row) => (
                 <OpportunityCard key={row.signal.id} row={row} />
               ))}
             </div>
@@ -165,14 +221,93 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
           <p className="mt-6 text-xs text-slate-600">
             Revenue figures are estimates based on public UK benchmarks (ONS household size, sector
-            fee/value averages) and conservative capture-rate assumptions shown on each card. They
-            are indicative, not guarantees.
+            fee/value averages) and conservative capture-rate assumptions shown on each card or row.
+            They are indicative, not guarantees.
           </p>
         </section>
       )}
     </div>
   );
 }
+
+function FilterForm({
+  ctx,
+  layout,
+  sort,
+  kind,
+  urg,
+  min,
+}: {
+  ctx: Record<string, string>;
+  layout: string;
+  sort: Sort;
+  kind?: Archetype;
+  urg?: string;
+  min: number;
+}) {
+  return (
+    <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
+      {Object.entries(ctx).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+      <Mini label="View">
+        <select name="view" defaultValue={layout} className={miniCls}>
+          <option value="table">Table</option>
+          <option value="cards">Cards</option>
+        </select>
+      </Mini>
+      <Mini label="Sort by">
+        <select name="sort" defaultValue={sort} className={miniCls}>
+          <option value="value">Highest value</option>
+          <option value="confidence">Highest confidence</option>
+          <option value="urgency">Most urgent</option>
+          <option value="recent">Most recent</option>
+        </select>
+      </Mini>
+      <Mini label="Type">
+        <select name="kind" defaultValue={kind ?? ""} className={miniCls}>
+          <option value="">All types</option>
+          {ARCHETYPES.map((a) => (
+            <option key={a} value={a}>
+              {ARCHETYPE_LABELS[a]}
+            </option>
+          ))}
+        </select>
+      </Mini>
+      <Mini label="Urgency">
+        <select name="urg" defaultValue={urg ?? ""} className={miniCls}>
+          <option value="">Any</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </Mini>
+      <Mini label="Min value">
+        <select name="min" defaultValue={min ? String(min) : ""} className={miniCls}>
+          <option value="">Any</option>
+          <option value="10000">£10k+</option>
+          <option value="50000">£50k+</option>
+          <option value="100000">£100k+</option>
+        </select>
+      </Mini>
+      <button type="submit" className="btn-ghost h-[38px] text-sm">
+        Apply
+      </button>
+    </form>
+  );
+}
+
+function Mini({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-medium text-slate-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const miniCls =
+  "rounded-lg border border-white/10 bg-ink-900/70 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none [&>option]:bg-ink-900 [&>option]:text-white";
 
 function OpportunityCard({ row }: { row: BriefRow }) {
   const { signal, opportunity: opp } = row;

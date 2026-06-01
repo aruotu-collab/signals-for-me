@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { SIGNAL_TAXONOMY } from "@/lib/taxonomy";
+import { buildBrief } from "@/lib/brief";
+import { computeScoreboard } from "@/lib/scoreboard";
+import { Scoreboard } from "@/components/Scoreboard";
+import { formatGBP } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 
@@ -8,32 +12,68 @@ export default async function Home() {
   const signalCount = await prisma.signal.count().catch(() => 0);
   const typeCount = SIGNAL_TAXONOMY.length;
 
+  // Real example scoreboard for the flagship vertical — the homepage IS the
+  // "scoreboard of money", not a feed of news.
+  let demoBoard = null;
+  try {
+    const demo = await buildBrief({ businessTypeKey: "dentist", location: "", limit: 12 });
+    demoBoard = computeScoreboard(demo.rows);
+  } catch {
+    demoBoard = null;
+  }
+  const headlineValue = demoBoard && demoBoard.opportunityHigh > 0 ? formatGBP(demoBoard.opportunityHigh) : null;
+
   return (
     <div className="space-y-24">
       {/* Hero */}
       <section className="pt-12 text-center">
         <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
-          Opportunity Intelligence Platform
+          Revenue Opportunity Intelligence
         </span>
         <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-          Discover opportunities <span className="text-brand-400">before everyone else.</span>
+          Find the revenue opportunities <span className="text-brand-400">hidden in the news.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-          AI scans the internet, detects important signals, and delivers personalized opportunities to
-          businesses and consumers — before they become obvious.
+          We turn funding rounds, planning approvals, hiring surges, tenders and competitor moves into
+          ranked revenue opportunities — each with an estimated value, confidence and the action to
+          take next.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link href="/brief" className="btn-primary px-6 py-3 text-base">
             See your opportunities
           </Link>
-          <Link href="/feed" className="btn-ghost px-6 py-3 text-base">
-            Explore the live feed
+          <Link href="/areas" className="btn-ghost px-6 py-3 text-base">
+            Top opportunity areas
           </Link>
         </div>
         <div className="mt-6 text-sm text-slate-500">
-          {signalCount} live signals · {typeCount} signal types across business & consumer
+          {signalCount} live signals · {typeCount} opportunity types across business & consumer
         </div>
       </section>
+
+      {/* Live example scoreboard — money first */}
+      {demoBoard && demoBoard.count > 0 && (
+        <section>
+          <div className="mb-4 text-center">
+            <h2 className="text-2xl font-bold text-white">
+              {headlineValue
+                ? `We found up to ${headlineValue} of opportunities for a dental practice.`
+                : "Your business opportunity scoreboard."}
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              A live example. Set your business type and location to see your own scoreboard.
+            </p>
+          </div>
+          <div className="card p-5">
+            <Scoreboard board={demoBoard} businessLabel="Dental practice" heading="Example — dental practice" />
+            <div className="text-center">
+              <Link href="/brief" className="btn-primary px-6 py-2.5">
+                Build my scoreboard
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* The transformation */}
       <section className="grid grid-cols-1 items-center gap-6 md:grid-cols-2">

@@ -129,6 +129,8 @@ export function getBusinessType(key?: string | null): BusinessType {
 }
 
 export type Archetype = "new_resident" | "employer" | "competitor" | "demand";
+export type Urgency = "high" | "medium" | "low";
+export type Effort = "low" | "medium" | "high";
 
 export interface OpportunityResult {
   archetype: Archetype;
@@ -143,7 +145,25 @@ export interface OpportunityResult {
   action: string;
   assumptions: string[];
   defensive: boolean;
+  /** how time-sensitive acting on this is */
+  urgency: Urgency;
+  /** how much effort acting on this takes */
+  effort: Effort;
+  /** revenue you could WIN (£). 0 for defensive items. */
+  valueLow: number;
+  valueHigh: number;
+  /** revenue at RISK (£). 0 for offensive items. */
+  riskLow: number;
+  riskHigh: number;
 }
+
+// translateCore returns everything except the derived value/risk/urgency/effort
+// fields, which the public translate() wrapper adds. This keeps the four
+// archetype branches focused on the revenue math.
+type CoreResult = Omit<
+  OpportunityResult,
+  "urgency" | "effort" | "valueLow" | "valueHigh" | "riskLow" | "riskHigh"
+>;
 
 export interface TranslateContext {
   location: string;
@@ -224,7 +244,44 @@ function goalSuffix(goal?: GrowthGoal): string {
 
 // --- the translator --------------------------------------------------------
 
+const EFFORT_BY_ARCHETYPE: Record<Archetype, Effort> = {
+  new_resident: "medium",
+  employer: "medium",
+  competitor: "high",
+  demand: "low",
+};
+
+function daysSince(iso: string): number {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 999;
+  return Math.max(0, (Date.now() - t) / 86_400_000);
+}
+
+function urgencyOf(s: SignalDTO, archetype: Archetype): Urgency {
+  if (archetype === "competitor") return "high"; // defensive moves are time-critical
+  const days = daysSince(s.detectedAt);
+  if (days <= 14) return "high";
+  if (days <= 60) return "medium";
+  return "low";
+}
+
+/**
+ * Translate a signal into a business opportunity. Wraps the archetype math with
+ * the derived dimensions every card/table needs: Value (£), Risk (£), Confidence
+ * (carried on the signal), urgency and effort.
+ */
 export function translate(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): OpportunityResult {
+  const core = translateCore(s, bt, ctx);
+  const urgency = urgencyOf(s, core.archetype);
+  const effort = EFFORT_BY_ARCHETYPE[core.archetype];
+  const valueLow = core.defensive ? 0 : core.revenueLow;
+  const valueHigh = core.defensive ? 0 : core.revenueHigh;
+  const riskLow = core.defensive ? core.revenueLow : 0;
+  const riskHigh = core.defensive ? core.revenueHigh : 0;
+  return { ...core, urgency, effort, valueLow, valueHigh, riskLow, riskHigh };
+}
+
+function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): CoreResult {
   const archetype = classify(s);
   const area = s.entityLocation || (ctx.location ? ctx.location : null);
   const text = fullText(s);
