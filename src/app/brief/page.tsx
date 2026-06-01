@@ -119,6 +119,16 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   if (sort !== "expected") lensBase.sort = sort;
   if (layout !== "table") lensBase.view = layout;
 
+  // Shared link builder for the clickable lens chips + "All" pill.
+  const lensHref = (k?: string) => {
+    const p = new URLSearchParams(lensBase);
+    if (k) p.set("kind", k);
+    const qs = p.toString();
+    return `/brief${qs ? `?${qs}` : ""}`;
+  };
+  // How many live opportunities sit in each lens (empty lenses are dimmed).
+  const lensCount = new Map(lensGroups.map((g) => [g.key, g.count] as const));
+
   const activeLens = kind ? lensGroups.find((g) => g.key === kind) ?? null : null;
 
   // A combined "play" for the active lens: the distinct action steps across its
@@ -148,24 +158,61 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           Turn live market signals into revenue opportunities — estimated value and a recommended
           action, tailored to your business and location.
         </p>
-        {result && !usingGenericDefault && (
+        {result && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500">Your lenses:</span>
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">Filter by lens:</span>
+            <Link
+              href={lensHref()}
+              className={`chip transition ${
+                !kind
+                  ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
+                  : "bg-white/5 text-slate-300 hover:bg-white/10"
+              }`}
+            >
+              All
+            </Link>
             {lensOptions
               .filter((l) => l.key !== "other")
-              .map((l) => (
-                <span key={l.key} className="chip bg-white/5 text-slate-300">
-                  {l.label}
-                </span>
-              ))}
+              .map((l) => {
+                const count = lensCount.get(l.key) ?? 0;
+                const active = kind === l.key;
+                if (count === 0) {
+                  return (
+                    <span
+                      key={l.key}
+                      className="chip cursor-default bg-white/[0.03] text-slate-600"
+                      title="No live opportunities in this lens right now"
+                    >
+                      {l.label}
+                    </span>
+                  );
+                }
+                return (
+                  <Link
+                    key={l.key}
+                    href={lensHref(l.key)}
+                    className={`chip transition ${
+                      active
+                        ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
+                        : "bg-white/5 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    {l.label}
+                    <span className={`ml-1 text-[10px] ${active ? "text-brand-200" : "text-slate-500"}`}>{count}</span>
+                  </Link>
+                );
+              })}
           </div>
         )}
       </header>
 
-      {/* One unified control panel: business context + comparison filters in a
-          single form, so everything submits together and stays in sync. */}
-      <form method="get" className="card mb-6 p-5">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
+      {/* One unified control panel: business context on top, refinements below,
+          and the lens filter lives in the clickable chips above. */}
+      <form method="get" className="card mb-6 p-4">
+        {/* Keep the active lens selected when the form is submitted. */}
+        {kind && <input type="hidden" name="kind" value={kind} />}
+
+        <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr_auto]">
           <Field label="Your business type">
             <select name="business" defaultValue={formBusiness} className={inputCls} required>
               <option value="" disabled>
@@ -191,63 +238,50 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
               ))}
             </select>
           </Field>
+          <button type="submit" className="btn-primary h-[42px] w-full whitespace-nowrap px-5 lg:w-auto">
+            Update
+          </button>
         </div>
 
         {result && (
-          <>
-            <div className="my-4 border-t border-white/10" />
-            <div className="flex flex-wrap items-end gap-2">
-              <Mini label="View">
-                <select name="view" defaultValue={layout} className={miniCls}>
-                  <option value="table">Table</option>
-                  <option value="cards">Cards</option>
-                </select>
-              </Mini>
-              <Mini label="Sort by">
-                <select name="sort" defaultValue={sort} className={miniCls}>
-                  <option value="expected">Expected value</option>
-                  <option value="roi">Highest ROI</option>
-                  <option value="value">Highest value</option>
-                  <option value="confidence">Highest confidence</option>
-                  <option value="urgency">Most urgent</option>
-                  <option value="recent">Most recent</option>
-                </select>
-              </Mini>
-              <Mini label="Type">
-                <select name="kind" defaultValue={kind ?? ""} className={miniCls}>
-                  <option value="">All types</option>
-                  {lensOptions.map((l) => (
-                    <option key={l.key} value={l.key}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </Mini>
-              <Mini label="Urgency">
-                <select name="urg" defaultValue={urgFilter ?? ""} className={miniCls}>
-                  <option value="">Any</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </Mini>
-              <Mini label="Min value">
-                <select name="min" defaultValue={minValue ? String(minValue) : ""} className={miniCls}>
-                  <option value="">Any</option>
-                  <option value="10000">£10k+</option>
-                  <option value="50000">£50k+</option>
-                  <option value="100000">£100k+</option>
-                </select>
-              </Mini>
-            </div>
-          </>
+          <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-white/10 pt-3">
+            <Mini label="Sort by">
+              <select name="sort" defaultValue={sort} className={miniCls}>
+                <option value="expected">Expected value</option>
+                <option value="roi">Highest ROI</option>
+                <option value="value">Highest value</option>
+                <option value="confidence">Highest confidence</option>
+                <option value="urgency">Most urgent</option>
+                <option value="recent">Most recent</option>
+              </select>
+            </Mini>
+            <Mini label="View">
+              <select name="view" defaultValue={layout} className={miniCls}>
+                <option value="table">Table</option>
+                <option value="cards">Cards</option>
+              </select>
+            </Mini>
+            <Mini label="Urgency">
+              <select name="urg" defaultValue={urgFilter ?? ""} className={miniCls}>
+                <option value="">Any</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </Mini>
+            <Mini label="Min value">
+              <select name="min" defaultValue={minValue ? String(minValue) : ""} className={miniCls}>
+                <option value="">Any</option>
+                <option value="10000">£10k+</option>
+                <option value="50000">£50k+</option>
+                <option value="100000">£100k+</option>
+              </select>
+            </Mini>
+            <span className="ml-auto self-center text-[11px] text-slate-500">
+              Pick a lens above to filter →
+            </span>
+          </div>
         )}
-
-        <div className="mt-4">
-          <button type="submit" className="btn-primary h-[42px] whitespace-nowrap px-5">
-            Update scoreboard
-          </button>
-        </div>
       </form>
 
       {fromProfile && (
