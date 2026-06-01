@@ -152,62 +152,84 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
-      <header className="mb-6">
+      <header className="mb-5">
         <h1 className="text-2xl font-bold text-white">Opportunity Brief</h1>
         <p className="text-sm text-slate-400">
           Turn live market signals into revenue opportunities — estimated value and a recommended
           action, tailored to your business and location.
         </p>
-        {result && (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500">Filter by lens:</span>
-            <Link
-              href={lensHref()}
-              className={`chip transition ${
-                !kind
-                  ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
-                  : "bg-white/5 text-slate-300 hover:bg-white/10"
-              }`}
-            >
-              All
-            </Link>
-            {lensOptions
-              .filter((l) => l.key !== "other")
-              .map((l) => {
-                const count = lensCount.get(l.key) ?? 0;
-                const active = kind === l.key;
-                if (count === 0) {
-                  return (
-                    <span
-                      key={l.key}
-                      className="chip cursor-default bg-white/[0.03] text-slate-600"
-                      title="No live opportunities in this lens right now"
-                    >
-                      {l.label}
-                    </span>
-                  );
-                }
-                return (
-                  <Link
-                    key={l.key}
-                    href={lensHref(l.key)}
-                    className={`chip transition ${
-                      active
-                        ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
-                        : "bg-white/5 text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    {l.label}
-                    <span className={`ml-1 text-[10px] ${active ? "text-brand-200" : "text-slate-500"}`}>{count}</span>
-                  </Link>
-                );
-              })}
-          </div>
-        )}
       </header>
 
-      {/* One unified control panel: business context on top, refinements below,
-          and the lens filter lives in the clickable chips above. */}
+      {/* Headline numbers first, so the page opens like a dashboard. */}
+      {result && board && (
+        <div className="mb-4 flex flex-wrap items-stretch gap-3">
+          <Kpi label="Net opportunity" value={formatGBPSigned(board.netOpportunity)} tone={board.netOpportunity >= 0 ? "growth" : "risk"} />
+          <Kpi label="Expected value" value={formatGBP(board.expectedGain)} tone="growth" />
+          <Kpi label="At risk" value={board.expectedRisk > 0 ? formatGBP(board.expectedRisk) : "£0"} tone="risk" />
+          <Kpi
+            label="Opportunities"
+            value={`${board.count} · ${lensGroups.length} ${lensGroups.length === 1 ? "lens" : "lenses"}`}
+            tone="neutral"
+          />
+          <Link
+            href={`/summary${Object.keys(ctxParams).length ? `?${new URLSearchParams(ctxParams).toString()}` : ""}`}
+            className="card flex min-w-[150px] flex-1 items-center justify-center gap-1 border-white/10 px-4 py-3 text-sm font-medium text-brand-200 transition hover:border-brand-400/40 hover:text-brand-100"
+          >
+            Full summary →
+          </Link>
+        </div>
+      )}
+
+      {/* Clickable lens filter, sitting with the numbers above the controls. */}
+      {result && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] uppercase tracking-wide text-slate-500">Filter by lens:</span>
+          <Link
+            href={lensHref()}
+            className={`chip transition ${
+              !kind
+                ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
+                : "bg-white/5 text-slate-300 hover:bg-white/10"
+            }`}
+          >
+            All
+          </Link>
+          {lensOptions
+            .filter((l) => l.key !== "other")
+            .map((l) => {
+              const count = lensCount.get(l.key) ?? 0;
+              const active = kind === l.key;
+              if (count === 0) {
+                return (
+                  <span
+                    key={l.key}
+                    className="chip cursor-default bg-white/[0.03] text-slate-600"
+                    title="No live opportunities in this lens right now"
+                  >
+                    {l.label}
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  key={l.key}
+                  href={lensHref(l.key)}
+                  className={`chip transition ${
+                    active
+                      ? "bg-brand-500/20 text-brand-100 ring-1 ring-brand-400/40"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  {l.label}
+                  <span className={`ml-1 text-[10px] ${active ? "text-brand-200" : "text-slate-500"}`}>{count}</span>
+                </Link>
+              );
+            })}
+        </div>
+      )}
+
+      {/* Control panel: business context on top, refinements below; the lens
+          filter lives in the clickable chips above. */}
       <form method="get" className="card mb-6 p-4">
         {/* Keep the active lens selected when the form is submitted. */}
         {kind && <input type="hidden" name="kind" value={kind} />}
@@ -307,21 +329,6 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
       {result && board && (
         <section>
-          {/* Compact KPI strip — the full executive scoreboard lives on its own
-              page so the lenses + search own this view. */}
-          <div className="mb-6 flex flex-wrap items-stretch gap-3">
-            <Kpi label="Net opportunity" value={formatGBPSigned(board.netOpportunity)} tone={board.netOpportunity >= 0 ? "growth" : "risk"} />
-            <Kpi label="Expected value" value={formatGBP(board.expectedGain)} tone="growth" />
-            <Kpi label="At risk" value={board.expectedRisk > 0 ? formatGBP(board.expectedRisk) : "£0"} tone="risk" />
-            <Kpi label="Opportunities" value={`${board.count} · ${lensGroups.length} ${lensGroups.length === 1 ? "lens" : "lenses"}`} tone="neutral" />
-            <Link
-              href={`/summary${Object.keys(ctxParams).length ? `?${new URLSearchParams(ctxParams).toString()}` : ""}`}
-              className="card flex min-w-[150px] flex-1 items-center justify-center gap-1 border-white/10 px-4 py-3 text-sm font-medium text-brand-200 transition hover:border-brand-400/40 hover:text-brand-100"
-            >
-              Full summary →
-            </Link>
-          </div>
-
           <LensBoard groups={lensGroups} base={lensBase} activeKey={kind} />
 
           {missedCount > 0 && missedValue > 0 && (
