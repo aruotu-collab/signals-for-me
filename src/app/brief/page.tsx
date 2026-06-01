@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { buildBrief, type BriefRow } from "@/lib/brief";
+import { type BriefRow } from "@/lib/brief";
+import { resolveBrief } from "@/lib/briefRequest";
 import { getCurrentUser } from "@/lib/session";
 import { savedSignalIds } from "@/lib/shortlist";
-import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { LensBoard } from "@/components/LensBoard";
-import { computeScoreboard, groupByLens } from "@/lib/scoreboard";
-import { BUSINESS_TYPES, formatGBP, formatGBPSigned, getBusinessType, getLenses, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, formatGBP, formatGBPSigned, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -48,48 +47,23 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
     redirect("/onboarding");
   }
 
-  const profileBusiness = user?.businessType ?? "";
-  const profileLocation = user?.location ?? "";
-  const profileGoal = user?.growthGoal ?? "";
-
-  // What the user explicitly chose (query) or saved (profile). Drives the form.
-  const formBusiness = (sp.business || profileBusiness).trim();
-  const location = (sp.location || profileLocation).trim();
-  const goalRaw = (sp.goal || profileGoal).trim();
-  const goal = (GOALS as string[]).includes(goalRaw) ? (goalRaw as GrowthGoal) : undefined;
-  const audience = sp.audience === "consumer" ? "consumer" : sp.audience === "business" ? "business" : undefined;
-
-  // A signed-in user should always get a brief. If they haven't set a business
-  // type yet, fall back to general estimates and nudge them to personalize —
-  // otherwise the "My Opportunities" CTA would just show an empty form.
-  const usingGenericDefault = !formBusiness && !!user;
-  const business = formBusiness || (usingGenericDefault ? "generic" : "");
-
-  const hasQuery = business.length > 0;
-  // True when the brief was auto-generated from the saved profile (no explicit
-  // business type in the URL), so we can offer an "edit profile" hint.
-  const fromProfile = !sp.business && !!profileBusiness;
-
-  const result = hasQuery
-    ? await buildBrief({ businessTypeKey: business, location, growthGoal: goal, audience, limit: 12 })
-    : null;
-
-  const btLabel = usingGenericDefault
-    ? "your business"
-    : BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
-
-  // Business-specific opportunity lenses drive the "Type" filter and the chips
-  // shown in the header (e.g. a pawnbroker sees Gold / Distress / Resale).
-  const lensOptions = getLenses(getBusinessType(business));
-  const lensKeys = lensOptions.map((l) => l.key);
-
-  // Scoreboard reflects the whole opportunity set; the table/cards below reflect
-  // the active filters + sort.
-  const board = result ? computeScoreboard(result.rows) : null;
-
-  // Lens roll-up: every opportunity bucketed into the business's lenses. This is
-  // the spine of the dashboard — owners pick a money-bucket, then drill in.
-  const lensGroups = result ? groupByLens(result.rows, lensOptions) : [];
+  // Resolve business/location/goal (URL or saved profile), build + score the
+  // brief and roll it up into lenses. Shared with /summary so the two stay in
+  // sync. The lens roll-up is the spine of this page.
+  const {
+    formBusiness,
+    business,
+    location,
+    goal,
+    usingGenericDefault,
+    fromProfile,
+    btLabel,
+    lensOptions,
+    lensKeys,
+    result,
+    board,
+    lensGroups,
+  } = await resolveBrief(sp, user, { limit: 12 });
 
   // "Missed opportunity": expected upside the user hasn't shortlisted yet — a
   // gentle nudge to start acting on (and saving) opportunities.
@@ -299,12 +273,20 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
       {result && board && (
         <section>
-          <Scoreboard
-            board={board}
-            businessLabel={btLabel}
-            location={location}
-            lensCount={lensGroups.length}
-          />
+          {/* Compact KPI strip — the full executive scoreboard lives on its own
+              page so the lenses + search own this view. */}
+          <div className="mb-6 flex flex-wrap items-stretch gap-3">
+            <Kpi label="Net opportunity" value={formatGBPSigned(board.netOpportunity)} tone={board.netOpportunity >= 0 ? "growth" : "risk"} />
+            <Kpi label="Expected value" value={formatGBP(board.expectedGain)} tone="growth" />
+            <Kpi label="At risk" value={board.expectedRisk > 0 ? formatGBP(board.expectedRisk) : "£0"} tone="risk" />
+            <Kpi label="Opportunities" value={`${board.count} · ${lensGroups.length} ${lensGroups.length === 1 ? "lens" : "lenses"}`} tone="neutral" />
+            <Link
+              href={`/summary${Object.keys(ctxParams).length ? `?${new URLSearchParams(ctxParams).toString()}` : ""}`}
+              className="card flex min-w-[150px] flex-1 items-center justify-center gap-1 border-white/10 px-4 py-3 text-sm font-medium text-brand-200 transition hover:border-brand-400/40 hover:text-brand-100"
+            >
+              Full summary →
+            </Link>
+          </div>
 
           <LensBoard groups={lensGroups} base={lensBase} activeKey={kind} />
 
@@ -431,6 +413,16 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+function Kpi({ label, value, tone }: { label: string; value: string; tone: "growth" | "risk" | "neutral" }) {
+  const color = tone === "growth" ? "text-signal-growth" : tone === "risk" ? "text-signal-distress" : "text-white";
+  return (
+    <div className="card min-w-[150px] flex-1 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={`mt-0.5 text-xl font-bold ${color}`}>{value}</div>
     </div>
   );
 }
