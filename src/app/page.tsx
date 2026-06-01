@@ -28,19 +28,19 @@ export default async function Home() {
       {/* Hero */}
       <section className="pt-12 text-center">
         <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
-          Revenue Opportunity Intelligence
+          The Opportunity Comparison Engine
         </span>
         <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-          Find the revenue opportunities <span className="text-brand-400">hidden in the news.</span>
+          Compare every opportunity. <span className="text-brand-400">Act on the best one.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
           We turn funding rounds, planning approvals, hiring surges, tenders and competitor moves into
-          ranked revenue opportunities — each with an estimated value, confidence and the action to
-          take next.
+          ranked revenue opportunities — then put them side by side on value, risk, confidence and
+          expected return, so you know exactly where to act first.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link href="/brief" className="btn-primary px-6 py-3 text-base">
-            See your opportunities
+            Compare your opportunities
           </Link>
           <Link href="/areas" className="btn-ghost px-6 py-3 text-base">
             Top opportunity areas

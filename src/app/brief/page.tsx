@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { computeScoreboard } from "@/lib/scoreboard";
-import { BUSINESS_TYPES, type Archetype, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, formatGBPSigned, type Archetype, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ type SP = {
 };
 
 const GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partnerships"];
-const SORTS = ["value", "confidence", "urgency", "recent"] as const;
+const SORTS = ["expected", "value", "confidence", "urgency", "recent"] as const;
 type Sort = (typeof SORTS)[number];
 const ARCHETYPES: Archetype[] = ["new_resident", "employer", "competitor", "demand"];
 const ARCHETYPE_LABELS: Record<Archetype, string> = {
@@ -88,7 +88,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   const board = result ? computeScoreboard(result.rows) : null;
 
   const layout = sp.view === "cards" ? "cards" : "table";
-  const sort: Sort = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as Sort) : "value";
+  const sort: Sort = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as Sort) : "expected";
   const kind = (ARCHETYPES as string[]).includes(sp.kind ?? "") ? (sp.kind as Archetype) : undefined;
   const urgFilter = ["high", "medium", "low"].includes(sp.urg ?? "") ? (sp.urg as string) : undefined;
   const minValue = Number(sp.min) > 0 ? Number(sp.min) : 0;
@@ -104,6 +104,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   displayed.sort((a, b) => {
     const A = a.opportunity;
     const B = b.opportunity;
+    if (sort === "expected") return B.expectedValue - A.expectedValue;
     if (sort === "confidence") return b.signal.confidence - a.signal.confidence;
     if (sort === "recent") return Date.parse(b.signal.detectedAt) - Date.parse(a.signal.detectedAt);
     if (sort === "urgency") {
@@ -194,15 +195,25 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           )}
 
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-              Compare opportunities
-            </h2>
-            <Link
-              href={`/areas?business=${encodeURIComponent(business)}`}
-              className="btn-ghost whitespace-nowrap text-sm"
-            >
-              See top postcodes →
-            </Link>
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                Compare opportunities
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Sort by any column, then tick rows to put them head-to-head.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/shortlist" className="btn-ghost whitespace-nowrap text-sm">
+                Saved
+              </Link>
+              <Link
+                href={`/areas?business=${encodeURIComponent(business)}`}
+                className="btn-ghost whitespace-nowrap text-sm"
+              >
+                See top postcodes →
+              </Link>
+            </div>
           </div>
 
           <FilterForm ctx={ctxParams} layout={layout} sort={sort} kind={kind} urg={urgFilter} min={minValue} />
@@ -210,7 +221,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           {result.rows.length === 0 ? (
             <p className="text-sm text-slate-400">No signals available.</p>
           ) : layout === "table" ? (
-            <OpportunityTable items={displayed} />
+            <OpportunityTable items={displayed} compareBase={ctxParams} />
           ) : (
             <div className="space-y-4">
               {displayed.map((row) => (
@@ -258,6 +269,7 @@ function FilterForm({
       </Mini>
       <Mini label="Sort by">
         <select name="sort" defaultValue={sort} className={miniCls}>
+          <option value="expected">Expected value</option>
           <option value="value">Highest value</option>
           <option value="confidence">Highest confidence</option>
           <option value="urgency">Most urgent</option>
@@ -333,8 +345,11 @@ function OpportunityCard({ row }: { row: BriefRow }) {
         <ScoreDial score={opp.score} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label={opp.basis === "at risk" ? "Revenue at risk" : "Revenue potential"} accent>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Expected value" tone={opp.expectedValue >= 0 ? "growth" : "risk"}>
+          {formatGBPSigned(opp.expectedValue)}
+        </Stat>
+        <Stat label={opp.basis === "at risk" ? "Revenue at risk" : "Revenue potential"}>
           {opp.revenueLabel}
         </Stat>
         <Stat label="Area">{opp.area ?? "—"}</Stat>
@@ -384,15 +399,18 @@ function Stat({
   label,
   children,
   accent,
+  tone,
 }: {
   label: string;
   children: React.ReactNode;
   accent?: boolean;
+  tone?: "growth" | "risk";
 }) {
+  const toneCls = tone === "risk" ? "text-lg font-bold text-signal-distress" : "text-lg font-bold text-signal-growth";
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-1 break-words text-sm ${accent ? "text-lg font-bold text-signal-growth" : "text-slate-200"}`}>
+      <div className={`mt-1 break-words text-sm ${tone ? toneCls : accent ? "text-lg font-bold text-signal-growth" : "text-slate-200"}`}>
         {children}
       </div>
     </div>

@@ -155,6 +155,14 @@ export interface OpportunityResult {
   /** revenue at RISK (£). 0 for offensive items. */
   riskLow: number;
   riskHigh: number;
+  /**
+   * The single comparison number. Confidence-weighted expected money in play:
+   * +£ for an opportunity to win, -£ for revenue at risk. Lets any two
+   * opportunities (a funding lead vs a planning approval) be ranked on one scale.
+   *   offensive:  +confidence × midpoint(value)
+   *   defensive:  -confidence × midpoint(risk)
+   */
+  expectedValue: number;
 }
 
 // translateCore returns everything except the derived value/risk/urgency/effort
@@ -162,7 +170,7 @@ export interface OpportunityResult {
 // archetype branches focused on the revenue math.
 type CoreResult = Omit<
   OpportunityResult,
-  "urgency" | "effort" | "valueLow" | "valueHigh" | "riskLow" | "riskHigh"
+  "urgency" | "effort" | "valueLow" | "valueHigh" | "riskLow" | "riskHigh" | "expectedValue"
 >;
 
 export interface TranslateContext {
@@ -175,9 +183,16 @@ export interface TranslateContext {
 // --- helpers ---------------------------------------------------------------
 
 export function formatGBP(n: number): string {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}m`;
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`;
-  return `£${Math.round(n)}`;
+  const a = Math.abs(n);
+  if (a >= 1_000_000) return `£${(a / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}m`;
+  if (a >= 1_000) return `£${Math.round(a / 1_000)}k`;
+  return `£${Math.round(a)}`;
+}
+
+/** Signed money, e.g. "+£42k" for a win or "−£8k" for revenue at risk. */
+export function formatGBPSigned(n: number): string {
+  if (Math.round(n) === 0) return "£0";
+  return `${n > 0 ? "+" : "−"}${formatGBP(n)}`;
 }
 
 function rangeLabel(low: number, high: number, basis: string): string {
@@ -278,7 +293,11 @@ export function translate(s: SignalDTO, bt: BusinessType, ctx: TranslateContext)
   const valueHigh = core.defensive ? 0 : core.revenueHigh;
   const riskLow = core.defensive ? core.revenueLow : 0;
   const riskHigh = core.defensive ? core.revenueHigh : 0;
-  return { ...core, urgency, effort, valueLow, valueHigh, riskLow, riskHigh };
+  const mid = (lo: number, hi: number) => (lo + hi) / 2;
+  const expectedValue = core.defensive
+    ? -s.confidence * mid(riskLow, riskHigh)
+    : s.confidence * mid(valueLow, valueHigh);
+  return { ...core, urgency, effort, valueLow, valueHigh, riskLow, riskHigh, expectedValue };
 }
 
 function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): CoreResult {

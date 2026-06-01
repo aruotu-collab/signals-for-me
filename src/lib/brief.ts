@@ -149,3 +149,55 @@ export async function buildBrief(input: BriefInput): Promise<BriefResult> {
 
   return { rows: briefRows, fallback, totalRevenueLow, totalRevenueHigh };
 }
+
+/**
+ * Translate a specific, explicit set of signals (by id) into brief rows for a
+ * business type — used by the side-by-side /compare and /shortlist views, where
+ * the user has hand-picked exactly which opportunities to line up. Order follows
+ * the given `ids` so the comparison columns stay in the order they were chosen.
+ */
+export async function buildBriefForIds(
+  ids: string[],
+  input: Omit<BriefInput, "limit" | "audience">,
+): Promise<BriefRow[]> {
+  if (ids.length === 0) return [];
+  const bt = getBusinessType(input.businessTypeKey);
+  const locationTerms = terms(input.location);
+
+  const rows = await prisma.signal.findMany({
+    where: { id: { in: ids } },
+    include: { opportunities: true, risks: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, toDTO(r)]));
+
+  const out: BriefRow[] = [];
+  for (const id of ids) {
+    const signal = byId.get(id);
+    if (!signal) continue;
+    const hay = haystack(signal);
+    const loc = signal.entityLocation?.toLowerCase() ?? "";
+    const industryHits = bt.keywords.filter((k) => hay.includes(k)).length;
+    const locationHits = locationTerms.filter((t) => hay.includes(t) || loc.includes(t)).length;
+    const opportunity = translate(signal, bt, {
+      location: input.location,
+      growthGoal: input.growthGoal,
+      locationMatch: locationHits > 0,
+      industryMatch: industryHits > 0,
+    });
+    const topRisk = signal.risks[0] ?? null;
+    out.push({
+      signal,
+      relevance: industryHits + locationHits * 1.6,
+      industryMatch: industryHits > 0,
+      locationMatch: locationHits > 0,
+      opportunity,
+      risk: topRisk
+        ? { title: topRisk.title, rating: rate(topRisk.confidence) }
+        : signal.whoAtRisk[0]
+          ? { title: signal.whoAtRisk[0], rating: rate(signal.confidence) }
+          : null,
+      trend: signal.groupName || signal.typeLabel,
+    });
+  }
+  return out;
+}

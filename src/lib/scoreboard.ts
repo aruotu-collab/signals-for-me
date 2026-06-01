@@ -17,6 +17,10 @@ export interface Scoreboard {
   /** total revenue at RISK (£) */
   riskLow: number;
   riskHigh: number;
+  /** confidence-weighted expected money to win (£) — the headline number */
+  expectedGain: number;
+  /** confidence-weighted expected money at risk (£) */
+  expectedRisk: number;
   /** number of opportunities detected */
   count: number;
   /** how many are high-urgency */
@@ -37,6 +41,8 @@ export function computeScoreboard(items: ScoredItem[]): Scoreboard {
   let urgentCount = 0;
   let threatCount = 0;
   let scoreSum = 0;
+  let expectedGain = 0;
+  let expectedRisk = 0;
 
   let topOpportunity: ScoredItem | null = null;
   let topRisk: ScoredItem | null = null;
@@ -47,14 +53,18 @@ export function computeScoreboard(items: ScoredItem[]): Scoreboard {
     opportunityHigh += o.valueHigh;
     riskLow += o.riskLow;
     riskHigh += o.riskHigh;
+    if (o.expectedValue >= 0) expectedGain += o.expectedValue;
+    else expectedRisk += -o.expectedValue;
     if (o.urgency === "high") urgentCount++;
     if (o.defensive) threatCount++;
     scoreSum += o.score;
 
-    if (!o.defensive && (!topOpportunity || o.valueHigh > topOpportunity.opportunity.valueHigh)) {
+    // Rank by expected value (confidence-weighted £) so the headline picks
+    // reflect the real "best bet", not just the biggest headline range.
+    if (!o.defensive && (!topOpportunity || o.expectedValue > topOpportunity.opportunity.expectedValue)) {
       topOpportunity = it;
     }
-    if (o.defensive && o.riskHigh > 0 && (!topRisk || o.riskHigh > topRisk.opportunity.riskHigh)) {
+    if (o.defensive && o.riskHigh > 0 && (!topRisk || o.expectedValue < topRisk.opportunity.expectedValue)) {
       topRisk = it;
     }
   }
@@ -66,6 +76,8 @@ export function computeScoreboard(items: ScoredItem[]): Scoreboard {
     opportunityHigh,
     riskLow,
     riskHigh,
+    expectedGain,
+    expectedRisk,
     count: items.length,
     urgentCount,
     threatCount,

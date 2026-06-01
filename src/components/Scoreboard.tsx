@@ -26,7 +26,14 @@ export function Scoreboard({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Tile
+          label="Expected value"
+          value={formatGBP(board.expectedGain)}
+          hint="confidence-weighted"
+          tone="growth"
+          big
+        />
         <Tile
           label="Revenue opportunities"
           value={`${formatGBP(board.opportunityLow)}–${formatGBP(board.opportunityHigh)}`}
@@ -63,11 +70,13 @@ export function Scoreboard({
 function Tile({
   label,
   value,
+  hint,
   tone,
   big,
 }: {
   label: string;
   value: string;
+  hint?: string;
   tone: "growth" | "risk" | "urgent" | "neutral";
   big?: boolean;
 }) {
@@ -83,6 +92,7 @@ function Tile({
     <div className="card p-4">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
       <div className={`mt-1 font-bold ${color} ${big ? "text-2xl" : "text-3xl"}`}>{value}</div>
+      {hint && <div className="mt-0.5 text-[10px] text-slate-500">{hint}</div>}
     </div>
   );
 }
