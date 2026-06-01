@@ -3,26 +3,21 @@ import Link from "next/link";
 import { buildBriefForIds, type BriefRow } from "@/lib/brief";
 import { getCurrentUser } from "@/lib/session";
 import { savedSignalIds } from "@/lib/shortlist";
-import { BUSINESS_TYPES, formatGBPSigned, type Archetype, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, formatGBPSigned, type GrowthGoal } from "@/lib/opportunity";
 import { computeScoreboard } from "@/lib/scoreboard";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
 
-const ARCHETYPE_LABELS: Record<Archetype, string> = {
-  new_resident: "New residents",
-  employer: "New employers",
-  competitor: "Competitor / threats",
-  demand: "Market demand",
-};
-
+// Group the portfolio by the business-specific lens (e.g. Gold, Distress,
+// Implants) so the breakdown speaks the user's language.
 function byType(rows: BriefRow[]): { label: string; total: number }[] {
-  const sums = new Map<Archetype, number>();
+  const sums = new Map<string, number>();
   for (const r of rows) {
-    const a = r.opportunity.archetype;
-    sums.set(a, (sums.get(a) ?? 0) + r.opportunity.expectedValue);
+    const label = r.opportunity.lensLabel || "Other";
+    sums.set(label, (sums.get(label) ?? 0) + r.opportunity.expectedValue);
   }
   return Array.from(sums.entries())
-    .map(([a, total]) => ({ label: ARCHETYPE_LABELS[a], total }))
+    .map(([label, total]) => ({ label, total }))
     .sort((x, y) => y.total - x.total);
 }
 

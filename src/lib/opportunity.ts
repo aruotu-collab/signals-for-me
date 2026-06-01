@@ -23,6 +23,27 @@ import type { SignalDTO } from "@/lib/types";
 
 export type GrowthGoal = "leads" | "revenue" | "locations" | "hiring" | "partnerships";
 
+/**
+ * An "opportunity lens" — the business-specific category a signal is presented
+ * under. The same redundancy signal is a "Distress / asset acquisition" lens for
+ * a pawnbroker but plain "Market demand" for a café. A lens picks the label the
+ * user sees, the economics archetype to use, and (optionally) the framing.
+ */
+export interface Lens {
+  key: string;
+  label: string;
+  /** signal taxonomy types this lens captures */
+  types?: string[];
+  /** keywords matched against the signal text */
+  keywords?: string[];
+  /** which economics to use; "auto" = infer from the signal */
+  archetype: Archetype | "auto";
+  /** force framing as defensive (revenue at risk) */
+  defensive?: boolean;
+  /** optional bespoke action line */
+  action?: string;
+}
+
 export interface BusinessType {
   key: string;
   label: string;
@@ -40,6 +61,14 @@ export interface BusinessType {
   workerCaptureRate: [number, number];
   /** whether customerAnnualValue is recurring per year vs a one-off fee */
   valueBasis: "per year" | "one-off";
+  /**
+   * Whether local financial distress (redundancies, closures, insolvencies)
+   * is an OPPORTUNITY for this business (pawnbroker, estate agent, insolvency
+   * accountant) rather than a risk (most others).
+   */
+  benefitsFromDistress?: boolean;
+  /** business-specific opportunity lenses (presentation + categorisation) */
+  lenses?: Lens[];
 }
 
 export const BUSINESS_TYPES: BusinessType[] = [
@@ -53,6 +82,14 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [400, 1500],
     workerCaptureRate: [0.02, 0.05],
     valueBasis: "per year",
+    lenses: [
+      { key: "implant", label: "Implant opportunity", keywords: ["implant", "missing teeth", "tooth loss", "denture"], archetype: "demand" },
+      { key: "invisalign", label: "Invisalign / ortho demand", keywords: ["invisalign", "orthodont", "aligner", "braces", "straighten", "veneer", "whitening"], archetype: "demand" },
+      { key: "new_movers", label: "New movers", types: ["development", "contractor_appointment"], keywords: ["homes", "dwelling", "residential", "housing", "development"], archetype: "new_resident" },
+      { key: "employer", label: "Local employer growth", archetype: "employer", keywords: ["hiring", "jobs", "headcount", "expansion", "workforce"] },
+      { key: "competitor", label: "Competitor weakness", keywords: ["closed", "acquired", "merger", "cqc", "complaint", "review", "competitor"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
   },
   {
     key: "accountant",
@@ -64,6 +101,8 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [600, 3000],
     workerCaptureRate: [0.005, 0.02],
     valueBasis: "per year",
+    // Insolvency, restructuring and administration work is opportunity, not risk.
+    benefitsFromDistress: true,
   },
   {
     key: "estate_agent",
@@ -75,6 +114,8 @@ export const BUSINESS_TYPES: BusinessType[] = [
     customerAnnualValue: [3000, 6000],
     workerCaptureRate: [0.01, 0.03],
     valueBasis: "one-off",
+    // Forced/distressed sales (repossessions, relocations) create instructions.
+    benefitsFromDistress: true,
   },
   {
     key: "recruiter",
@@ -110,6 +151,28 @@ export const BUSINESS_TYPES: BusinessType[] = [
     valueBasis: "per year",
   },
   {
+    key: "pawnbroker",
+    label: "Pawnbroker",
+    customerNoun: "deal",
+    keywords: ["gold", "jewellery", "jewelry", "watch", "rolex", "loan", "pawn", "luxury", "resale", "second hand", "bullion"],
+    residentsPerHome: 2.35,
+    // share of financially-affected households that pawn/sell assets
+    captureRate: [0.01, 0.04],
+    // margin per acquired/loaned item (one-off), not an annual figure
+    customerAnnualValue: [80, 400],
+    workerCaptureRate: [0.01, 0.03],
+    valueBasis: "one-off",
+    benefitsFromDistress: true,
+    lenses: [
+      { key: "gold", label: "Gold opportunities", keywords: ["gold", "bullion", "precious metal", "jewellery", "jewelry"], archetype: "demand" },
+      { key: "watches", label: "Luxury watch demand", keywords: ["rolex", "omega", "watch", "luxury", "designer", "handbag"], archetype: "demand" },
+      { key: "distress", label: "Distress / asset acquisition", types: ["closure", "insolvency", "redundancy"], keywords: ["redundan", "layoff", "job cuts", "closure", "closing", "insolven", "administration", "liquidation", "cost of living", "repossession"], archetype: "distress" },
+      { key: "resale", label: "Resale demand", keywords: ["macbook", "iphone", "console", "playstation", "xbox", "electronics", "second hand"], archetype: "demand" },
+      { key: "competitor", label: "Competitor pricing", keywords: ["competitor", "pawn", "payout", "cash converter", "price"], archetype: "competitor" },
+      { key: "other", label: "Other demand", archetype: "auto" },
+    ],
+  },
+  {
     key: "generic",
     label: "Other / general",
     customerNoun: "customer",
@@ -128,7 +191,21 @@ export function getBusinessType(key?: string | null): BusinessType {
   return (key && BY_KEY.get(key)) || BY_KEY.get("generic")!;
 }
 
-export type Archetype = "new_resident" | "employer" | "competitor" | "demand";
+const DEFAULT_LENSES: { key: string; label: string }[] = [
+  { key: "new_resident", label: "New residents" },
+  { key: "employer", label: "New employers" },
+  { key: "competitor", label: "Competitor / threats" },
+  { key: "distress", label: "Local distress" },
+  { key: "demand", label: "Market demand" },
+];
+
+/** The opportunity lenses a business sees — its custom set, or the generic ones. */
+export function getLenses(bt: BusinessType): { key: string; label: string }[] {
+  if (bt.lenses?.length) return bt.lenses.map((l) => ({ key: l.key, label: l.label }));
+  return DEFAULT_LENSES;
+}
+
+export type Archetype = "new_resident" | "employer" | "competitor" | "demand" | "distress";
 export type Urgency = "high" | "medium" | "low";
 export type Effort = "low" | "medium" | "high";
 /** when the opportunity needs acting on */
@@ -179,6 +256,10 @@ export interface OpportunityResult {
   horizon: Horizon;
   /** ordered, concrete steps to capture the opportunity */
   actionPlan: string[];
+  /** the business-specific lens this opportunity falls under (for filtering) */
+  lensKey: string;
+  /** human label of the lens (== label) */
+  lensLabel: string;
 }
 
 // translateCore returns everything except the derived value/risk/urgency/effort
@@ -254,15 +335,33 @@ function fullText(s: SignalDTO): string {
   return [s.title, s.summary, s.whatChanged ?? "", ...s.whyItMatters, ...s.opportunities.map((o) => o.title)].join(" • ");
 }
 
+const DISTRESS_RE = /(redundan|layoff|laid off|job cuts|jobs? cut|closure|closing down|shut(s|ting|down)?|insolven|administration|liquidation|receivership|repossession|cost[- ]of[- ]living|bankrupt)/i;
+
 function classify(s: SignalDTO): Archetype {
   const g = s.groupName.toLowerCase();
   const type = s.type.toLowerCase();
+  const text = fullText(s);
+  if (DISTRESS_RE.test(text)) return "distress";
   if (type === "development" || type === "contractor_appointment" || g.includes("property") || g.includes("construction")) {
     return "new_resident";
   }
   if (["hiring", "exec_hiring", "remote_hiring", "visa_hiring", "expansion"].includes(type)) return "employer";
   if (["competitor_move", "product_launch", "partnership", "acquisition"].includes(type)) return "competitor";
   return "demand";
+}
+
+/** Pick the first business lens whose types/keywords match the signal. */
+function selectLens(s: SignalDTO, bt: BusinessType): Lens | null {
+  if (!bt.lenses?.length) return null;
+  const text = fullText(s).toLowerCase();
+  for (const lens of bt.lenses) {
+    const noFilters = !lens.types?.length && !lens.keywords?.length;
+    if (noFilters) return lens; // catch-all (place last)
+    const typeHit = lens.types?.includes(s.type) ?? false;
+    const kwHit = lens.keywords?.some((k) => text.includes(k)) ?? false;
+    if (typeHit || kwHit) return lens;
+  }
+  return null;
 }
 
 function scoreOf(confidence: number, ctx: TranslateContext, revenueHigh: number): number {
@@ -290,6 +389,7 @@ const EFFORT_BY_ARCHETYPE: Record<Archetype, Effort> = {
   employer: "medium",
   competitor: "high",
   demand: "low",
+  distress: "low",
 };
 
 // Typical UK cost to actually capture / defend each opportunity type — used to
@@ -303,6 +403,7 @@ const ACTION_COST_BY_ARCHETYPE: Record<Archetype, number> = {
   employer: 800,
   competitor: 1000,
   demand: 500,
+  distress: 600,
 };
 
 const HORIZON_BY_URGENCY: Record<Urgency, Horizon> = {
@@ -336,6 +437,20 @@ function buildActionPlan(archetype: Archetype, area: string | null, bt: Business
         `Reach out to ${cust}s most exposed to the competitor`,
         "Sharpen your differentiator messaging",
       ];
+    case "distress":
+      return bt.benefitsFromDistress
+        ? [
+            `Increase local advertising for buying/selling in ${where}`,
+            "Raise your buy-in offers on the most in-demand items",
+            "Brief staff for higher walk-in seller volume",
+            "Promote instant-cash and short-term loan options",
+          ]
+        : [
+            "Introduce flexible payment / finance options",
+            `Reassure price-sensitive ${cust}s with value messaging`,
+            "Protect retention with a loyalty offer",
+            "Monitor local demand weekly",
+          ];
     default:
       return [
         "Create a focused landing page for this demand",
@@ -397,8 +512,34 @@ export function translate(s: SignalDTO, bt: BusinessType, ctx: TranslateContext)
   };
 }
 
+type ArchetypeResult = Omit<CoreResult, "lensKey" | "lensLabel">;
+
+// Apply the business's opportunity lens: it chooses the label the user sees, the
+// economics archetype, and (optionally) the framing. Falls back to inferred
+// archetype + generic labels for business types with no custom lenses.
 function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): CoreResult {
-  const archetype = classify(s);
+  const lens = selectLens(s, bt);
+  const archetype: Archetype = lens && lens.archetype !== "auto" ? lens.archetype : classify(s);
+  const base = computeArchetype(s, bt, ctx, archetype);
+  const label = lens?.label ?? base.label;
+  const defensive = lens?.defensive ?? base.defensive;
+  const action = lens?.action ? `${lens.action}${goalSuffix(ctx.growthGoal)}` : base.action;
+  return {
+    ...base,
+    label,
+    defensive,
+    action,
+    lensKey: lens?.key ?? base.archetype,
+    lensLabel: label,
+  };
+}
+
+function computeArchetype(
+  s: SignalDTO,
+  bt: BusinessType,
+  ctx: TranslateContext,
+  archetype: Archetype,
+): ArchetypeResult {
   const area = s.entityLocation || (ctx.location ? ctx.location : null);
   const text = fullText(s);
 
@@ -479,6 +620,53 @@ function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): C
       assumptions: [
         `~${baseCustomers} existing ${bt.customerNoun}s assumed exposed to the move`,
         `25–50% of their value (${formatGBP(bt.customerAnnualValue[0])}–${formatGBP(bt.customerAnnualValue[1])}) treated as at risk`,
+      ],
+      defensive: true,
+    };
+  }
+
+  if (archetype === "distress") {
+    const affected = extractQuantity(text, ["jobs", "redundancies", "redundant", "employees", "roles", "staff", "workers", "posts"]);
+    const [aLow, aHigh] = band(affected, [40, 250]);
+    if (bt.benefitsFromDistress) {
+      const custLow = aLow * bt.captureRate[0];
+      const custHigh = aHigh * bt.captureRate[1];
+      const revLow = custLow * bt.customerAnnualValue[0];
+      const revHigh = custHigh * bt.customerAnnualValue[1];
+      return {
+        archetype,
+        label: "Asset acquisition opportunity",
+        revenueLow: revLow,
+        revenueHigh: revHigh,
+        revenueLabel: rangeLabel(revLow, revHigh, bt.valueBasis),
+        basis: bt.valueBasis,
+        area,
+        score: scoreOf(s.confidence, ctx, revHigh),
+        action: `Increase local advertising and buying offers in ${area ?? "the area"} — expect more sellers.${goalSuffix(ctx.growthGoal)}`,
+        assumptions: [
+          `${affected ? affected.toLocaleString() : `~${aLow}–${aHigh}`} people financially affected${affected ? "" : " (assumed range)"}`,
+          `${pct(bt.captureRate)} sell or borrow against assets → ${Math.round(custLow)}–${Math.round(custHigh)} ${bt.customerNoun}s`,
+          `${formatGBP(bt.customerAnnualValue[0])}–${formatGBP(bt.customerAnnualValue[1])} margin per ${bt.customerNoun}`,
+        ],
+        defensive: false,
+      };
+    }
+    // For most businesses, local distress is demand at risk, not opportunity.
+    const revLow = 5 * bt.customerAnnualValue[0] * 0.2;
+    const revHigh = 10 * bt.customerAnnualValue[1] * 0.3;
+    return {
+      archetype,
+      label: "Local distress (demand at risk)",
+      revenueLow: revLow,
+      revenueHigh: revHigh,
+      revenueLabel: rangeLabel(revLow, revHigh, "at risk"),
+      basis: "at risk",
+      area,
+      score: scoreOf(s.confidence, ctx, revHigh),
+      action: `Protect revenue: offer flexible pricing/finance to retain price-sensitive ${bt.customerNoun}s.${goalSuffix(ctx.growthGoal)}`,
+      assumptions: [
+        "Local financial distress can cut discretionary spend",
+        `5–10 existing ${bt.customerNoun}s' spend treated as partially at risk`,
       ],
       defensive: true,
     };

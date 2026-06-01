@@ -7,7 +7,7 @@ import { savedSignalIds } from "@/lib/shortlist";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { computeScoreboard } from "@/lib/scoreboard";
-import { BUSINESS_TYPES, formatGBP, formatGBPSigned, type Archetype, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, formatGBP, formatGBPSigned, getBusinessType, getLenses, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -31,13 +31,6 @@ type SP = {
 const GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partnerships"];
 const SORTS = ["expected", "roi", "value", "confidence", "urgency", "recent"] as const;
 type Sort = (typeof SORTS)[number];
-const ARCHETYPES: Archetype[] = ["new_resident", "employer", "competitor", "demand"];
-const ARCHETYPE_LABELS: Record<Archetype, string> = {
-  new_resident: "New residents",
-  employer: "New employers",
-  competitor: "Competitor / threats",
-  demand: "Market demand",
-};
 const URGENCY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 export default async function BriefPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -84,6 +77,11 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
     ? "your business"
     : BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
 
+  // Business-specific opportunity lenses drive the "Type" filter and the chips
+  // shown in the header (e.g. a pawnbroker sees Gold / Distress / Resale).
+  const lensOptions = getLenses(getBusinessType(business));
+  const lensKeys = lensOptions.map((l) => l.key);
+
   // Scoreboard reflects the whole opportunity set; the table/cards below reflect
   // the active filters + sort.
   const board = result ? computeScoreboard(result.rows) : null;
@@ -104,12 +102,12 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
   const layout = sp.view === "cards" ? "cards" : "table";
   const sort: Sort = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as Sort) : "expected";
-  const kind = (ARCHETYPES as string[]).includes(sp.kind ?? "") ? (sp.kind as Archetype) : undefined;
+  const kind = lensKeys.includes(sp.kind ?? "") ? (sp.kind as string) : undefined;
   const urgFilter = ["high", "medium", "low"].includes(sp.urg ?? "") ? (sp.urg as string) : undefined;
   const minValue = Number(sp.min) > 0 ? Number(sp.min) : 0;
 
   let displayed: BriefRow[] = result ? result.rows.slice() : [];
-  if (kind) displayed = displayed.filter((r) => r.opportunity.archetype === kind);
+  if (kind) displayed = displayed.filter((r) => r.opportunity.lensKey === kind);
   if (urgFilter) displayed = displayed.filter((r) => r.opportunity.urgency === urgFilter);
   if (minValue) {
     displayed = displayed.filter(
@@ -144,6 +142,18 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           Turn live market signals into revenue opportunities — estimated value and a recommended
           action, tailored to your business and location.
         </p>
+        {result && !usingGenericDefault && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">Your lenses:</span>
+            {lensOptions
+              .filter((l) => l.key !== "other")
+              .map((l) => (
+                <span key={l.key} className="chip bg-white/5 text-slate-300">
+                  {l.label}
+                </span>
+              ))}
+          </div>
+        )}
       </header>
 
       {/* One unified control panel: business context + comparison filters in a
@@ -200,9 +210,9 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
               <Mini label="Type">
                 <select name="kind" defaultValue={kind ?? ""} className={miniCls}>
                   <option value="">All types</option>
-                  {ARCHETYPES.map((a) => (
-                    <option key={a} value={a}>
-                      {ARCHETYPE_LABELS[a]}
+                  {lensOptions.map((l) => (
+                    <option key={l.key} value={l.key}>
+                      {l.label}
                     </option>
                   ))}
                 </select>
