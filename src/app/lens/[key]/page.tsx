@@ -123,6 +123,15 @@ export default async function LensPage({
 
   const lensHref = (k: string) => `/lens/${k}${ctxQs ? `?${ctxQs}` : ""}`;
 
+  // This page's own URL (context + active filters) so a signal page can send the
+  // user straight back to exactly this lens view.
+  const selfParams = new URLSearchParams(ctxParams);
+  if (sort !== "expected") selfParams.set("sort", sort);
+  if (layout !== "table") selfParams.set("view", layout);
+  if (urgFilter) selfParams.set("urg", urgFilter);
+  if (minValue) selfParams.set("min", String(minValue));
+  const selfHref = `/lens/${key}${selfParams.toString() ? `?${selfParams.toString()}` : ""}`;
+
   return (
     <div>
       <Link href={boardHref} className="text-sm text-brand-300 hover:text-brand-200 hover:underline">
@@ -251,11 +260,11 @@ export default async function LensPage({
       {displayed.length === 0 ? (
         <p className="text-sm text-slate-400">No opportunities match these filters.</p>
       ) : layout === "table" ? (
-        <OpportunityTable items={displayed} compareBase={ctxParams} />
+        <OpportunityTable items={displayed} compareBase={ctxParams} from={selfHref} />
       ) : (
         <div className="space-y-4">
           {displayed.map((row) => (
-            <OpportunityCard key={row.signal.id} row={row} />
+            <OpportunityCard key={row.signal.id} row={row} from={selfHref} />
           ))}
         </div>
       )}

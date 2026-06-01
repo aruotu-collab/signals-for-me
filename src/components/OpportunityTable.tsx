@@ -18,10 +18,13 @@ const MAX_COMPARE = 4;
 export function OpportunityTable({
   items,
   compareBase = {},
+  from,
 }: {
   items: ScoredItem[];
   /** business/location/goal carried into the /compare link */
   compareBase?: Record<string, string>;
+  /** where this table lives, so a signal page can offer an accurate "back" */
+  from?: string;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("expected");
   const [asc, setAsc] = useState(false);
@@ -132,7 +135,7 @@ export function OpportunityTable({
                         <ScoreBadge score={o.score} />
                       </div>
                       <Link
-                        href={`/signals/${signal.id}`}
+                        href={from ? `/signals/${signal.id}?from=${encodeURIComponent(from)}` : `/signals/${signal.id}`}
                         className="block max-w-[240px] truncate text-xs text-slate-400 hover:text-slate-200 hover:underline"
                         title={signal.title}
                       >

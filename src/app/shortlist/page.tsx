@@ -95,7 +95,7 @@ export default async function ShortlistPage() {
           <LensBoard groups={lensGroups} interactive={false} heading="Portfolio by lens" />
 
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Holdings</h2>
-          <OpportunityTable items={rows} compareBase={compareBase} />
+          <OpportunityTable items={rows} compareBase={compareBase} from="/shortlist" />
         </>
       )}
     </div>

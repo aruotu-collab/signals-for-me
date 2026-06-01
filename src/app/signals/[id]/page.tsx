@@ -54,8 +54,19 @@ export async function generateMetadata({
   };
 }
 
-export default async function SignalDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function SignalDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const { id } = await params;
+  const { from } = await searchParams;
+  // Only honour same-site relative paths (open-redirect / off-site protection).
+  const backHref = from && from.startsWith("/") && !from.startsWith("//") ? from : "/brief";
+  const cameFromLens = backHref.startsWith("/lens/");
+
   const row = await prisma.signal.findUnique({
     where: { id },
     include: { opportunities: true, risks: true },
@@ -88,8 +99,8 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/brief" className="text-sm text-slate-400 hover:text-white">
-        ← Back to opportunities
+      <Link href={backHref} className="text-sm text-slate-400 hover:text-white">
+        ← {cameFromLens ? "Back to this lens" : "Back to opportunities"}
       </Link>
 
       <div className="card mt-4 p-5 sm:p-7">
@@ -165,8 +176,8 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <SaveButton signalId={s.id} initialSaved={saved} />
-            <Link href="/brief" className="btn-ghost text-sm">
-              Compare more →
+            <Link href={backHref} className="btn-ghost text-sm">
+              {cameFromLens ? "Back to this lens →" : "Compare more →"}
             </Link>
             {isGeneric && (
               <span className="text-xs text-slate-500">

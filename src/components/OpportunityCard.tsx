@@ -4,8 +4,10 @@ import { formatGBPSigned } from "@/lib/opportunity";
 
 // A single opportunity, rendered as a rich card (used in the "cards" view of a
 // lens page). The table view is handled separately by OpportunityTable.
-export function OpportunityCard({ row }: { row: BriefRow }) {
+export function OpportunityCard({ row, from }: { row: BriefRow; from?: string }) {
   const { signal, opportunity: opp } = row;
+  // Carry where we came from so the signal page can offer an accurate "back".
+  const signalHref = from ? `/signals/${signal.id}?from=${encodeURIComponent(from)}` : `/signals/${signal.id}`;
   return (
     <article className="card p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -22,7 +24,7 @@ export function OpportunityCard({ row }: { row: BriefRow }) {
             )}
           </div>
           <Link
-            href={`/signals/${signal.id}`}
+            href={signalHref}
             className="mt-1 block text-sm text-slate-400 hover:text-slate-200 hover:underline"
           >
             From signal: {signal.title}
