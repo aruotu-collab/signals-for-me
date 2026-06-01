@@ -8,6 +8,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* Kill the horizontal rubber-band/wobble when swiping inner scrollers. */
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -16,6 +18,10 @@ body {
     radial-gradient(60rem 60rem at 80% -10%, rgba(47, 107, 255, 0.12), transparent 60%),
     radial-gradient(50rem 50rem at -10% 10%, rgba(168, 85, 247, 0.1), transparent 55%);
   background-attachment: fixed;
+  /* clip (not hidden) so we never create a scroll container that would break
+     the sticky header, while still preventing any sideways page drift. */
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 @layer components {
