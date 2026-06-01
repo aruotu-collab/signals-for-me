@@ -83,30 +83,36 @@ export default async function Home() {
         </div>
         <div className="card p-6 shadow-glow">
           <div className="text-xs uppercase tracking-wide text-brand-300">What we show you</div>
-          <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-signal-funding">Growth Signal · 91%</div>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-signal-growth">
+              Revenue opportunity
+            </span>
+            <span className="text-xs text-slate-500">91% confidence</span>
+          </div>
           <p className="mt-2 text-lg font-semibold text-white">
             Company ABC raised £15M and is hiring operations managers.
           </p>
+          <div className="mt-3 text-2xl font-bold text-signal-growth">£120k–£260k potential</div>
           <ul className="mt-3 space-y-1 text-sm text-slate-300">
-            <li>• Likely buying software</li>
-            <li>• Likely hiring recruiters</li>
-            <li>• Likely expanding</li>
+            <li>• New software buyer (SaaS &amp; IT)</li>
+            <li>• Recruitment contract (agencies)</li>
+            <li>• Office &amp; expansion spend (suppliers)</li>
           </ul>
           <div className="mt-3 rounded-lg border border-brand-400/20 bg-brand-500/5 px-3 py-2 text-sm text-brand-200">
-            Suggested action: Contact within 30 days.
+            Recommended action: Contact decision-makers within 30 days.
           </div>
         </div>
       </section>
 
       {/* How it works */}
       <section>
-        <h2 className="text-center text-2xl font-bold text-white">From noise to signal in four steps</h2>
+        <h2 className="text-center text-2xl font-bold text-white">From news to revenue in four steps</h2>
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
           {[
-            { n: "01", t: "Ingest", d: "Continuously pull from news, job boards, government databases, social trends & more." },
-            { n: "02", t: "Detect", d: "AI asks: does this indicate an opportunity, risk, or trend? If yes, it becomes a signal." },
-            { n: "03", t: "Personalize", d: "Match every signal to what each user actually cares about." },
-            { n: "04", t: "Deliver", d: "A live feed + daily digest: ‘Signals For You’, ranked by confidence." },
+            { n: "01", t: "Ingest", d: "Continuously pull from news, Companies House, planning approvals, tenders, job boards & search trends." },
+            { n: "02", t: "Detect", d: "AI asks: is there an opportunity, risk or trend here? If yes, it’s captured." },
+            { n: "03", t: "Value", d: "Translate it into £ value, £ risk, confidence and the action to take — for your business." },
+            { n: "04", t: "Compare", d: "Rank every opportunity on one scoreboard so you know exactly where to act first." },
           ].map((s) => (
             <div key={s.n} className="card p-5">
               <div className="text-sm font-bold text-brand-400">{s.n}</div>
@@ -153,7 +159,7 @@ export default async function Home() {
             ["Google", "What are you looking for?"],
             ["LinkedIn", "Who do you know?"],
             ["News", "What happened?"],
-            ["Signals For Me", "What should I pay attention to right now?"],
+            ["Signals For Me", "Where can I make — and protect — money right now?"],
           ].map(([k, v], i) => (
             <div key={k} className={`rounded-xl p-4 ${i === 3 ? "bg-brand-500/15 ring-1 ring-brand-400/40" : "bg-white/5"}`}>
               <div className={`text-sm font-bold ${i === 3 ? "text-brand-200" : "text-slate-300"}`}>{k}</div>
