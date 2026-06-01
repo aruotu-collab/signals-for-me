@@ -49,7 +49,7 @@ export default async function Home() {
           ranked revenue opportunities — then put them side by side on value, risk, confidence and
           expected return, so you know exactly where to act first.
         </p>
-        <div className="mt-8 flex items-center justify-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link href="/brief" className="btn-primary px-6 py-3 text-base">
             Compare your opportunities
           </Link>

@@ -100,9 +100,9 @@ function Tile({
           ? "text-signal-buying"
           : "text-white";
   return (
-    <div className="card p-4">
+    <div className="card min-w-0 p-4">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-1 font-bold ${color} ${big ? "text-2xl" : "text-3xl"}`}>{value}</div>
+      <div className={`mt-1 font-bold [overflow-wrap:anywhere] ${color} ${big ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"}`}>{value}</div>
       {hint && <div className="mt-0.5 text-[10px] text-slate-500">{hint}</div>}
     </div>
   );
@@ -133,7 +133,7 @@ function TopCard({ kind, item }: { kind: "opportunity" | "risk"; item: ScoredIte
     : `${formatGBP(o.valueLow)}–${formatGBP(o.valueHigh)}`;
 
   return (
-    <div className={`card border ${border} p-4`}>
+    <div className={`card min-w-0 border ${border} p-4`}>
       <div className="flex items-center justify-between gap-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
           {isRisk ? "Top threat" : "Top opportunity"}
@@ -142,7 +142,7 @@ function TopCard({ kind, item }: { kind: "opportunity" | "risk"; item: ScoredIte
           {Math.round(signal.confidence * 100)}% confidence
         </span>
       </div>
-      <div className={`mt-1 text-xl font-bold ${accent}`}>{headline}</div>
+      <div className={`mt-1 text-xl font-bold [overflow-wrap:anywhere] ${accent}`}>{headline}</div>
       <Link
         href={`/signals/${signal.id}`}
         className="mt-0.5 block truncate text-xs text-slate-400 hover:text-slate-200 hover:underline"
