@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatGBP } from "@/lib/opportunity";
+import { formatGBP, formatGBPSigned } from "@/lib/opportunity";
 import type { Scoreboard as ScoreboardData, ScoredItem } from "@/lib/scoreboard";
 
 // The Executive Briefing: a "scoreboard of money" rather than a feed of news.
@@ -26,25 +26,32 @@ export function Scoreboard({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Tile
+          label="Net opportunity"
+          value={formatGBPSigned(board.netOpportunity)}
+          hint="expected gain − risk"
+          tone={board.netOpportunity >= 0 ? "growth" : "risk"}
+          big
+        />
         <Tile
           label="Expected value"
           value={formatGBP(board.expectedGain)}
-          hint="confidence-weighted"
+          hint="confidence-weighted upside"
           tone="growth"
+          big
+        />
+        <Tile
+          label="Revenue at risk"
+          value={board.expectedRisk > 0 ? formatGBP(board.expectedRisk) : "£0"}
+          hint="confidence-weighted"
+          tone="risk"
           big
         />
         <Tile
           label="Revenue opportunities"
           value={`${formatGBP(board.opportunityLow)}–${formatGBP(board.opportunityHigh)}`}
           tone="growth"
-          big
-        />
-        <Tile
-          label="Revenue at risk"
-          value={board.riskHigh > 0 ? `${formatGBP(board.riskLow)}–${formatGBP(board.riskHigh)}` : "£0"}
-          tone="risk"
-          big
         />
         <Tile label="Opportunities detected" value={String(board.count)} tone="neutral" />
         <Tile label="Urgent actions" value={String(board.urgentCount)} tone="urgent" />

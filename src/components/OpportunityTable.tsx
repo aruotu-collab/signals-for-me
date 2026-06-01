@@ -10,7 +10,7 @@ import type { ScoredItem } from "@/lib/scoreboard";
 // This is the comparison engine — sortable by any column, and you can tick rows
 // to put them head-to-head on the /compare page.
 
-type SortKey = "expected" | "value" | "risk" | "confidence" | "urgency" | "effort";
+type SortKey = "expected" | "roi" | "value" | "risk" | "confidence" | "urgency" | "effort";
 const URGENCY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 const EFFORT_RANK: Record<string, number> = { low: 3, medium: 2, high: 1 }; // low effort ranks "best"
 const MAX_COMPARE = 4;
@@ -34,6 +34,9 @@ export function OpportunityTable({
       const B = b.opportunity;
       let d = 0;
       switch (sortKey) {
+        case "roi":
+          d = B.roi - A.roi;
+          break;
         case "value":
           d = B.valueHigh - A.valueHigh;
           break;
@@ -88,13 +91,14 @@ export function OpportunityTable({
     <div>
       <div className="card overflow-hidden p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] border-collapse text-sm">
+          <table className="w-full min-w-[960px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-3 py-3 font-semibold" />
                 <th className="px-3 py-3 font-semibold">#</th>
                 <th className="px-4 py-3 font-semibold">Opportunity</th>
                 <SortTh label="Exp. value" active={sortKey === "expected"} asc={asc} onClick={() => toggleSort("expected")} align="right" />
+                <SortTh label="ROI" active={sortKey === "roi"} asc={asc} onClick={() => toggleSort("roi")} align="center" />
                 <SortTh label="Value" active={sortKey === "value"} asc={asc} onClick={() => toggleSort("value")} align="right" />
                 <SortTh label="Risk" active={sortKey === "risk"} asc={asc} onClick={() => toggleSort("risk")} align="right" />
                 <SortTh label="Conf." active={sortKey === "confidence"} asc={asc} onClick={() => toggleSort("confidence")} align="center" />
@@ -138,6 +142,9 @@ export function OpportunityTable({
                     </td>
                     <td className={`px-3 py-3 text-right font-bold ${o.expectedValue >= 0 ? "text-signal-growth" : "text-signal-distress"}`}>
                       {formatGBPSigned(o.expectedValue)}
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-slate-200" title={`Est. cost ${formatGBP(o.actionCost)}`}>
+                      {o.roi > 0 ? `${o.roi}x` : "—"}
                     </td>
                     <td className="px-3 py-3 text-right font-semibold text-signal-growth">
                       {o.valueHigh > 0 ? `${formatGBP(o.valueLow)}–${formatGBP(o.valueHigh)}` : "—"}

@@ -14,6 +14,7 @@ import {
   formatGBPSigned,
   getBusinessType,
   translate,
+  HORIZON_LABELS,
   type GrowthGoal,
 } from "@/lib/opportunity";
 
@@ -126,18 +127,29 @@ export default async function SignalDetail({ params }: { params: Promise<{ id: s
             <PanelStat label="Expected value" tone={opp.expectedValue >= 0 ? "growth" : "risk"}>
               {formatGBPSigned(opp.expectedValue)}
             </PanelStat>
+            <PanelStat label="ROI">
+              {opp.roi > 0 ? `${opp.roi}x` : "—"}
+              <span className="block text-[11px] font-normal text-slate-500">on ~{formatGBP(opp.actionCost)}</span>
+            </PanelStat>
             <PanelStat label={opp.defensive ? "Revenue at risk" : "Revenue potential"}>
               {opp.revenueLabel}
             </PanelStat>
             <PanelStat label="Confidence">{Math.round(s.confidence * 100)}%</PanelStat>
-            <PanelStat label="Urgency / effort" className="capitalize">
-              {opp.urgency} / {opp.effort}
-            </PanelStat>
           </div>
 
           <div className="mt-3 rounded-xl border border-signal-hiring/30 bg-signal-hiring/[0.06] p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-signal-hiring">Recommended action</div>
-            <p className="mt-1 text-sm text-slate-200">{opp.action}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-signal-hiring">Action plan</div>
+              <span className="rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-medium text-slate-300">
+                {HORIZON_LABELS[opp.horizon]} · {opp.effort} effort
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-slate-200">{opp.action}</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+              {opp.actionPlan.map((step, i) => (
+                <li key={i} className="break-words">{step}</li>
+              ))}
+            </ol>
           </div>
 
           <details className="mt-3 text-sm text-slate-400">

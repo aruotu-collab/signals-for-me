@@ -131,6 +131,14 @@ export function getBusinessType(key?: string | null): BusinessType {
 export type Archetype = "new_resident" | "employer" | "competitor" | "demand";
 export type Urgency = "high" | "medium" | "low";
 export type Effort = "low" | "medium" | "high";
+/** when the opportunity needs acting on */
+export type Horizon = "now" | "30d" | "90d";
+
+export const HORIZON_LABELS: Record<Horizon, string> = {
+  now: "Act now",
+  "30d": "Within 30 days",
+  "90d": "Next 90 days",
+};
 
 export interface OpportunityResult {
   archetype: Archetype;
@@ -163,6 +171,14 @@ export interface OpportunityResult {
    *   defensive:  -confidence × midpoint(risk)
    */
   expectedValue: number;
+  /** typical £ cost to capture / defend this opportunity */
+  actionCost: number;
+  /** return multiple = |expectedValue| / actionCost (e.g. 28 → "28x") */
+  roi: number;
+  /** when to act, derived from urgency */
+  horizon: Horizon;
+  /** ordered, concrete steps to capture the opportunity */
+  actionPlan: string[];
 }
 
 // translateCore returns everything except the derived value/risk/urgency/effort
@@ -170,7 +186,17 @@ export interface OpportunityResult {
 // archetype branches focused on the revenue math.
 type CoreResult = Omit<
   OpportunityResult,
-  "urgency" | "effort" | "valueLow" | "valueHigh" | "riskLow" | "riskHigh" | "expectedValue"
+  | "urgency"
+  | "effort"
+  | "valueLow"
+  | "valueHigh"
+  | "riskLow"
+  | "riskHigh"
+  | "expectedValue"
+  | "actionCost"
+  | "roi"
+  | "horizon"
+  | "actionPlan"
 >;
 
 export interface TranslateContext {
@@ -266,6 +292,60 @@ const EFFORT_BY_ARCHETYPE: Record<Archetype, Effort> = {
   demand: "low",
 };
 
+// Typical UK cost to actually capture / defend each opportunity type — used to
+// turn the expected £ into an ROI multiple. Conservative campaign-level costs:
+//   demand: a landing page + small paid test
+//   employer: targeted B2B outreach
+//   competitor: a defensive retention/awareness push
+//   new_resident: a local campaign (ads + direct mail)
+const ACTION_COST_BY_ARCHETYPE: Record<Archetype, number> = {
+  new_resident: 1500,
+  employer: 800,
+  competitor: 1000,
+  demand: 500,
+};
+
+const HORIZON_BY_URGENCY: Record<Urgency, Horizon> = {
+  high: "now",
+  medium: "30d",
+  low: "90d",
+};
+
+function buildActionPlan(archetype: Archetype, area: string | null, bt: BusinessType): string[] {
+  const where = area ?? "your catchment";
+  const cust = bt.customerNoun;
+  switch (archetype) {
+    case "new_resident":
+      return [
+        `Build a new-resident landing page targeting ${where}`,
+        "Run geo-targeted local ads around the development",
+        "Send a welcome direct-mail drop before occupancy",
+        `Brief your front desk to convert ${cust} enquiries quickly`,
+      ];
+    case "employer":
+      return [
+        "Identify the employer's HR / Head of Talent",
+        `Send a tailored corporate offer for their incoming staff`,
+        "Propose an on-site or staff-perk package",
+        "Follow up within 7 days while the move is fresh",
+      ];
+    case "competitor":
+      return [
+        "Audit your local search rankings and reviews",
+        "Launch a retention + awareness campaign",
+        `Reach out to ${cust}s most exposed to the competitor`,
+        "Sharpen your differentiator messaging",
+      ];
+    default:
+      return [
+        "Create a focused landing page for this demand",
+        "Run a small paid test campaign",
+        `Capture ${cust} leads with a clear, time-boxed offer`,
+        "Double down on the channels with positive early ROI",
+      ];
+  }
+}
+
 function daysSince(iso: string): number {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return 999;
@@ -297,7 +377,24 @@ export function translate(s: SignalDTO, bt: BusinessType, ctx: TranslateContext)
   const expectedValue = core.defensive
     ? -s.confidence * mid(riskLow, riskHigh)
     : s.confidence * mid(valueLow, valueHigh);
-  return { ...core, urgency, effort, valueLow, valueHigh, riskLow, riskHigh, expectedValue };
+  const actionCost = ACTION_COST_BY_ARCHETYPE[core.archetype];
+  const roi = actionCost > 0 ? Math.round(Math.abs(expectedValue) / actionCost) : 0;
+  const horizon = HORIZON_BY_URGENCY[urgency];
+  const actionPlan = buildActionPlan(core.archetype, core.area, bt);
+  return {
+    ...core,
+    urgency,
+    effort,
+    valueLow,
+    valueHigh,
+    riskLow,
+    riskHigh,
+    expectedValue,
+    actionCost,
+    roi,
+    horizon,
+    actionPlan,
+  };
 }
 
 function translateCore(s: SignalDTO, bt: BusinessType, ctx: TranslateContext): CoreResult {

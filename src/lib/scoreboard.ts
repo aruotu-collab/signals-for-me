@@ -21,6 +21,8 @@ export interface Scoreboard {
   expectedGain: number;
   /** confidence-weighted expected money at risk (£) */
   expectedRisk: number;
+  /** net = expectedGain - expectedRisk */
+  netOpportunity: number;
   /** number of opportunities detected */
   count: number;
   /** how many are high-urgency */
@@ -78,6 +80,7 @@ export function computeScoreboard(items: ScoredItem[]): Scoreboard {
     riskHigh,
     expectedGain,
     expectedRisk,
+    netOpportunity: expectedGain - expectedRisk,
     count: items.length,
     urgentCount,
     threatCount,

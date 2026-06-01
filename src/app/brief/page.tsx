@@ -3,10 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { buildBrief, type BriefRow } from "@/lib/brief";
 import { getCurrentUser } from "@/lib/session";
+import { savedSignalIds } from "@/lib/shortlist";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { computeScoreboard } from "@/lib/scoreboard";
-import { BUSINESS_TYPES, formatGBPSigned, type Archetype, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, formatGBP, formatGBPSigned, type Archetype, type GrowthGoal } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ type SP = {
 };
 
 const GOALS: GrowthGoal[] = ["leads", "revenue", "locations", "hiring", "partnerships"];
-const SORTS = ["expected", "value", "confidence", "urgency", "recent"] as const;
+const SORTS = ["expected", "roi", "value", "confidence", "urgency", "recent"] as const;
 type Sort = (typeof SORTS)[number];
 const ARCHETYPES: Archetype[] = ["new_resident", "employer", "competitor", "demand"];
 const ARCHETYPE_LABELS: Record<Archetype, string> = {
@@ -87,6 +88,20 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   // the active filters + sort.
   const board = result ? computeScoreboard(result.rows) : null;
 
+  // "Missed opportunity": expected upside the user hasn't shortlisted yet — a
+  // gentle nudge to start acting on (and saving) opportunities.
+  let missedValue = 0;
+  let missedCount = 0;
+  if (user && result) {
+    const saved = new Set(await savedSignalIds(user.id));
+    for (const r of result.rows) {
+      if (r.opportunity.expectedValue > 0 && !saved.has(r.signal.id)) {
+        missedValue += r.opportunity.expectedValue;
+        missedCount += 1;
+      }
+    }
+  }
+
   const layout = sp.view === "cards" ? "cards" : "table";
   const sort: Sort = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as Sort) : "expected";
   const kind = (ARCHETYPES as string[]).includes(sp.kind ?? "") ? (sp.kind as Archetype) : undefined;
@@ -105,6 +120,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
     const A = a.opportunity;
     const B = b.opportunity;
     if (sort === "expected") return B.expectedValue - A.expectedValue;
+    if (sort === "roi") return B.roi - A.roi;
     if (sort === "confidence") return b.signal.confidence - a.signal.confidence;
     if (sort === "recent") return Date.parse(b.signal.detectedAt) - Date.parse(a.signal.detectedAt);
     if (sort === "urgency") {
@@ -174,6 +190,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
               <Mini label="Sort by">
                 <select name="sort" defaultValue={sort} className={miniCls}>
                   <option value="expected">Expected value</option>
+                  <option value="roi">Highest ROI</option>
                   <option value="value">Highest value</option>
                   <option value="confidence">Highest confidence</option>
                   <option value="urgency">Most urgent</option>
@@ -242,6 +259,18 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         <section>
           <Scoreboard board={board} businessLabel={btLabel} location={location} />
 
+          {missedCount > 0 && missedValue > 0 && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm">
+              <span className="text-signal-buying">
+                You&apos;re not yet acting on{" "}
+                <span className="font-bold">{formatGBP(missedValue)}</span> of expected value across{" "}
+                <span className="font-bold">{missedCount}</span>{" "}
+                {missedCount === 1 ? "opportunity" : "opportunities"}.
+              </span>
+              <span className="text-xs text-slate-400">Tick rows and save them to build your portfolio.</span>
+            </div>
+          )}
+
           {result.fallback && !usingGenericDefault && (
             <p className="mb-4 rounded-xl border border-signal-buying/30 bg-signal-buying/10 p-3 text-sm text-signal-buying">
               No signals matched that exact profile yet, so we&apos;re showing the strongest current
@@ -261,7 +290,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href="/shortlist" className="btn-ghost whitespace-nowrap text-sm">
-                Saved
+                Portfolio
               </Link>
               <Link
                 href={`/areas?business=${encodeURIComponent(business)}`}

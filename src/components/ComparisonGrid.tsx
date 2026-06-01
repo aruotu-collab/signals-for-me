@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatGBP, formatGBPSigned } from "@/lib/opportunity";
+import { formatGBP, formatGBPSigned, HORIZON_LABELS } from "@/lib/opportunity";
 import type { BriefRow } from "@/lib/brief";
 
 // Head-to-head comparison: each opportunity becomes a column, each decision
@@ -64,13 +64,35 @@ export function ComparisonGrid({ rows }: { rows: BriefRow[] }) {
             )
           }
         />
+        <Row label="ROI" rows={rows}
+          render={(r) =>
+            r.opportunity.roi > 0 ? (
+              <span title={`Est. cost ${formatGBP(r.opportunity.actionCost)}`}>
+                <span className="font-semibold text-white">{r.opportunity.roi}x</span>
+                <span className="ml-1 text-xs text-slate-500">on ~{formatGBP(r.opportunity.actionCost)}</span>
+              </span>
+            ) : (
+              "—"
+            )
+          }
+        />
         <Row label="Confidence" rows={rows} render={(r) => `${Math.round(r.signal.confidence * 100)}%`} />
         <Row label="Opportunity score" rows={rows} render={(r) => `${r.opportunity.score} / 100`} />
+        <Row label="Act by" rows={rows} render={(r) => HORIZON_LABELS[r.opportunity.horizon]} />
         <Row label="Urgency" rows={rows} render={(r) => <Pill text={r.opportunity.urgency} hot={r.opportunity.urgency === "high"} />} />
         <Row label="Effort" rows={rows} render={(r) => <Pill text={r.opportunity.effort} good={r.opportunity.effort === "low"} />} />
         <Row label="Type" rows={rows} render={(r) => r.trend} />
         <Row label="Area" rows={rows} render={(r) => r.opportunity.area ?? "—"} />
         <Row label="Recommended action" rows={rows} render={(r) => <span className="text-slate-200">{r.opportunity.action}</span>} />
+        <Row label="Action plan" rows={rows}
+          render={(r) => (
+            <ol className="list-decimal space-y-1 pl-4 text-xs text-slate-300">
+              {r.opportunity.actionPlan.map((step, i) => (
+                <li key={i} className="break-words">{step}</li>
+              ))}
+            </ol>
+          )}
+        />
         <Row label="Source" rows={rows}
           render={(r) =>
             r.signal.sourceUrl ? (

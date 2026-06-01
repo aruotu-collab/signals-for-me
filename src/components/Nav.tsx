@@ -26,7 +26,7 @@ export async function Nav() {
             Feed
           </Link>
           <Link href="/shortlist" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[560px]:inline-block sm:px-3">
-            Saved
+            Portfolio
           </Link>
           <Link href="/pricing" className="hidden rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white min-[420px]:inline-block sm:px-3">
             Pricing
