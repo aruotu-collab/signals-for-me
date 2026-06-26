@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { categoryIcon, categoryLabel } from "@/lib/demand";
 import { parseFaq } from "@/lib/intent/queries";
-import { IntentCallCTA } from "@/components/IntentCallCTA";
+import { ServiceRequestForm } from "@/components/ServiceRequestForm";
 import { VotePanel } from "@/components/VotePanel";
 import { getCurrentUser } from "@/lib/session";
 import { hasCompleteLocation } from "@/lib/location";
@@ -30,25 +30,36 @@ export async function IntentPageView({
   return (
     <div className="space-y-8">
       <Link href="/need" className="text-sm text-slate-400 hover:text-white">
-        ← All intent pages
+        ← All services
       </Link>
+
+      <header>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-2xl">{categoryIcon(campaign.category)}</span>
+          <span className="chip bg-white/5 text-slate-400">{categoryLabel(campaign.category)}</span>
+          {campaign.modifierLabel && (
+            <span className="chip bg-brand-500/15 text-brand-200">{campaign.modifierLabel}</span>
+          )}
+          {campaign.locationName && (
+            <span className="chip bg-white/5 text-slate-500">📍 {campaign.locationName}</span>
+          )}
+        </div>
+        <h1 className="mt-3 text-3xl font-bold text-white sm:text-4xl">{campaign.h1}</h1>
+        <p className="mt-2 max-w-2xl text-slate-400">
+          Need help right away? Tell us where you are and we&apos;ll connect you to a local provider.
+        </p>
+      </header>
+
+      <ServiceRequestForm
+        serviceName={campaign.serviceName}
+        slug={campaign.slug}
+        intentCampaignId={campaign.id}
+        headline={`Request ${campaign.serviceName}`}
+        subline={campaign.howFast}
+      />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <header>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-2xl">{categoryIcon(campaign.category)}</span>
-              <span className="chip bg-white/5 text-slate-400">{categoryLabel(campaign.category)}</span>
-              {campaign.modifierLabel && (
-                <span className="chip bg-brand-500/15 text-brand-200">{campaign.modifierLabel}</span>
-              )}
-              {campaign.locationName && (
-                <span className="chip bg-white/5 text-slate-500">📍 {campaign.locationName}</span>
-              )}
-            </div>
-            <h1 className="mt-3 text-3xl font-bold text-white sm:text-4xl">{campaign.h1}</h1>
-          </header>
-
           <section className="card space-y-5 p-6">
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -66,7 +77,6 @@ export async function IntentPageView({
                 <div className="mt-1 text-sm font-medium text-white">{campaign.howFast}</div>
               </div>
             </div>
-            <IntentCallCTA serviceName={campaign.serviceName} callPhone={campaign.callPhone} />
           </section>
 
           {faqs.length > 0 && (
@@ -85,10 +95,9 @@ export async function IntentPageView({
 
           {idea && (
             <section id="vote" className="card p-5">
-              <h2 className="text-lg font-semibold text-white">Show demand in your area</h2>
+              <h2 className="text-lg font-semibold text-white">Show long-term demand in your area</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Can&apos;t call right now? Vote to help businesses see unmet demand — same data powers our
-                intelligence dashboard.
+                Not urgent? Vote to help businesses see unmet demand in your area.
               </p>
               <div className="mt-4">
                 <VotePanel

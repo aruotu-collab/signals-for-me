@@ -37,7 +37,7 @@ export default async function Home() {
               Browse &amp; vote
             </Link>
             <Link href="/need" className="btn-ghost px-6 py-3 text-base">
-              Find a service
+              Get help now
             </Link>
             <Link href="/submit" className="btn-ghost px-6 py-3 text-base">
               Submit an idea

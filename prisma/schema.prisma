@@ -288,6 +288,8 @@ model IntentCampaign {
 
   callPhone       String?
 
+  serviceRequests ServiceRequest[]
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -295,6 +297,37 @@ model IntentCampaign {
   @@index([category])
   @@index([intentGroup])
   @@index([modifierSlug])
+}
+
+// Urgent service request from an intent landing page (lead capture before call).
+model ServiceRequest {
+  id               String   @id @default(cuid())
+  intentCampaignId String?
+  intentCampaign   IntentCampaign? @relation(fields: [intentCampaignId], references: [id], onDelete: SetNull)
+
+  serviceName      String
+  slug             String?
+  urgency          String   // now | today | this_week
+  details          String?
+
+  contactPhone     String
+  contactName      String?
+
+  locationCountry  String?
+  locationRegion   String?
+  locationCity     String?
+  locationArea     String?
+
+  status           String   @default("new") // new | called | fulfilled | spam
+  callPhoneShown   String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([intentCampaignId])
+  @@index([createdAt])
+  @@index([urgency])
 }
 
 // Bookkeeping for pipeline runs (observability).

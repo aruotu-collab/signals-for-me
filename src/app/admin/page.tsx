@@ -42,6 +42,9 @@ export default async function AdminPage() {
           <Link href="/admin/intents" className="btn-ghost px-4 py-2 text-sm">
             Intent campaigns
           </Link>
+          <Link href="/admin/leads" className="btn-ghost px-4 py-2 text-sm">
+            Service leads
+          </Link>
         </div>
         <span className="text-xs text-slate-500">Signed in as {email}</span>
       </header>

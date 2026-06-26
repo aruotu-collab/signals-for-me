@@ -12,10 +12,15 @@ export function LocationCapture({
   compact = false,
   initial,
   onSaved,
+  embedded = false,
+  onLocationChange,
 }: {
   compact?: boolean;
   initial?: Partial<UserLocation> | null;
   onSaved?: () => void;
+  /** When true, location is passed to parent — no profile save or inner submit. */
+  embedded?: boolean;
+  onLocationChange?: (loc: UserLocation | null) => void;
 }) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -136,6 +141,7 @@ export function LocationCapture({
     setRegionName(loc.locationRegion);
     setQuery(formatAreaDisplay(loc));
     setSuggestions([]);
+    if (embedded) onLocationChange?.(loc);
   }
 
   function pickQuickCity(name: string) {
@@ -168,6 +174,11 @@ export function LocationCapture({
       return;
     }
 
+    if (embedded) {
+      onLocationChange?.(loc);
+      return;
+    }
+
     startTransition(async () => {
       const result = await saveConsumerLocation(loc);
       if (result.error) {
@@ -181,24 +192,26 @@ export function LocationCapture({
   const selectCls =
     "w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white [&>option]:bg-ink-900";
 
-  return (
-    <form
-      onSubmit={submit}
-      className={`rounded-xl border border-brand-400/25 bg-brand-500/10 ${compact ? "p-4" : "p-5"}`}
-    >
+  const inner = (
+    <>
       <div className="text-sm font-semibold text-white">
-        {compact ? "Add your location to vote" : "Where are you based?"}
+        {embedded
+          ? "Where do you need help?"
+          : compact
+            ? "Add your location to vote"
+            : "Where are you based?"}
       </div>
       <p className="mt-1 text-xs text-slate-400">
         Country → region → town/area (e.g. Nigeria → Lagos State → Ikeja, or UK → England →
-        Catford). Helps businesses see where demand is.
+        Catford).
+        {!embedded && " Helps businesses see where demand is."}
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="block sm:col-span-1">
           <span className="text-xs text-slate-400">Country</span>
           <select
-            required
+            required={!embedded}
             value={countryCode}
             onChange={(e) => onCountryChange(e.target.value)}
             className={`mt-1 ${selectCls}`}
@@ -217,7 +230,7 @@ export function LocationCapture({
             {countryCode ? regionStepLabel(countryCode) : "State / region"}
           </span>
           <select
-            required
+            required={!embedded}
             value={regionCode}
             disabled={!countryCode}
             onChange={(e) => onRegionChange(e.target.value)}
@@ -242,6 +255,7 @@ export function LocationCapture({
               onChange={(e) => {
                 setQuery(e.target.value);
                 setSelected(null);
+                if (embedded) onLocationChange?.(null);
               }}
               placeholder="Search e.g. Ikeja, Catford, Austin…"
               className="mt-1 w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 disabled:opacity-50"
@@ -291,15 +305,34 @@ export function LocationCapture({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending || !countryCode || !regionCode}
-        className="btn-primary mt-3 px-4 py-2 text-sm disabled:opacity-50"
-      >
-        {pending ? "Saving…" : "Save location"}
-      </button>
+      {!embedded && (
+        <button
+          type="submit"
+          disabled={pending || !countryCode || !regionCode}
+          className="btn-primary mt-3 px-4 py-2 text-sm disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Save location"}
+        </button>
+      )}
 
       {error && <p className="mt-2 text-xs text-signal-distress">{error}</p>}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className={`rounded-xl border border-white/10 bg-white/[0.03] ${compact ? "p-4" : "p-5"}`}>
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className={`rounded-xl border border-brand-400/25 bg-brand-500/10 ${compact ? "p-4" : "p-5"}`}
+    >
+      {inner}
     </form>
   );
 }

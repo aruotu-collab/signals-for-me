@@ -68,6 +68,25 @@ export async function listPublishedSlugs(limit = 5000) {
   });
 }
 
+export async function searchPublishedCampaigns(q: string, limit = 8) {
+  const term = q.trim();
+  if (!term) return [];
+
+  return prisma.intentCampaign.findMany({
+    where: {
+      status: "published",
+      OR: [
+        { serviceName: { contains: term, mode: "insensitive" } },
+        { h1: { contains: term, mode: "insensitive" } },
+        { slug: { contains: term.replace(/\s+/g, "-").toLowerCase() } },
+      ],
+    },
+    orderBy: { serviceName: "asc" },
+    take: limit,
+    select: { id: true, slug: true, h1: true, serviceName: true },
+  });
+}
+
 export function parseFaq(json: string): { q: string; a: string }[] {
   try {
     const arr = JSON.parse(json);
