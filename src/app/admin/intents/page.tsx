@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminEmail } from "@/lib/admin";
+import { AdminNav } from "@/components/AdminNav";
 import { IntentManager } from "./IntentManager";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +36,9 @@ export default async function AdminIntentsPage() {
 
   return (
     <div>
+      <AdminNav email={email} />
       <div className="mb-6">
-        <Link href="/admin" className="text-sm text-slate-400 hover:text-white">
-          ← Admin
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-white">Intent campaign manager</h1>
+        <h1 className="text-2xl font-bold text-white">Intent campaign manager</h1>
         <p className="text-sm text-slate-400">
           Generate SEO intent pages from the 1,000-idea catalog. Service × modifier pages with call + vote CTAs.
         </p>

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminEmail } from "@/lib/admin";
+import { AdminNav } from "@/components/AdminNav";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
@@ -30,23 +30,10 @@ export default async function AdminPage() {
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Admin dashboard</h1>
-          <p className="text-sm text-slate-400">Live user, subscriber & content metrics.</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/admin/catalog" className="btn-ghost px-4 py-2 text-sm">
-            Catalog manager
-          </Link>
-          <Link href="/admin/intents" className="btn-ghost px-4 py-2 text-sm">
-            Intent campaigns
-          </Link>
-          <Link href="/admin/leads" className="btn-ghost px-4 py-2 text-sm">
-            Service leads
-          </Link>
-        </div>
-        <span className="text-xs text-slate-500">Signed in as {email}</span>
+      <AdminNav email={email} />
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Admin dashboard</h1>
+        <p className="text-sm text-slate-400">Live user, subscriber, lead & content metrics.</p>
       </header>
 
       {dbError || !data ? (

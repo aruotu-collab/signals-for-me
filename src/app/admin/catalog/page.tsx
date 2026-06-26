@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminEmail } from "@/lib/admin";
+import { AdminNav } from "@/components/AdminNav";
 import { DEMAND_CATEGORIES } from "@/lib/demandCategories";
 import { CatalogManager } from "./CatalogManager";
 
@@ -41,12 +41,10 @@ export default async function AdminCatalogPage() {
 
   return (
     <div>
+      <AdminNav email={email} />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/admin" className="text-sm text-slate-400 hover:text-white">
-            ← Admin
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-white">Catalog manager</h1>
+          <h1 className="text-2xl font-bold text-white">Catalog manager</h1>
           <p className="text-sm text-slate-400">
             Edit demand idea copy, export/import JSON, or sync the built-in 1,000-idea catalog.
           </p>

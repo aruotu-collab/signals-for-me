@@ -16,10 +16,10 @@ export async function Nav() {
           </span>
         </Link>
         <Link
-          href="/ideas"
+          href="/need"
           className="btn-primary order-2 ml-auto shrink-0 whitespace-nowrap px-2.5 py-2 sm:order-3 sm:ml-2 sm:px-3"
         >
-          Vote now
+          Get help
         </Link>
         <nav className="order-3 flex w-full min-w-0 touch-pan-x items-center gap-0.5 overflow-x-auto overscroll-x-contain whitespace-nowrap text-sm sm:order-2 sm:ml-auto sm:w-auto sm:gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Link href="/ideas" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">

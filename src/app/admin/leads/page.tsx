@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminEmail } from "@/lib/admin";
+import { AdminNav } from "@/components/AdminNav";
 import { LeadsManager } from "./LeadsManager";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +33,9 @@ export default async function AdminLeadsPage() {
 
   return (
     <div>
+      <AdminNav email={email} />
       <div className="mb-6">
-        <Link href="/admin" className="text-sm text-slate-400 hover:text-white">
-          ← Admin
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-white">Service requests</h1>
+        <h1 className="text-2xl font-bold text-white">Service requests</h1>
         <p className="text-sm text-slate-400">
           Urgent help requests from /need pages. Phone numbers are revealed to users after they submit.
         </p>

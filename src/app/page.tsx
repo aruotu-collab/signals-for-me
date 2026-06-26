@@ -1,71 +1,196 @@
 import Link from "next/link";
 import { DemandCard } from "@/components/DemandCard";
+import { NeedHubRequest } from "@/components/NeedHubRequest";
 import { getDashboardSummary, getDemandIdeas } from "@/lib/demand";
+import { EMERGENCY_QUICK_PICKS } from "@/lib/serviceRequest";
+import { countPublishedCampaigns, listPublishedCampaigns } from "@/lib/intent/queries";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let topIdeas: Awaited<ReturnType<typeof getDemandIdeas>> = [];
   let summary = { totalVotes: 0, totalIdeas: 0 };
+  let serviceCount = 0;
+  let requestCount = 0;
+  let featuredServices: Awaited<ReturnType<typeof listPublishedCampaigns>> = [];
 
   try {
-    [topIdeas, summary] = await Promise.all([
-      getDemandIdeas({ sort: "score", limit: 6 }),
+    [topIdeas, summary, serviceCount, requestCount, featuredServices] = await Promise.all([
+      getDemandIdeas({ sort: "score", limit: 3 }),
       getDashboardSummary(),
+      countPublishedCampaigns(),
+      prisma.serviceRequest.count(),
+      listPublishedCampaigns({ intentGroup: "emergency", limit: 6 }),
     ]);
   } catch {
     // DB may not be seeded yet
   }
 
-  return (
-    <div className="space-y-24">
-      {/* Hero */}
-      <section className="pt-12">
-        <div className="text-center">
-          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">
-            Customer Demand Intelligence
-          </span>
-          <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-            Vote products &amp; services <span className="text-brand-400">into existence.</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            Tell businesses what you actually want — before they build the wrong thing. Your votes create real demand
-            intelligence that shapes the marketplace.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/ideas" className="btn-primary px-6 py-3 text-base">
-              Browse &amp; vote
-            </Link>
-            <Link href="/need" className="btn-ghost px-6 py-3 text-base">
-              Get help now
-            </Link>
-            <Link href="/submit" className="btn-ghost px-6 py-3 text-base">
-              Submit an idea
-            </Link>
-          </div>
-        </div>
+  if (featuredServices.length < 4) {
+    try {
+      const more = await listPublishedCampaigns({ limit: 6 });
+      featuredServices = more;
+    } catch {
+      // ignore
+    }
+  }
 
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <HeroStat label="Demand ideas tracked" value={String(summary.totalIdeas || "24+")} />
-          <HeroStat label="Customer votes cast" value={(summary.totalVotes || 8400).toLocaleString()} tone="growth" />
-          <HeroStat label="Businesses using insights" value="150+" />
+  return (
+    <div className="space-y-20">
+      {/* Hero — need / intent first */}
+      <section className="pt-8">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-start">
+          <div>
+            <span className="chip border border-brand-400/30 bg-brand-500/10 text-brand-200">
+              Need help right now?
+            </span>
+            <h1 className="mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl">
+              Flat tire, locked out, burst pipe — <span className="text-brand-400">get connected.</span>
+            </h1>
+            <p className="mt-4 text-lg text-slate-400">
+              Tell us what you need and where you are. We match you with local providers — then show you who to call.
+              No account required.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {EMERGENCY_QUICK_PICKS.slice(0, 6).map((p) => (
+                <Link
+                  key={p.label}
+                  href={`/need?q=${encodeURIComponent(p.query)}`}
+                  className="chip bg-white/5 text-slate-300 hover:bg-brand-500/15 hover:text-brand-200"
+                >
+                  {p.label}
+                </Link>
+              ))}
+            </div>
+            <div className="mt-8 grid grid-cols-3 gap-3">
+              <HeroStat label="Services live" value={serviceCount > 0 ? serviceCount.toLocaleString() : "1,000+"} />
+              <HeroStat label="Help requests" value={requestCount.toLocaleString()} tone="growth" />
+              <HeroStat label="Demand votes" value={(summary.totalVotes || 0).toLocaleString()} />
+            </div>
+          </div>
+
+          <div id="request">
+            <NeedHubRequest />
+          </div>
         </div>
       </section>
 
-      {/* Live demand feed preview */}
+      {/* Featured intent pages */}
+      {featuredServices.length > 0 && (
+        <section>
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Popular urgent services</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                High-intent pages — search Google, land here, request help, get connected.
+              </p>
+            </div>
+            <Link href="/need" className="btn-ghost shrink-0 px-4 py-2 text-sm">
+              All services →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredServices.slice(0, 6).map((c) => (
+              <Link
+                key={c.id}
+                href={`/need/${c.slug}`}
+                className="card block p-5 transition hover:border-brand-400/30"
+              >
+                <div className="text-xs text-slate-500">{c.modifierLabel}</div>
+                <div className="mt-1 font-semibold text-white">{c.h1}</div>
+                <p className="mt-2 line-clamp-2 text-sm text-slate-400">{c.howFast}</p>
+                <span className="mt-3 inline-block text-sm text-brand-300">Request help →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* How it works — intent flow */}
+      <section>
+        <h2 className="text-center text-2xl font-bold text-white">From Google search to help in minutes</h2>
+        <p className="mx-auto mt-2 max-w-xl text-center text-sm text-slate-400">
+          Built for people who need a solution immediately — not another directory to browse.
+        </p>
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+          {[
+            { n: "01", t: "Search", d: "You Google \"flat tire repair near me\" and land on our page." },
+            { n: "02", t: "Request", d: "Fill a short form — service, location, urgency, and your phone." },
+            { n: "03", t: "Connect", d: "We show a number to call a local provider in your area." },
+            { n: "04", t: "Intelligence", d: "Every request feeds demand data — what people need, where, and when." },
+          ].map((s) => (
+            <div key={s.n} className="card p-5">
+              <div className="text-sm font-bold text-brand-400">{s.n}</div>
+              <div className="mt-1 text-lg font-semibold text-white">{s.t}</div>
+              <p className="mt-1 text-sm text-slate-400">{s.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Dual platform */}
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="card border-brand-400/20 p-7 shadow-glow">
+          <span className="chip bg-brand-500/15 text-brand-200">Intent Network</span>
+          <h3 className="mt-3 text-xl font-bold text-white">Need something now?</h3>
+          <p className="mt-1 text-sm text-slate-400">
+            Urgent help — plumbers, locksmiths, tow trucks, and hundreds more. Request first, call second.
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-300">
+            {[
+              "1,000+ service pages for Google search",
+              "Request form with location & urgency",
+              "Phone connection after you submit",
+              "No sign-in required",
+            ].map((x) => (
+              <li key={x} className="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2">
+                <span className="text-brand-400">→</span> {x}
+              </li>
+            ))}
+          </ul>
+          <Link href="/need" className="btn-primary mt-5 px-5 py-2">
+            Get help now
+          </Link>
+        </div>
+        <div className="card p-7">
+          <span className="chip border border-white/10 bg-white/5 text-slate-300">Demand Intelligence</span>
+          <h3 className="mt-3 text-xl font-bold text-white">Shape what gets built</h3>
+          <p className="mt-1 text-sm text-slate-400">
+            Not urgent? Vote on ideas for products and services you wish existed in your area.
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-300">
+            {[
+              "Vote: want, need, would pay, waitlist",
+              "Submit your own ideas",
+              "See demand scores by location",
+              "Businesses use this to decide what to launch",
+            ].map((x) => (
+              <li key={x} className="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2">
+                <span className="text-brand-400">→</span> {x}
+              </li>
+            ))}
+          </ul>
+          <Link href="/ideas" className="btn-ghost mt-5 px-5 py-2">
+            Browse &amp; vote
+          </Link>
+        </div>
+      </section>
+
+      {/* Voting preview — secondary */}
       {topIdeas.length > 0 && (
         <section>
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white">What people want right now</h2>
-              <p className="mt-1 text-sm text-slate-400">Vote for the services you wish existed in your area.</p>
+              <h2 className="text-2xl font-bold text-white">Trending demand ideas</h2>
+              <p className="mt-1 text-sm text-slate-400">Vote on services you want — separate from urgent help requests.</p>
             </div>
             <Link href="/ideas" className="btn-ghost shrink-0 px-4 py-2 text-sm">
               See all →
             </Link>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {topIdeas.slice(0, 6).map((idea) => (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {topIdeas.map((idea) => (
               <DemandCard
                 key={idea.id}
                 id={idea.id}
@@ -80,151 +205,15 @@ export default async function Home() {
         </section>
       )}
 
-      {/* How voting works */}
-      <section>
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-white">More than a like button</h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
-            Every vote type carries a different weight. Businesses see a real Demand Score — not just popularity.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { emoji: "👍", label: "Want this", weight: "×1" },
-            { emoji: "🔥", label: "Need this", weight: "×2" },
-            { emoji: "📍", label: "In my area", weight: "×3" },
-            { emoji: "💰", label: "Would pay", weight: "×5" },
-            { emoji: "✅", label: "Join waitlist", weight: "×10" },
-          ].map((v) => (
-            <div key={v.label} className="card p-4 text-center">
-              <div className="text-2xl">{v.emoji}</div>
-              <div className="mt-2 text-sm font-semibold text-white">{v.label}</div>
-              <div className="mt-1 text-xs text-brand-300">{v.weight} demand weight</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Two audiences */}
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="card p-7">
-          <h3 className="text-xl font-bold text-white">For Consumers</h3>
-          <p className="mt-1 text-sm text-slate-400">Shape the future marketplace. Get what you actually want.</p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-300">
-            {[
-              "Vote for services you wish existed",
-              "Submit your own ideas",
-              "See how many others agree",
-              "Join waitlists for upcoming launches",
-            ].map((x) => (
-              <li key={x} className="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2">
-                <span className="text-brand-400">→</span> {x}
-              </li>
-            ))}
-          </ul>
-          <Link href="/ideas" className="btn-primary mt-5 px-5 py-2">
-            Start voting
-          </Link>
-        </div>
-        <div className="card border-brand-400/20 p-7 shadow-glow">
-          <h3 className="text-xl font-bold text-white">For Businesses</h3>
-          <p className="mt-1 text-sm text-slate-400">
-            Know what customers want before you invest time and money building it.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-300">
-            {[
-              "Demand intelligence dashboard",
-              "Demographics & geography",
-              "Pricing & urgency insights",
-              "Trending & unserved demand alerts",
-            ].map((x) => (
-              <li key={x} className="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2">
-                <span className="text-brand-400">→</span> {x}
-              </li>
-            ))}
-          </ul>
-          <Link href="/dashboard" className="btn-primary mt-5 px-5 py-2">
-            View dashboard
-          </Link>
-        </div>
-      </section>
-
-      {/* The transformation */}
-      <section className="grid grid-cols-1 items-center gap-6 md:grid-cols-2">
-        <div className="card border-white/5 bg-ink-800/50 p-6">
-          <div className="text-xs uppercase tracking-wide text-slate-500">Traditional market research</div>
-          <p className="mt-3 text-lg text-slate-400">
-            &ldquo;We surveyed 200 people and 34% said they might be interested.&rdquo;
-          </p>
-          <ul className="mt-4 space-y-1 text-sm text-slate-500">
-            <li>• Expensive (£5k–£50k per study)</li>
-            <li>• Slow (weeks to months)</li>
-            <li>• Small, biased samples</li>
-          </ul>
-        </div>
-        <div className="card p-6 shadow-glow">
-          <div className="text-xs uppercase tracking-wide text-brand-300">SignalsForMe demand intelligence</div>
-          <p className="mt-3 text-lg font-semibold text-white">
-            &ldquo;4,500 people would pay £20/month for mobile car wash at home.&rdquo;
-          </p>
-          <div className="mt-3 text-2xl font-bold text-signal-growth">Demand Score: 8,750 — Very High</div>
-          <ul className="mt-3 space-y-1 text-sm text-slate-300">
-            <li>• London: 9,400 · Manchester: 2,200</li>
-            <li>• Age 25–45, parents, £60k+ income</li>
-            <li>• 63% demand growth in 7 days</li>
-          </ul>
-          <div className="mt-3 rounded-lg border border-brand-400/20 bg-brand-500/5 px-3 py-2 text-sm text-brand-200">
-            Launch here first. These customers are waiting.
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section>
-        <h2 className="text-center text-2xl font-bold text-white">From wish to validated demand in four steps</h2>
-        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-          {[
-            { n: "01", t: "Discover", d: "Browse ideas or submit what you wish existed — dental after hours, mobile car wash, weekend childcare." },
-            { n: "02", t: "Vote", d: "Like, need, would pay, or join the waitlist. Add pricing and urgency so businesses know it's real." },
-            { n: "03", t: "Aggregate", d: "Votes become a Demand Score with geography, demographics, and growth trends." },
-            { n: "04", t: "Launch", d: "Businesses see validated demand and know exactly what to build, where, and at what price." },
-          ].map((s) => (
-            <div key={s.n} className="card p-5">
-              <div className="text-sm font-bold text-brand-400">{s.n}</div>
-              <div className="mt-1 text-lg font-semibold text-white">{s.t}</div>
-              <p className="mt-1 text-sm text-slate-400">{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Differentiator */}
-      <section className="card p-8 text-center">
-        <h2 className="text-2xl font-bold text-white">The Bloomberg Terminal for Customer Demand</h2>
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["Surveys", "What did we ask?"],
-            ["Social media", "What are people saying?"],
-            ["Google Trends", "What are people searching?"],
-            ["SignalsForMe", "What will people actually pay for?"],
-          ].map(([k, v], i) => (
-            <div key={k} className={`rounded-xl p-4 ${i === 3 ? "bg-brand-500/15 ring-1 ring-brand-400/40" : "bg-white/5"}`}>
-              <div className={`text-sm font-bold ${i === 3 ? "text-brand-200" : "text-slate-300"}`}>{k}</div>
-              <div className="mt-1 text-sm text-slate-400">{v}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="text-center">
-        <h2 className="text-3xl font-bold text-white">Tell businesses what you want.</h2>
+      {/* Business CTA */}
+      <section className="card border-brand-400/20 p-8 text-center">
+        <h2 className="text-2xl font-bold text-white">For businesses</h2>
         <p className="mx-auto mt-3 max-w-xl text-slate-400">
-          The world&apos;s largest customer demand intelligence platform — before anyone builds it.
+          See what customers need right now — urgent requests and long-term demand votes in one intelligence platform.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link href="/ideas" className="btn-primary px-8 py-3 text-base">
-            Vote now
+          <Link href="/dashboard" className="btn-primary px-8 py-3 text-base">
+            Demand dashboard
           </Link>
           <Link href="/pricing" className="btn-ghost px-8 py-3 text-base">
             Business plans
@@ -246,9 +235,9 @@ function HeroStat({
 }) {
   const color = tone === "growth" ? "text-signal-growth" : "text-white";
   return (
-    <div className="card p-6 text-center">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-2 text-3xl font-bold sm:text-4xl ${color}`}>{value}</div>
+    <div className="card p-4 text-center">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">{label}</div>
+      <div className={`mt-1 text-xl font-bold sm:text-2xl ${color}`}>{value}</div>
     </div>
   );
 }
