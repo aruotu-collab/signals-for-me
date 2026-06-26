@@ -6,7 +6,7 @@ import { resolveBrief } from "@/lib/briefRequest";
 import { getCurrentUser } from "@/lib/session";
 import { OpportunityTable } from "@/components/OpportunityTable";
 import { OpportunityCard } from "@/components/OpportunityCard";
-import { formatGBPSigned, getGoalLens } from "@/lib/opportunity";
+import { formatGBPSigned, getLensMeta } from "@/lib/opportunity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -39,26 +39,23 @@ export default async function LensPage({
   const { key } = await params;
   const sp = await searchParams;
   const user = await getCurrentUser();
+  const isConsumer = sp.audience === "consumer";
 
-  if (user && user.subscriptions.length === 0 && !user.businessType) {
+  if (!isConsumer && user && user.subscriptions.length === 0 && !user.businessType) {
     redirect("/onboarding");
   }
 
-  const { business, location, goal, btLabel, lensKeys, result, lensGroups } = await resolveBrief(sp, user, {
+  const { business, btLabel, lensKeys, result, lensGroups, ctxParams } = await resolveBrief(sp, user, {
     limit: 12,
   });
 
-  // Carry the business context through every link + the refine form.
-  const ctxParams: Record<string, string> = {};
-  if (business) ctxParams.business = business;
-  if (location) ctxParams.location = location;
-  if (goal) ctxParams.goal = goal;
+  // Carry the brief context (audience/business/location/goal) through links.
   const ctxQs = new URLSearchParams(ctxParams).toString();
   const boardHref = `/brief${ctxQs ? `?${ctxQs}` : ""}`;
 
   const group = lensGroups.find((g) => g.key === key) ?? null;
   const validKey = lensKeys.includes(key);
-  const goalLens = getGoalLens(key);
+  const goalLens = getLensMeta(key, isConsumer ? "consumer" : "business");
 
   // Nothing to show: the lens is coming soon (no data pipeline yet), isn't valid
   // for this business, or has no live opportunities right now.
@@ -197,9 +194,11 @@ export default async function LensPage({
             <Link href="/shortlist" className="btn-ghost whitespace-nowrap text-xs">
               Portfolio
             </Link>
-            <Link href={`/areas?business=${encodeURIComponent(business)}`} className="btn-ghost whitespace-nowrap text-xs">
-              Top postcodes →
-            </Link>
+            {!isConsumer && (
+              <Link href={`/areas?business=${encodeURIComponent(business)}`} className="btn-ghost whitespace-nowrap text-xs">
+                Top postcodes →
+              </Link>
+            )}
           </div>
         </div>
 
@@ -221,9 +220,9 @@ export default async function LensPage({
 
       {/* Refine controls scoped to this lens. */}
       <form method="get" className="mt-4 flex flex-wrap items-end gap-2">
-        <input type="hidden" name="business" value={business} />
-        {location && <input type="hidden" name="location" value={location} />}
-        {goal && <input type="hidden" name="goal" value={goal} />}
+        {Object.entries(ctxParams).map(([k, v]) => (
+          <input key={k} type="hidden" name={k} value={v} />
+        ))}
         <Mini label="Sort by">
           <select name="sort" defaultValue={sort} className={miniCls}>
             <option value="expected">Expected value</option>
@@ -283,9 +282,9 @@ export default async function LensPage({
       )}
 
       <p className="mt-6 text-xs text-slate-600">
-        Revenue figures are estimates based on public UK benchmarks (ONS household size, sector fee/value
-        averages) and conservative capture-rate assumptions shown on each card or row. They are indicative,
-        not guarantees.
+        {isConsumer
+          ? "Figures are typical UK benchmarks for this kind of opportunity — indicative, not personalised. Your actual saving or uplift depends on your current situation."
+          : "Revenue figures are estimates based on public UK benchmarks (ONS household size, sector fee/value averages) and conservative capture-rate assumptions shown on each card or row. They are indicative, not guarantees."}
       </p>
     </div>
   );

@@ -22,7 +22,7 @@ export function LoginForm() {
   // Land everyone on the opportunity-first home (/brief). It auto-generates a
   // returning user's brief from their saved profile, and bounces brand-new
   // users (no interests/profile yet) to onboarding — so they never set up twice.
-  const callbackUrl = params.get("callbackUrl") || "/brief";
+  const callbackUrl = params.get("callbackUrl") || "/ideas";
   const authError = authErrorMessage(params.get("error"));
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
@@ -34,7 +34,11 @@ export function LoginForm() {
     if (!email) return;
     setStatus("sending");
     try {
-      await signIn("email", { email, callbackUrl, redirect: false });
+      const result = await signIn("email", { email, callbackUrl, redirect: false });
+      if (result?.error) {
+        setStatus("error");
+        return;
+      }
       setStatus("sent");
     } catch {
       setStatus("error");
@@ -72,7 +76,10 @@ export function LoginForm() {
         {status === "sending" ? "Sending link…" : "Email me a sign-in link"}
       </button>
       {status === "error" && (
-        <p className="text-sm text-signal-distress">Something went wrong. Please try again.</p>
+        <p className="text-sm text-signal-distress">
+          We couldn&apos;t send the sign-in email. This usually means email isn&apos;t configured yet — try
+          again later or contact support.
+        </p>
       )}
     </form>
   );

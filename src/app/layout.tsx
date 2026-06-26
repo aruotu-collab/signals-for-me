@@ -6,21 +6,21 @@ import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
-const title = "Signals For Me — Opportunity Intelligence Platform";
+const title = "SignalsForMe — Customer Demand Intelligence";
 const description =
-  "AI scans the internet, detects important signals, and delivers personalized opportunities before they become obvious.";
+  "Vote for products and services you wish existed. Businesses discover validated customer demand before building.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: title,
-    template: "%s · Signals For Me",
+    template: "%s · SignalsForMe",
   },
   description,
-  applicationName: "Signals For Me",
+  applicationName: "SignalsForMe",
   openGraph: {
     type: "website",
-    siteName: "Signals For Me",
+    siteName: "SignalsForMe",
     title,
     description,
     url: SITE_URL,
@@ -43,7 +43,7 @@ export default function RootLayout({
         <Nav />
         <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
-          <div>Signals For Me — Opportunity Intelligence Platform · Demo build</div>
+          <div>SignalsForMe — Customer Demand Intelligence Platform</div>
           <a href="/privacy" className="mt-2 inline-block text-slate-400 underline hover:text-slate-200">
             Privacy Policy
           </a>

@@ -1,16 +1,11 @@
-import { buildBrief, type BriefResult } from "@/lib/brief";
+import { buildBrief, buildConsumerBrief, type BriefResult } from "@/lib/brief";
 import {
   computeScoreboard,
   groupByLens,
   type LensGroup,
   type Scoreboard,
 } from "@/lib/scoreboard";
-import {
-  BUSINESS_TYPES,
-  getBusinessType,
-  getLenses,
-  type GrowthGoal,
-} from "@/lib/opportunity";
+import { BUSINESS_TYPES, getLenses, type GrowthGoal } from "@/lib/opportunity";
 
 // Shared resolution for the opportunity workspace. Both /brief (the lens
 // workspace) and /summary (the executive scoreboard) need the same context:
@@ -73,6 +68,33 @@ export async function resolveBrief(
   const audience =
     sp.audience === "consumer" ? "consumer" : sp.audience === "business" ? "business" : undefined;
 
+  // Consumer track: same engine, person-framed. No business type / catchment.
+  if (audience === "consumer") {
+    const result = await buildConsumerBrief({ limit: opts.limit ?? 12 });
+    const lensOptions = getLenses("consumer");
+    const board = computeScoreboard(result.rows);
+    const lensGroups = groupByLens(result.rows, lensOptions);
+    const ctxParams: Record<string, string> = { audience: "consumer" };
+    if (location) ctxParams.location = location;
+    return {
+      formBusiness: "",
+      business: "",
+      location,
+      goal,
+      audience,
+      usingGenericDefault: false,
+      fromProfile: false,
+      hasQuery: true,
+      btLabel: "you",
+      lensOptions,
+      lensKeys: lensOptions.map((l) => l.key),
+      result,
+      board,
+      lensGroups,
+      ctxParams,
+    };
+  }
+
   const usingGenericDefault = !formBusiness && !!user;
   const business = formBusiness || (usingGenericDefault ? "generic" : "");
   const hasQuery = business.length > 0;
@@ -92,7 +114,7 @@ export async function resolveBrief(
     ? "your business"
     : BUSINESS_TYPES.find((b) => b.key === business)?.label ?? "Your business";
 
-  const lensOptions = getLenses(getBusinessType(business));
+  const lensOptions = getLenses("business");
   const lensKeys = lensOptions.map((l) => l.key);
   const board = result ? computeScoreboard(result.rows) : null;
   const lensGroups = result ? groupByLens(result.rows, lensOptions) : [];

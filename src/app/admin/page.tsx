@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -33,6 +34,14 @@ export default async function AdminPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Admin dashboard</h1>
           <p className="text-sm text-slate-400">Live user, subscriber & content metrics.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/admin/catalog" className="btn-ghost px-4 py-2 text-sm">
+            Catalog manager
+          </Link>
+          <Link href="/admin/intents" className="btn-ghost px-4 py-2 text-sm">
+            Intent campaigns
+          </Link>
         </div>
         <span className="text-xs text-slate-500">Signed in as {email}</span>
       </header>

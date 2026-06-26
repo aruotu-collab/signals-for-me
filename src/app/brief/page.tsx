@@ -30,10 +30,12 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   // their brief auto-generated — no form to fill in. Query params still override
   // so anyone can run an ad-hoc scenario.
   const user = await getCurrentUser();
+  const isConsumer = sp.audience === "consumer";
 
   // Brand-new signed-in users (no interests and no profile yet) set up first.
+  // Consumer mode needs no business profile, so skip the redirect there.
   // redirect() throws by design, so it stays outside any try/catch.
-  if (user && user.subscriptions.length === 0 && !user.businessType) {
+  if (!isConsumer && user && user.subscriptions.length === 0 && !user.businessType) {
     redirect("/onboarding");
   }
 
@@ -42,7 +44,6 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
   // sync. The lens roll-up is the spine of this page.
   const {
     formBusiness,
-    business,
     location,
     goal,
     usingGenericDefault,
@@ -51,6 +52,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
     result,
     board,
     lensGroups,
+    ctxParams,
   } = await resolveBrief(sp, user, { limit: 12 });
 
   // "Missed opportunity": expected upside the user hasn't shortlisted yet — a
@@ -67,11 +69,7 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
     }
   }
 
-  // Carry the brief context (business/location/goal) through links + the form.
-  const ctxParams: Record<string, string> = {};
-  if (sp.business || formBusiness) ctxParams.business = business;
-  if (location) ctxParams.location = location;
-  if (goal) ctxParams.goal = goal;
+  // Carry the brief context (audience/business/location/goal) through links.
   const ctxQs = new URLSearchParams(ctxParams).toString();
 
   // Each lens opens its own dedicated page; "All" stays on the board.
@@ -81,11 +79,34 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
+      {/* Audience switch — same engine, two lenses on life: business vs. you. */}
+      <div className="mb-4 inline-flex rounded-lg border border-white/10 bg-white/[0.03] p-1 text-sm">
+        <Link
+          href="/brief"
+          className={`rounded-md px-3 py-1.5 font-medium transition ${
+            isConsumer ? "text-slate-400 hover:text-slate-200" : "bg-brand-500/20 text-brand-100"
+          }`}
+        >
+          For my business
+        </Link>
+        <Link
+          href="/brief?audience=consumer"
+          className={`rounded-md px-3 py-1.5 font-medium transition ${
+            isConsumer ? "bg-brand-500/20 text-brand-100" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          For me
+        </Link>
+      </div>
+
       <header className="mb-5">
-        <h1 className="text-2xl font-bold text-white">Opportunity Brief</h1>
+        <h1 className="text-2xl font-bold text-white">
+          {isConsumer ? "Opportunities for you" : "Opportunity Brief"}
+        </h1>
         <p className="text-sm text-slate-400">
-          Turn live market signals into revenue opportunities — estimated value and a recommended
-          action, tailored to your business and location.
+          {isConsumer
+            ? "Where you can save money, earn more and get ahead — each signal turned into a typical £ value and a recommended action."
+            : "Turn live market signals into revenue opportunities — estimated value and a recommended action, tailored to your business and location."}
         </p>
       </header>
 
@@ -109,41 +130,49 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      {/* Control panel: the business context that drives the whole brief. */}
-      <form method="get" className="card mb-6 p-4">
-        <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr_auto]">
-          <Field label="Your business type">
-            <select name="business" defaultValue={formBusiness} className={inputCls} required>
-              <option value="" disabled>
-                Select…
-              </option>
-              {BUSINESS_TYPES.map((b) => (
-                <option key={b.key} value={b.key}>
-                  {b.label}
+      {/* Control panel: the business context that drives the whole brief.
+          Consumer mode needs no profile — figures are typical UK benchmarks. */}
+      {isConsumer ? (
+        <p className="card mb-6 p-3 text-xs text-slate-400">
+          Figures are <span className="font-medium text-slate-200">typical UK benchmarks</span> — indicative,
+          not personalised. Your actual saving or uplift depends on your current situation.
+        </p>
+      ) : (
+        <form method="get" className="card mb-6 p-4">
+          <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr_auto]">
+            <Field label="Your business type">
+              <select name="business" defaultValue={formBusiness} className={inputCls} required>
+                <option value="" disabled>
+                  Select…
                 </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Location">
-            <input name="location" defaultValue={location} placeholder="e.g. Catford, SE6" className={inputCls} />
-          </Field>
-          <Field label="Goal (optional)">
-            <select name="goal" defaultValue={goal ?? ""} className={inputCls}>
-              <option value="">Any</option>
-              {GOALS.map((g) => (
-                <option key={g} value={g}>
-                  {g[0].toUpperCase() + g.slice(1)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <button type="submit" className="btn-primary h-[42px] w-full whitespace-nowrap px-5 lg:w-auto">
-            Update
-          </button>
-        </div>
-      </form>
+                {BUSINESS_TYPES.map((b) => (
+                  <option key={b.key} value={b.key}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Location">
+              <input name="location" defaultValue={location} placeholder="e.g. Catford, SE6" className={inputCls} />
+            </Field>
+            <Field label="Goal (optional)">
+              <select name="goal" defaultValue={goal ?? ""} className={inputCls}>
+                <option value="">Any</option>
+                {GOALS.map((g) => (
+                  <option key={g} value={g}>
+                    {g[0].toUpperCase() + g.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button type="submit" className="btn-primary h-[42px] w-full whitespace-nowrap px-5 lg:w-auto">
+              Update
+            </button>
+          </div>
+        </form>
+      )}
 
-      {fromProfile && (
+      {!isConsumer && fromProfile && (
         <p className="-mt-4 mb-6 text-xs text-slate-500">
           Auto-generated from your saved profile.{" "}
           <Link href="/onboarding" className="text-slate-300 underline hover:text-white">
@@ -236,9 +265,9 @@ export default async function BriefPage({ searchParams }: { searchParams: Promis
           )}
 
           <p className="mt-6 text-xs text-slate-600">
-            Each lens is a revenue bucket for your business, sized by expected value. Open one to see its
-            opportunities and a combined action plan. Revenue figures are estimates based on public UK
-            benchmarks and conservative capture-rate assumptions; they are indicative, not guarantees.
+            {isConsumer
+              ? "Each lens groups opportunities by what you're trying to improve, sized by typical value. Open one to see the opportunities and a step-by-step action plan. Figures are indicative UK benchmarks, not guarantees."
+              : "Each lens is a revenue bucket for your business, sized by expected value. Open one to see its opportunities and a combined action plan. Revenue figures are estimates based on public UK benchmarks and conservative capture-rate assumptions; they are indicative, not guarantees."}
           </p>
         </section>
       )}

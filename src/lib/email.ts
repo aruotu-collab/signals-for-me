@@ -36,7 +36,13 @@ export async function sendEmail(msg: EmailMessage): Promise<EmailResult> {
   };
 
   if (!apiKey) {
-    // Dev / unconfigured fallback: surface the email in the logs.
+    const isProd = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+    if (isProd) {
+      throw new Error(
+        "Email is not configured (RESEND_API_KEY missing). Add it in Vercel environment variables.",
+      );
+    }
+    // Dev fallback: surface the email in the logs.
     console.log(
       [
         "",

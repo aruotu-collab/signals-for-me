@@ -4,6 +4,7 @@ import type { SignalDTO } from "@/lib/types";
 import {
   getBusinessType,
   translate,
+  translateConsumer,
   type GrowthGoal,
   type OpportunityResult,
 } from "@/lib/opportunity";
@@ -148,6 +149,52 @@ export async function buildBrief(input: BriefInput): Promise<BriefResult> {
     .reduce((sum, r) => sum + r.opportunity.revenueHigh, 0);
 
   return { rows: briefRows, fallback, totalRevenueLow, totalRevenueHigh };
+}
+
+/**
+ * Consumer brief: the same shape as buildBrief, but every consumer-category
+ * signal is run through the consumer translator (typical UK figures) and
+ * bucketed into consumer goal lenses. No business type or catchment math.
+ */
+export async function buildConsumerBrief(input: { limit?: number } = {}): Promise<BriefResult> {
+  const limit = input.limit ?? 12;
+  const rows = await prisma.signal.findMany({
+    where: { category: "consumer" },
+    orderBy: { detectedAt: "desc" },
+    take: 400,
+    include: { opportunities: true, risks: true },
+  });
+  const signals = rows.map(toDTO);
+
+  const ranked = signals
+    .map((signal) => ({ signal, opportunity: translateConsumer(signal) }))
+    .sort((a, b) => {
+      if (b.opportunity.score !== a.opportunity.score) return b.opportunity.score - a.opportunity.score;
+      return b.opportunity.expectedValue - a.opportunity.expectedValue;
+    });
+
+  const top = ranked.slice(0, limit);
+  const briefRows: BriefRow[] = top.map(({ signal, opportunity }) => {
+    const topRisk = signal.risks[0] ?? null;
+    return {
+      signal,
+      relevance: 1,
+      industryMatch: false,
+      locationMatch: false,
+      opportunity,
+      risk: topRisk ? { title: topRisk.title, rating: rate(topRisk.confidence) } : null,
+      trend: signal.groupName || signal.typeLabel,
+    };
+  });
+
+  const totalRevenueLow = briefRows
+    .filter((r) => !r.opportunity.defensive)
+    .reduce((sum, r) => sum + r.opportunity.revenueLow, 0);
+  const totalRevenueHigh = briefRows
+    .filter((r) => !r.opportunity.defensive)
+    .reduce((sum, r) => sum + r.opportunity.revenueHigh, 0);
+
+  return { rows: briefRows, fallback: false, totalRevenueLow, totalRevenueHigh };
 }
 
 /**

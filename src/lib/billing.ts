@@ -1,9 +1,7 @@
-// Subscription tiers. Wire these price IDs to Stripe Checkout in production
-// (see TECHNICAL_SPEC.md). Kept as plain config so the pricing page + gating
-// work without any Stripe keys during development.
+// Subscription tiers for the Demand Intelligence platform.
 
 export interface Plan {
-  id: "free" | "pro" | "team" | "enterprise";
+  id: "free" | "starter" | "pro" | "enterprise";
   name: string;
   audience: "consumer" | "business" | "both";
   priceLabel: string;
@@ -11,7 +9,6 @@ export interface Plan {
   stripePriceEnv?: string;
   tagline: string;
   features: string[];
-  signalLimit: number | null;
   highlight?: boolean;
 }
 
@@ -22,49 +19,46 @@ export const PLANS: Plan[] = [
     audience: "both",
     priceLabel: "£0",
     pricePerMonth: 0,
-    tagline: "Taste the signal feed.",
+    tagline: "Vote for what you want.",
     features: [
-      "10 signals/day",
-      "3 signal subscriptions",
-      "Weekly email digest",
-      "Community signal types",
+      "Browse all demand ideas",
+      "Vote & comment",
+      "Submit your own ideas",
+      "See public demand scores",
     ],
-    signalLimit: 10,
   },
   {
-    id: "pro",
-    name: "Pro",
-    audience: "consumer",
-    priceLabel: "£12",
-    pricePerMonth: 12,
-    stripePriceEnv: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
-    tagline: "For individuals chasing opportunities.",
-    features: [
-      "Unlimited signals",
-      "Unlimited subscriptions",
-      "Daily personalized digest",
-      "All consumer signal types",
-      "Confidence + suggested actions",
-    ],
-    signalLimit: null,
-    highlight: true,
-  },
-  {
-    id: "team",
-    name: "Team",
+    id: "starter",
+    name: "Business Starter",
     audience: "business",
     priceLabel: "£49",
     pricePerMonth: 49,
-    stripePriceEnv: "NEXT_PUBLIC_STRIPE_PRICE_TEAM",
-    tagline: "For sales, recruiting & growth teams.",
+    stripePriceEnv: "NEXT_PUBLIC_STRIPE_PRICE_STARTER",
+    tagline: "See what customers want.",
     features: [
-      "Everything in Pro",
-      "All business signal types",
-      "Lead-ready company signals",
-      "Up to 5 seats",
-      "Saved searches + alerts",
+      "Demand intelligence dashboard",
+      "Top emerging demands",
+      "Category breakdown",
+      "Weekly demand digest",
     ],
-    signalLimit: null,
+    highlight: true,
+  },
+  {
+    id: "pro",
+    name: "Business Pro",
+    audience: "business",
+    priceLabel: "£199",
+    pricePerMonth: 199,
+    stripePriceEnv: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
+    tagline: "Full demand intelligence.",
+    features: [
+      "Everything in Starter",
+      "Demographics & geography",
+      "Demand growth trends",
+      "Pricing & urgency insights",
+      "Demand alerts",
+      "Opportunity scores",
+    ],
   },
   {
     id: "enterprise",
@@ -72,17 +66,24 @@ export const PLANS: Plan[] = [
     audience: "business",
     priceLabel: "Custom",
     pricePerMonth: null,
-    tagline: "Intelligence feeds + API.",
+    tagline: "API + custom research.",
     features: [
       "API access",
-      "Custom signal types",
-      "Bulk export / webhook delivery",
-      "SLA + dedicated support",
+      "Custom demand reports",
+      "White-label research",
+      "Dedicated support & SLA",
     ],
-    signalLimit: null,
   },
 ];
 
 export function planById(id: string): Plan | undefined {
   return PLANS.find((p) => p.id === id);
+}
+
+export function canAccessDashboard(plan: string): boolean {
+  return plan === "starter" || plan === "pro" || plan === "team" || plan === "enterprise";
+}
+
+export function canAccessProInsights(plan: string): boolean {
+  return plan === "pro" || plan === "enterprise";
 }

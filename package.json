@@ -12,6 +12,7 @@
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "ingest": "tsx scripts/run-ingest.ts",
     "digest": "tsx scripts/run-digest.ts",
+    "db:seed-intents": "tsx scripts/seed-intent-campaigns.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -21,6 +22,7 @@
     "@auth/prisma-adapter": "^2.11.2",
     "@next/third-parties": "^15.5.18",
     "@prisma/client": "^6.2.1",
+    "country-state-city": "^3.2.1",
     "next": "^15.1.4",
     "next-auth": "^5.0.0-beta.31",
     "react": "^19.0.0",

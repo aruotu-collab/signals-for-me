@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buildBriefForIds } from "@/lib/brief";
 import { getCurrentUser } from "@/lib/session";
 import { savedSignalIds } from "@/lib/shortlist";
-import { BUSINESS_TYPES, getBusinessType, getLenses, type GrowthGoal } from "@/lib/opportunity";
+import { BUSINESS_TYPES, getLenses, type GrowthGoal } from "@/lib/opportunity";
 import { computeScoreboard, groupByLens } from "@/lib/scoreboard";
 import { Scoreboard } from "@/components/Scoreboard";
 import { OpportunityTable } from "@/components/OpportunityTable";
@@ -50,7 +50,7 @@ export default async function ShortlistPage() {
   const board = rows.length ? computeScoreboard(rows) : null;
   // Same goal-lens roll-up as the dashboard (Revenue, Customers, Risk…), so the
   // portfolio is bucketed exactly like the workspace.
-  const lensGroups = groupByLens(rows, getLenses(getBusinessType(businessKey)));
+  const lensGroups = groupByLens(rows, getLenses("business"));
 
   return (
     <div>

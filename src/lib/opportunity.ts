@@ -284,13 +284,40 @@ export const GOAL_LENSES: GoalLens[] = [
 
 const GOAL_LENS_LABEL = new Map(GOAL_LENSES.map((l) => [l.key, l.label] as const));
 
+export type Audience = "business" | "consumer";
+
+// Consumer goal lenses — the same idea as the business set, but framed around a
+// person's life ("where can I save / earn / grow"). Money leads. Lenses with no
+// data pipeline yet are flagged comingSoon, exactly like the business side.
+export const CONSUMER_LENSES: GoalLens[] = [
+  { key: "money", label: "Money", question: "Where can I save or earn money?" },
+  { key: "career", label: "Career", question: "Where's my next move or pay rise?" },
+  { key: "investments", label: "Investments", question: "What trends are emerging to back?" },
+  { key: "travel", label: "Travel", question: "Where can I travel for less?" },
+  { key: "lifestyle", label: "Lifestyle & Deals", question: "What's worth buying right now?" },
+  { key: "property", label: "Property", question: "Where is property growing?", comingSoon: true },
+  { key: "costofliving", label: "Cost of Living", question: "What am I overpaying for?", comingSoon: true },
+  { key: "family", label: "Family", question: "Opportunities for my family?", comingSoon: true },
+  { key: "education", label: "Education", question: "Courses & funding for me?", comingSoon: true },
+  { key: "risk", label: "Risk", question: "What could hurt my finances?", comingSoon: true },
+];
+
+const CONSUMER_LENS_LABEL = new Map(CONSUMER_LENSES.map((l) => [l.key, l.label] as const));
+
 export function getGoalLens(key: string): GoalLens | undefined {
   return GOAL_LENSES.find((l) => l.key === key);
 }
 
-/** The opportunity lenses every business sees — the universal goal taxonomy. */
-export function getLenses(_bt?: BusinessType): { key: string; label: string; comingSoon?: boolean }[] {
-  return GOAL_LENSES.map((l) => ({ key: l.key, label: l.label, comingSoon: l.comingSoon }));
+/** Look up a lens's metadata (label/question/comingSoon) within an audience. */
+export function getLensMeta(key: string, audience: Audience = "business"): GoalLens | undefined {
+  const set = audience === "consumer" ? CONSUMER_LENSES : GOAL_LENSES;
+  return set.find((l) => l.key === key);
+}
+
+/** The opportunity lenses for an audience — universal goal taxonomy per side. */
+export function getLenses(audience: Audience = "business"): { key: string; label: string; comingSoon?: boolean }[] {
+  const set = audience === "consumer" ? CONSUMER_LENSES : GOAL_LENSES;
+  return set.map((l) => ({ key: l.key, label: l.label, comingSoon: l.comingSoon }));
 }
 
 /**
@@ -627,6 +654,109 @@ export function translate(s: SignalDTO, bt: BusinessType, ctx: TranslateContext)
     roi,
     horizon,
     actionPlan,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Consumer translator — the same Signal → interpretation → opportunity → value
+// → action pipeline, but framed for a person's life rather than a business.
+// Figures are TYPICAL UK benchmarks (no personal data); they're indicative and
+// surfaced as such. Output is an OpportunityResult so consumer opportunities
+// flow through the exact same scoreboard / lens board / cards / tables.
+// ---------------------------------------------------------------------------
+
+interface ConsumerBenchmark {
+  /** [low, high] typical £ value of acting */
+  value: [number, number];
+  basis: "per year" | "one-off";
+  lens: string;
+  label: string;
+  action: string;
+  /** purely informational (a trend to watch) rather than a £ saving */
+  informational?: boolean;
+}
+
+const CONSUMER_BENCHMARKS: Record<string, ConsumerBenchmark> = {
+  money: { value: [200, 600], basis: "per year", lens: "money", label: "Money saver", action: "Compare and switch to a better deal." },
+  side_hustle: { value: [500, 5000], basis: "per year", lens: "money", label: "Extra income", action: "Start a low-risk side income stream." },
+  remote_job: { value: [4000, 18000], basis: "per year", lens: "career", label: "Salary upgrade", action: "Apply — your market rate may be higher than you're paid." },
+  emerging_career: { value: [3000, 15000], basis: "per year", lens: "career", label: "Emerging role", action: "Build this in-demand skill early." },
+  freelance: { value: [2000, 12000], basis: "per year", lens: "career", label: "Freelance income", action: "Pick up contract work in this niche." },
+  investment_trend: { value: [0, 0], basis: "one-off", lens: "investments", label: "Trend", action: "Research this emerging investment trend.", informational: true },
+  travel_deal: { value: [100, 400], basis: "one-off", lens: "travel", label: "Travel saving", action: "Book while the fare is low." },
+  deal: { value: [20, 200], basis: "one-off", lens: "lifestyle", label: "Deal", action: "Grab the deal before it ends." },
+  viral_product: { value: [0, 0], basis: "one-off", lens: "lifestyle", label: "Trending", action: "See what everyone's buying.", informational: true },
+  trend: { value: [0, 0], basis: "one-off", lens: "lifestyle", label: "Trend", action: "Ride this trend early.", informational: true },
+  ai_tool: { value: [0, 0], basis: "one-off", lens: "lifestyle", label: "New tool", action: "Try the tool to save time.", informational: true },
+  local_event: { value: [0, 0], basis: "one-off", lens: "lifestyle", label: "Local", action: "Attend — a local opportunity.", informational: true },
+};
+
+const CONSUMER_FALLBACK: ConsumerBenchmark = {
+  value: [0, 0],
+  basis: "one-off",
+  lens: "lifestyle",
+  label: "Opportunity",
+  action: "Take a look — this could be worth your time.",
+  informational: true,
+};
+
+function consumerActionPlan(lens: string): string[] {
+  switch (lens) {
+    case "money":
+      return ["Check your current rate/bill", "Compare the best switch on the market", "Switch and lock in the saving", "Set a reminder to review again in 12 months"];
+    case "career":
+      return ["Benchmark your role against this market rate", "Update your CV / profile for the in-demand skill", "Apply or pitch within 2 weeks while demand is hot", "Negotiate using the market data"];
+    case "investments":
+      return ["Read up on the trend and the risks", "Decide a small, fixed amount you're comfortable with", "Use a low-cost, diversified vehicle", "Review on a set schedule, not on hype"];
+    case "travel":
+      return ["Confirm the dates and total price", "Check the typical fare to size the saving", "Book before the fare moves", "Set a fare alert for the route"];
+    default:
+      return ["See the detail", "Decide if it fits you", "Act before it expires", "Track whether it paid off"];
+  }
+}
+
+export function translateConsumer(s: SignalDTO): OpportunityResult {
+  const b = CONSUMER_BENCHMARKS[s.type] ?? CONSUMER_FALLBACK;
+  const defensive = b.lens === "risk";
+  const [vLow, vHigh] = b.value;
+  const valueLow = defensive ? 0 : vLow;
+  const valueHigh = defensive ? 0 : vHigh;
+  const riskLow = defensive ? vLow : 0;
+  const riskHigh = defensive ? vHigh : 0;
+  const mid = (vLow + vHigh) / 2;
+  const expectedValue = defensive ? -s.confidence * mid : s.confidence * mid;
+  const actionCost = 50; // a consumer "action" is effort, not spend
+  const roi = actionCost > 0 && mid > 0 ? Math.round(Math.abs(expectedValue) / actionCost) : 0;
+  const urgency = urgencyOf(s, "demand");
+  const revenueLabel = b.informational || mid === 0 ? "Indicative" : rangeLabel(vLow, vHigh, b.basis);
+  return {
+    archetype: "demand",
+    label: b.label,
+    revenueLow: vLow,
+    revenueHigh: vHigh,
+    revenueLabel,
+    basis: b.basis,
+    area: s.entityLocation || null,
+    score: scoreOf(s.confidence, { location: "", locationMatch: false, industryMatch: false }, vHigh),
+    action: s.suggestedAction || b.action,
+    assumptions: [
+      "Typical UK figure for this kind of opportunity — indicative, not personalised.",
+      "Your actual saving/uplift depends on your current situation.",
+    ],
+    defensive,
+    urgency,
+    effort: "low",
+    valueLow,
+    valueHigh,
+    riskLow,
+    riskHigh,
+    expectedValue,
+    actionCost,
+    roi,
+    horizon: HORIZON_BY_URGENCY[urgency],
+    actionPlan: consumerActionPlan(b.lens),
+    lensKey: b.lens,
+    lensLabel: CONSUMER_LENS_LABEL.get(b.lens) ?? b.label,
   };
 }
 

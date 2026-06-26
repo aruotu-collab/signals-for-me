@@ -7,7 +7,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-3xl font-bold text-white">Pricing</h1>
         <p className="mt-2 text-slate-400">
-          Start free. Upgrade when signals start paying for themselves. Cancel anytime.
+          Free for consumers. Business plans unlock demand intelligence that pays for itself.
         </p>
       </div>
 
@@ -38,18 +38,17 @@ export default function PricingPage() {
               ))}
             </ul>
             <Link
-              href="/feed"
+              href={plan.id === "free" ? "/ideas" : plan.id === "enterprise" ? "/dashboard" : "/dashboard"}
               className={`mt-6 ${plan.highlight ? "btn-primary" : "btn-ghost"} w-full`}
             >
-              {plan.id === "free" ? "Get started" : plan.id === "enterprise" ? "Contact sales" : "Choose " + plan.name}
+              {plan.id === "free" ? "Start voting" : plan.id === "enterprise" ? "Contact sales" : "Get " + plan.name}
             </Link>
           </div>
         ))}
       </div>
 
       <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-500">
-        Checkout is wired to Stripe in production via the price IDs in <code>src/lib/billing.ts</code>. In this demo
-        build the buttons drop you straight into the feed.
+        Stripe checkout will be wired in production. For now, sign in and we&apos;ll enable dashboard access for demo accounts.
       </p>
     </div>
   );
