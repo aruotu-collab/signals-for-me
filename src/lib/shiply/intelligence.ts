@@ -214,6 +214,26 @@ export function formatGbp(amount: number): string {
   return `£${amount.toLocaleString("en-GB")}`;
 }
 
+const LOADING_OVERHEAD_EXPORT = 15;
+
+/** Profit when you know the payment amount (won/completed jobs). */
+export function profitAtPayment(
+  payment: number,
+  input: JobIntelInput,
+  settings?: JobIntelSettings,
+): { profit: number; fuelCost: number; hourlyRate: number; drivingHours: number } | null {
+  const intel = analyzeJob(input, settings);
+  if (!intel) return null;
+  const profit = Math.round(payment - intel.fuelCost - LOADING_OVERHEAD_EXPORT);
+  const hourlyRate = intel.drivingHours > 0 ? Math.round(profit / intel.drivingHours) : profit;
+  return {
+    profit,
+    fuelCost: intel.fuelCost,
+    hourlyRate,
+    drivingHours: intel.drivingHours,
+  };
+}
+
 /** True when the job should be shown with "only worth it" filter on. */
 export function jobPassesWorthItFilter(
   input: JobIntelInput,

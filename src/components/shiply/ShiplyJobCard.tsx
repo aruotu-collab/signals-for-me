@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FavouriteStar } from "@/components/FavouriteStar";
+import { MarkWonButton } from "@/components/my-jobs/MarkWonButton";
 import { JobIntelligence } from "@/components/shiply/JobIntelligence";
 import { shiplyFavourite, type FavouriteInput } from "@/lib/favourites";
 
@@ -61,7 +62,8 @@ export function ShiplyJobCard({
 
       {showIntel && <JobIntelligence job={job} compact={compactIntel} />}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <MarkWonButton job={job} />
         <Link
           href={job.shiplyUrl}
           target="_blank"

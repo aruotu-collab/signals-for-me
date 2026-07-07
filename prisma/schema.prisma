@@ -71,17 +71,16 @@ model DriverProfile {
   updatedAt        DateTime @updatedAt
 }
 
-// Driver's saved / favourite jobs (Shiply jobs and eBay collection-only
-// listings). Persisted per signed-in user so favourites follow them across
-// devices; anonymous users keep favourites in localStorage until they sign in.
+// Driver job board — saved shortlist, won work to supply, and completed history.
+// Sources: Shiply jobs, eBay collection-only listings, or manual (won elsewhere).
 model SavedJob {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Stable identity: `${source}:${sourceId}` (e.g. "shiply:abc", "ebay:12345").
+  // Stable identity: `${source}:${sourceId}` (e.g. "shiply:abc", "ebay:12345", "manual:xyz").
   key       String
-  source    String   // shiply | ebay
+  source    String   // shiply | ebay | manual
   sourceId  String
 
   url       String
@@ -91,10 +90,20 @@ model SavedJob {
   service   String?
   detail    String?  // miles/quotes or buyingType/price
 
+  // saved | won | completed
+  status       String   @default("saved")
+  miles        Int?
+  quotes       Int?
+  actualBid    Float?   // winning bid / payment in GBP
+  notes        String?
+  wonAt        DateTime?
+  completedAt  DateTime?
+
   savedAt   DateTime @default(now())
 
   @@unique([userId, key])
   @@index([userId])
+  @@index([userId, status])
   @@index([source])
 }
 
