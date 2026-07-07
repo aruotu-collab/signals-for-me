@@ -86,6 +86,7 @@ export function BuyerEstimateForm() {
 
       {result && (
         <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-slate-200">
+          {result.itemTitle && <p className="mt-2 font-medium text-white">{result.itemTitle}</p>}
           <p className="text-slate-300">{result.message}</p>
           {result.distanceMiles != null && (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { isEbayApiConfigured } from "@/lib/ebay/client";
 import { OpportunitiesView } from "./ui/OpportunitiesView";
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function OpportunitiesPage() {
-  return <OpportunitiesView />;
+  return <OpportunitiesView ebayConnected={isEbayApiConfigured()} />;
 }

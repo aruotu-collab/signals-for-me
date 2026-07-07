@@ -1,15 +1,18 @@
 import { extractOutcode, haversineMiles, resolveOutcodes } from "@/lib/shiply/geo";
-import { isEbayApiConfigured, parseEbayItemId } from "@/lib/ebay/mock";
+import { assignPickupHub } from "@/lib/shiply/hubs";
+import { isEbayApiConfigured } from "@/lib/ebay/client";
+import { getEbayItem } from "@/lib/ebay/search";
+import { parseEbayItemId } from "@/lib/ebay/types";
 
 export type DeliveryEstimateInput = {
   ebayUrl: string;
   deliveryPostcode: string;
-  /** Optional until eBay API returns item location */
   pickupPostcode?: string;
 };
 
 export type DeliveryEstimateResult = {
   itemId: string | null;
+  itemTitle: string | null;
   apiConnected: boolean;
   pickupArea: string | null;
   deliveryArea: string;
@@ -30,11 +33,11 @@ function estimatePriceRange(miles: number): { low: number; high: number } {
 export async function estimateDelivery(input: DeliveryEstimateInput): Promise<DeliveryEstimateResult> {
   const itemId = parseEbayItemId(input.ebayUrl.trim());
   const deliveryOutcode = extractOutcode(input.deliveryPostcode);
-  const pickupOutcode = input.pickupPostcode ? extractOutcode(input.pickupPostcode) : null;
 
   if (!itemId) {
     return {
       itemId: null,
+      itemTitle: null,
       apiConnected: isEbayApiConfigured(),
       pickupArea: null,
       deliveryArea: input.deliveryPostcode,
@@ -45,50 +48,60 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
     };
   }
 
-  if (!isEbayApiConfigured()) {
-    if (pickupOutcode && deliveryOutcode) {
-      const coords = await resolveOutcodes([pickupOutcode, deliveryOutcode]);
-      const from = coords.get(pickupOutcode);
-      const to = coords.get(deliveryOutcode);
-      if (from && to) {
-        const distanceMiles = Math.round(haversineMiles(from, to));
-        const range = estimatePriceRange(distanceMiles);
-        return {
-          itemId,
-          apiConnected: false,
-          pickupArea: pickupOutcode,
-          deliveryArea: deliveryOutcode,
-          distanceMiles,
-          estimateLow: range.low,
-          estimateHigh: range.high,
-          message:
-            "Draft estimate from postcodes you entered. Connect the eBay Browse API to auto-fill pickup location from the listing.",
-        };
-      }
-    }
+  let pickupPostcode = input.pickupPostcode?.trim() || null;
+  let itemTitle: string | null = null;
 
-    return {
-      itemId,
-      apiConnected: false,
-      pickupArea: pickupOutcode,
-      deliveryArea: deliveryOutcode ?? input.deliveryPostcode,
-      distanceMiles: null,
-      estimateLow: null,
-      estimateHigh: null,
-      message:
-        "eBay API not connected yet. Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET to auto-read item location — or enter the item pickup postcode below for a draft estimate.",
-    };
+  if (isEbayApiConfigured()) {
+    const item = await getEbayItem(itemId);
+    if (item) {
+      itemTitle = item.title ?? null;
+      pickupPostcode = pickupPostcode ?? item.itemLocation?.postalCode ?? null;
+    }
   }
 
-  // Future: call eBay Browse API getItem, read itemLocation, then estimate.
+  const pickupOutcode = pickupPostcode ? extractOutcode(pickupPostcode) : null;
+
+  if (pickupOutcode && deliveryOutcode) {
+    const coords = await resolveOutcodes([pickupOutcode, deliveryOutcode]);
+    const from = coords.get(pickupOutcode);
+    const to = coords.get(deliveryOutcode);
+    if (from && to) {
+      const distanceMiles = Math.round(haversineMiles(from, to));
+      const range = estimatePriceRange(distanceMiles);
+      const hub = assignPickupHub({
+        pickupTown: pickupPostcode ?? pickupOutcode,
+        pickupKey: pickupOutcode,
+        pickupAddress: pickupPostcode,
+        pickupLat: from.lat,
+        pickupLng: from.lng,
+      });
+      return {
+        itemId,
+        itemTitle,
+        apiConnected: isEbayApiConfigured(),
+        pickupArea: hub === "Other UK" ? pickupOutcode : `${hub} (${pickupOutcode})`,
+        deliveryArea: deliveryOutcode,
+        distanceMiles,
+        estimateLow: range.low,
+        estimateHigh: range.high,
+        message: itemTitle
+          ? `Estimate for “${itemTitle}” — collection from ${hub}, delivery to ${deliveryOutcode}.`
+          : `Draft estimate from pickup ${pickupOutcode} to delivery ${deliveryOutcode}.`,
+      };
+    }
+  }
+
   return {
     itemId,
-    apiConnected: true,
-    pickupArea: null,
+    itemTitle,
+    apiConnected: isEbayApiConfigured(),
+    pickupArea: pickupPostcode,
     deliveryArea: deliveryOutcode ?? input.deliveryPostcode,
     distanceMiles: null,
     estimateLow: null,
     estimateHigh: null,
-    message: "eBay API credentials found — live item lookup will be wired in the next step.",
+    message: isEbayApiConfigured()
+      ? "Could not resolve postcodes for distance. Check the item has a UK pickup location, or enter the pickup postcode manually."
+      : "Add eBay API keys to auto-read pickup location — or enter the item pickup postcode for a draft estimate.",
   };
 }

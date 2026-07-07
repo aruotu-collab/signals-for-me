@@ -6,7 +6,7 @@ import { DriverOpportunityBoard, EbayApiStatus } from "./DriverOpportunityBoard"
 
 type Tab = "drivers" | "buyers";
 
-export function OpportunitiesView() {
+export function OpportunitiesView({ ebayConnected }: { ebayConnected: boolean }) {
   const [tab, setTab] = useState<Tab>("drivers");
 
   return (
@@ -14,7 +14,7 @@ export function OpportunitiesView() {
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="chip border border-white/10 bg-white/5 text-slate-300">eBay collection-only</span>
-          <EbayApiStatus />
+          <EbayApiStatus connected={ebayConnected} />
         </div>
         <h1 className="text-2xl font-bold text-white">Early delivery opportunities</h1>
         <p className="max-w-3xl text-sm text-slate-400">
