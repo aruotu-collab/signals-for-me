@@ -1,4 +1,4 @@
-import { extractOutcode, haversineMiles, resolveOutcodes } from "@/lib/shiply/geo";
+import { extractOutcode, geocodePlaceName, haversineMiles, resolveOutcodes } from "@/lib/shiply/geo";
 import { assignPickupHub } from "@/lib/shiply/hubs";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
 import { getEbayItem } from "@/lib/ebay/search";
@@ -106,52 +106,76 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
 
   const pickupOutcode = pickupPostcode ? extractOutcode(pickupPostcode) : null;
 
-  if (pickupOutcode && deliveryOutcode) {
-    const coords = await resolveOutcodes([pickupOutcode, deliveryOutcode]);
-    const from = coords.get(pickupOutcode);
-    const to = coords.get(deliveryOutcode);
-    if (from && to) {
-      const distanceMiles = Math.round(haversineMiles(from, to));
-      const range = deliveryGuideRange(distanceMiles, itemTitle);
-      const hub = assignPickupHub({
-        pickupTown: pickupTown ?? pickupPostcode ?? pickupOutcode,
-        pickupKey: pickupOutcode,
-        pickupAddress: pickupPostcode,
-        pickupLat: from.lat,
-        pickupLng: from.lng,
-      });
-      const driversNearby = await countVansForHub(hub);
-      return {
-        itemId,
-        itemTitle,
-        imageUrl,
-        ebayUrl,
-        buyingType,
-        itemPrice,
-        auctionEndsAt,
-        apiConnected: isEbayApiConfigured(),
-        pickupPostcode,
-        pickupTown,
-        pickupHub: hub,
-        pickupArea: hub === "Other UK" ? pickupOutcode : `${hub} (${pickupOutcode})`,
-        deliveryArea: deliveryOutcode,
-        distanceMiles,
-        estimateLow: range.low,
-        estimateHigh: range.high,
-        serviceCategory: range.category,
-        driversNearby,
-        message: itemTitle
-          ? `Instant estimate for “${itemTitle}” — ${distanceMiles} mi · ${range.category} · guide £${range.low}–£${range.high}.`
-          : `Instant estimate — ${distanceMiles} miles from ${pickupOutcode} to ${deliveryOutcode}.`,
-      };
-    }
+  // Resolve pickup + delivery coordinates from postcodes first, then fall back
+  // to geocoding the eBay town name (e.g. "Sunbury-on-Thames") when eBay only
+  // gives a place, not a postcode.
+  const outcodeCoords = await resolveOutcodes(
+    [pickupOutcode, deliveryOutcode].filter((c): c is string => Boolean(c)),
+  );
+
+  let from = pickupOutcode ? outcodeCoords.get(pickupOutcode) ?? null : null;
+  let pickupResolvedBy: "postcode" | "town" | null = from ? "postcode" : null;
+  if (!from) {
+    from = await geocodePlaceName(pickupTown ?? pickupPostcode);
+    if (from) pickupResolvedBy = "town";
   }
 
+  let to = deliveryOutcode ? outcodeCoords.get(deliveryOutcode) ?? null : null;
+  if (!to) {
+    to = await geocodePlaceName(input.deliveryPostcode);
+  }
+
+  if (from && to) {
+    const distanceMiles = Math.round(haversineMiles(from, to));
+    const range = deliveryGuideRange(distanceMiles, itemTitle);
+    const hub = assignPickupHub({
+      pickupTown: pickupTown ?? pickupPostcode ?? pickupOutcode ?? "Pickup",
+      pickupKey: pickupOutcode ?? pickupTown ?? "Pickup",
+      pickupAddress: pickupPostcode ?? pickupTown,
+      pickupLat: from.lat,
+      pickupLng: from.lng,
+    });
+    const driversNearby = await countVansForHub(hub);
+    const pickupLabel = pickupOutcode ?? pickupTown ?? hub;
+    const deliveryLabel = deliveryOutcode ?? input.deliveryPostcode;
+    return {
+      itemId,
+      itemTitle,
+      imageUrl,
+      ebayUrl,
+      buyingType,
+      itemPrice,
+      auctionEndsAt,
+      apiConnected: isEbayApiConfigured(),
+      pickupPostcode,
+      pickupTown,
+      pickupHub: hub,
+      pickupArea:
+        hub === "Other UK"
+          ? pickupLabel
+          : pickupOutcode
+            ? `${hub} (${pickupOutcode})`
+            : hub,
+      deliveryArea: deliveryLabel,
+      distanceMiles,
+      estimateLow: range.low,
+      estimateHigh: range.high,
+      serviceCategory: range.category,
+      driversNearby,
+      message: itemTitle
+        ? `Instant estimate for “${itemTitle}” — ${distanceMiles} mi · ${range.category} · guide £${range.low}–£${range.high}.${
+            pickupResolvedBy === "town" ? ` Pickup located from “${pickupTown}”.` : ""
+          }`
+        : `Instant estimate — ${distanceMiles} miles from ${pickupLabel} to ${deliveryLabel}.`,
+    };
+  }
+
+  const cannotResolvePickup = !from;
   return {
     ...empty(
-      isEbayApiConfigured()
-        ? "Could not resolve postcodes. Enter the item pickup postcode if eBay did not provide one."
-        : "Enter the item pickup postcode for a distance estimate.",
+      cannotResolvePickup
+        ? "Could not locate the item pickup. Enter the item pickup postcode above."
+        : "Could not read your delivery postcode. Enter a valid UK postcode.",
     ),
     itemTitle,
     imageUrl,

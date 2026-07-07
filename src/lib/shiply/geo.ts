@@ -63,6 +63,41 @@ export async function resolveOutcodes(codes: string[]): Promise<Map<string, { la
   return result;
 }
 
+// Resolve a free-text UK place name (e.g. "Sunbury-on-Thames, United Kingdom")
+// to coordinates via the postcodes.io places API. Cached in the Outcode table
+// under a synthetic "PLACE:<slug>" key so repeat lookups are instant.
+export async function geocodePlaceName(name?: string | null): Promise<{ lat: number; lng: number } | null> {
+  if (!name) return null;
+  const cleaned = name
+    .replace(/,?\s*(united kingdom|uk|england|scotland|wales|northern ireland|great britain)\.?$/i, "")
+    .trim();
+  if (!cleaned) return null;
+
+  const cacheKey = `PLACE:${cleaned.toUpperCase()}`;
+  const cached = await prisma.outcode.findUnique({ where: { code: cacheKey } });
+  if (cached) return { lat: cached.lat, lng: cached.lng };
+
+  try {
+    const res = await fetch(`https://api.postcodes.io/places?q=${encodeURIComponent(cleaned)}&limit=1`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      result?: { latitude?: number; longitude?: number }[];
+    };
+    const place = data.result?.[0];
+    const lat = place?.latitude;
+    const lng = place?.longitude;
+    if (typeof lat !== "number" || typeof lng !== "number") return null;
+    await prisma.outcode.upsert({
+      where: { code: cacheKey },
+      create: { code: cacheKey, lat, lng },
+      update: { lat, lng },
+    });
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
 // Haversine distance in miles between two lat/lng points.
 export function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 3958.8; // Earth radius in miles
