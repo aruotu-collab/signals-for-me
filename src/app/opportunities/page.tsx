@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
 import { listOpenQuoteRequests, listQuoteRequestHubs } from "@/lib/ebay/quotes";
 import { listActiveEmptyVans } from "@/lib/ebay/emptyVans";
@@ -6,14 +7,21 @@ import { listHubNames } from "@/lib/shiply/hubs";
 import { OpportunitiesView } from "./ui/OpportunitiesView";
 
 export const metadata: Metadata = {
-  title: "Opportunities — eBay collection-only delivery intelligence",
+  title: "eBay jobs — collection-only delivery leads for drivers",
   description:
-    "Find collection-only eBay auctions by UK hub before they become Shiply jobs. Drivers browse early leads; buyers estimate delivery cost and request driver quotes before bidding.",
+    "Bid on live buyer quote requests, browse collection-only eBay auctions by UK hub, and post empty van availability before jobs hit Shiply.",
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function OpportunitiesPage() {
+export default async function OpportunitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  if (tab === "buyers") redirect("/quotes");
+
   const [openQuoteRequests, quoteHubs, activeVans] = await Promise.all([
     listOpenQuoteRequests({ limit: 30 }),
     listQuoteRequestHubs(),

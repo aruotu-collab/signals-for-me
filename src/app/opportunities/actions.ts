@@ -50,6 +50,8 @@ export async function requestDriverQuotes(formData: FormData) {
   });
 
   revalidatePath("/opportunities");
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${req.publicToken}`);
   revalidatePath(`/opportunities/quote/${req.publicToken}`);
 
   return { ok: true, token: req.publicToken };
@@ -83,6 +85,7 @@ export async function acceptBid(formData: FormData) {
 
   try {
     await acceptDriverBid(bidId, token);
+    revalidatePath(`/quotes/${token}`);
     revalidatePath(`/opportunities/quote/${token}`);
     return { ok: true };
   } catch (e) {
@@ -96,6 +99,7 @@ export async function confirmPurchaseAction(formData: FormData) {
 
   try {
     await confirmPurchase(token);
+    revalidatePath(`/quotes/${token}`);
     revalidatePath(`/opportunities/quote/${token}`);
     return { ok: true };
   } catch (e) {

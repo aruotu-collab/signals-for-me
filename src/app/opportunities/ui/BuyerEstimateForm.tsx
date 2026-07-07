@@ -113,7 +113,7 @@ export function BuyerEstimateForm() {
                   setError(res.error);
                   return;
                 }
-                if (res.token) router.push(`/opportunities/quote/${res.token}`);
+                if (res.token) router.push(`/quotes/${res.token}`);
               });
             }}
           >

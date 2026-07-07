@@ -178,7 +178,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
 
       {request.status === "open" && (
         <div className="card border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-slate-300">
-          Share this page link with yourself — drivers can bid from the <strong>Quote jobs</strong> tab on Opportunities.
+          Share this page link with yourself — drivers can bid from <strong>Quote requests</strong> on eBay jobs.
           Quotes close {request.expiresAt ? new Date(request.expiresAt).toLocaleString("en-GB") : "in 48 hours"}.
         </div>
       )}

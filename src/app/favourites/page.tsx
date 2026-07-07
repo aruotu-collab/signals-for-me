@@ -85,7 +85,7 @@ export default function FavouritesPage() {
             </Link>{" "}
             or{" "}
             <Link href="/opportunities" className="text-brand-300 underline">
-              eBay opportunities
+              eBay jobs
             </Link>
             , or add a job you&apos;ve already won.
           </p>

@@ -29,7 +29,7 @@ function wrap(title: string, bodyHtml: string): string {
 /** Buyer gets an email each time a driver submits a quote. */
 export async function notifyBuyerOfBid(req: QuoteRequestLike, bid: BidLike): Promise<void> {
   if (!req.buyerEmail) return;
-  const link = `${SITE_URL}/opportunities/quote/${req.publicToken}`;
+  const link = `${SITE_URL}/quotes/${req.publicToken}`;
   const item = req.itemTitle ?? "your eBay item";
 
   try {
