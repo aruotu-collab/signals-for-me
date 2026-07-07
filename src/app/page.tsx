@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { listMatrixPickupKeys } from "@/lib/shiply";
+import { listMatrixHubs } from "@/lib/shiply";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let jobCount = 0;
   let serviceCount = 0;
-  let topPickups: { pickupKey: string; count: number }[] = [];
+  let topHubs: { pickupHub: string; count: number }[] = [];
 
   try {
-    [jobCount, serviceCount, topPickups] = await Promise.all([
+    [jobCount, serviceCount, topHubs] = await Promise.all([
       prisma.shiplyJob.count(),
       prisma.shiplyJob.findMany({ distinct: ["service"], select: { service: true } }).then((r) => r.length),
-      listMatrixPickupKeys(10), // first 10 alphabetically for home quick links
+      listMatrixHubs(12),
     ]);
   } catch {
     // DB may be empty pre-import
@@ -44,22 +44,22 @@ export default async function Home() {
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <HeroStat label="Jobs indexed" value={jobCount.toLocaleString()} />
           <HeroStat label="Service types" value={serviceCount.toLocaleString()} tone="growth" />
-          <HeroStat label="Pickup areas" value={topPickups.length ? "60+" : "0"} />
+          <HeroStat label="Pickup hubs" value={topHubs.length ? "60+" : "0"} />
         </div>
       </section>
 
-      {topPickups.length > 0 && (
+      {topHubs.length > 0 && (
         <section>
-          <h2 className="text-2xl font-bold text-white">Pickup areas (A–Z)</h2>
-          <p className="mt-1 text-sm text-slate-400">Jump straight to a starting area for route planning.</p>
+          <h2 className="text-2xl font-bold text-white">Top pickup hubs</h2>
+          <p className="mt-1 text-sm text-slate-400">Major UK cities with the most jobs — jump straight to route planning.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {topPickups.map((p) => (
+            {topHubs.map((h) => (
               <Link
-                key={p.pickupKey}
-                href={`/planner?from=${encodeURIComponent(p.pickupKey)}`}
+                key={h.pickupHub}
+                href={`/planner?from=${encodeURIComponent(h.pickupHub)}`}
                 className="chip bg-white/5 text-slate-300 hover:bg-brand-500/15 hover:text-brand-200"
               >
-                {p.pickupKey} · {p.count}
+                {h.pickupHub} · {h.count}
               </Link>
             ))}
           </div>

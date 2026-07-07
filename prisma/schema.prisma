@@ -345,7 +345,8 @@ model ShiplyJob {
   pickupTown     String
   pickupAddress  String?
   pickupZone     String?  // e.g. "SW", "SE" when pickup is London
-  pickupKey      String   // pickupTown or "London SW"
+  pickupKey      String   // sub-area: London SW, Bolton, Blackburn, etc.
+  pickupHub      String   @default("Unknown") // matrix hub: London, Manchester, Birmingham, etc.
 
   deliveryTown    String
   deliveryAddress String?
@@ -367,6 +368,7 @@ model ShiplyJob {
   @@index([serviceType])
   @@index([service])
   @@index([pickupKey])
+  @@index([pickupHub])
   @@index([pickupTown])
   @@index([pickupZone])
   @@index([miles])
@@ -380,21 +382,22 @@ model Outcode {
   updatedAt DateTime @updatedAt
 }
 
-// Precomputed cell index for the matrix UI (service × pickupKey).
+// Precomputed cell index for the matrix UI (service × pickupHub).
 model ShiplyMatrixCell {
   id         String   @id @default(cuid())
   service    String
-  pickupKey  String
+  pickupHub  String   @default("Unknown") // major UK hub city (matrix column)
   jobCount   Int      @default(0)
   minMiles   Int?
   maxMiles   Int?
+  areaCount  Int      @default(0) // number of sub-areas in this hub
   // JSON string of shiply keys in sorted order (nearest → farthest).
   jobKeys    String   @default("[]")
   updatedAt  DateTime @updatedAt
 
-  @@unique([service, pickupKey])
+  @@unique([service, pickupHub])
   @@index([service])
-  @@index([pickupKey])
+  @@index([pickupHub])
   @@index([jobCount])
 }
 

@@ -4,23 +4,24 @@ import { useMemo, useState } from "react";
 import { JobSheet, type SheetTarget } from "./JobSheet";
 
 type Service = { service: string; serviceType: string };
-type Pickup = { pickupKey: string; count: number };
+type Hub = { pickupHub: string; count: number };
 type Cell = {
   service: string;
-  pickupKey: string;
+  pickupHub: string;
   jobCount: number;
+  areaCount: number;
   minMiles: number | null;
   maxMiles: number | null;
-  jobKeys: string; // JSON string[]
+  jobKeys: string;
 };
 
 export function MatrixGrid({
   services,
-  pickups,
+  hubs,
   cells,
 }: {
   services: Service[];
-  pickups: Pickup[];
+  hubs: Hub[];
   cells: Cell[];
 }) {
   const [target, setTarget] = useState<SheetTarget>(null);
@@ -28,7 +29,7 @@ export function MatrixGrid({
 
   const cellMap = useMemo(() => {
     const m = new Map<string, Cell>();
-    for (const c of cells) m.set(`${c.service}|||${c.pickupKey}`, c);
+    for (const c of cells) m.set(`${c.service}|||${c.pickupHub}`, c);
     return m;
   }, [cells]);
 
@@ -71,84 +72,92 @@ export function MatrixGrid({
       </div>
 
       <div className="-mx-4 sm:mx-0">
-        <div className="relative overflow-auto rounded-none border-y border-white/10 sm:rounded-2xl sm:border" style={{ maxHeight: "72vh" }}>
-        <table className="border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr>
-              <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
-                <div>Service ↓</div>
-                <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup from →</div>
-              </th>
-              {pickups.map((p) => (
-                <th
-                  key={p.pickupKey}
-                  className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
-                >
-                  <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
-                    📍 Pickup from
-                  </div>
-                  <div className="break-words leading-tight">{p.pickupKey}</div>
-                  <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{p.count} jobs</div>
+        <div
+          className="relative overflow-auto rounded-none border-y border-white/10 sm:rounded-2xl sm:border"
+          style={{ maxHeight: "72vh" }}
+        >
+          <table className="border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
+                  <div>Service ↓</div>
+                  <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup hub →</div>
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {visibleServices.map((s) => (
-              <tr key={s.service}>
-                <th className="sticky left-0 z-10 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-900 px-2 py-2 text-left align-top sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3">
-                  <div className="break-words text-xs font-medium leading-snug text-white sm:text-sm">{s.service}</div>
-                  <div className="mt-0.5 break-words text-[10px] font-normal leading-tight text-slate-500 sm:text-[11px]">
-                    {s.serviceType}
-                  </div>
-                </th>
-                {pickups.map((p) => {
-                  const cell = cellMap.get(`${s.service}|||${p.pickupKey}`);
-                  if (!cell || cell.jobCount === 0) {
+                {hubs.map((h) => (
+                  <th
+                    key={h.pickupHub}
+                    className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
+                  >
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
+                      📍 Pickup hub
+                    </div>
+                    <div className="break-words leading-tight">{h.pickupHub}</div>
+                    <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{h.count} jobs</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleServices.map((s) => (
+                <tr key={s.service}>
+                  <th className="sticky left-0 z-10 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-900 px-2 py-2 text-left align-top sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3">
+                    <div className="break-words text-xs font-medium leading-snug text-white sm:text-sm">{s.service}</div>
+                    <div className="mt-0.5 break-words text-[10px] font-normal leading-tight text-slate-500 sm:text-[11px]">
+                      {s.serviceType}
+                    </div>
+                  </th>
+                  {hubs.map((h) => {
+                    const cell = cellMap.get(`${s.service}|||${h.pickupHub}`);
+                    if (!cell || cell.jobCount === 0) {
+                      return (
+                        <td
+                          key={h.pickupHub}
+                          className="min-w-[6.5rem] border-b border-r border-white/5 bg-ink-950/40 px-2 py-2 text-center text-slate-700 sm:min-w-[9.5rem] sm:px-3 sm:py-3"
+                        >
+                          ·
+                        </td>
+                      );
+                    }
+                    const range =
+                      cell.minMiles != null && cell.maxMiles != null
+                        ? cell.minMiles === cell.maxMiles
+                          ? `${cell.minMiles} mi`
+                          : `${cell.minMiles}–${cell.maxMiles} mi`
+                        : "";
                     return (
                       <td
-                        key={p.pickupKey}
-                        className="min-w-[6.5rem] border-b border-r border-white/5 bg-ink-950/40 px-2 py-2 text-center text-slate-700 sm:min-w-[9.5rem] sm:px-3 sm:py-3"
+                        key={h.pickupHub}
+                        className="min-w-[6.5rem] border-b border-r border-white/5 px-1.5 py-1.5 sm:min-w-[9.5rem] sm:px-2 sm:py-2"
                       >
-                        ·
+                        <button
+                          onClick={() =>
+                            setTarget({
+                              service: s.service,
+                              pickupHub: h.pickupHub,
+                              jobKeys: safeParse(cell.jobKeys),
+                            })
+                          }
+                          className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-left transition hover:border-brand-400/40 hover:bg-brand-500/10 sm:px-3 sm:py-2"
+                        >
+                          <div className="text-xs font-semibold text-white sm:text-sm">{cell.jobCount} jobs</div>
+                          {cell.areaCount > 1 && (
+                            <div className="text-[10px] text-brand-300/80 sm:text-[11px]">{cell.areaCount} areas</div>
+                          )}
+                          {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
+                        </button>
                       </td>
                     );
-                  }
-                  const range =
-                    cell.minMiles != null && cell.maxMiles != null
-                      ? cell.minMiles === cell.maxMiles
-                        ? `${cell.minMiles} mi`
-                        : `${cell.minMiles}–${cell.maxMiles} mi`
-                      : "";
-                  return (
-                    <td key={p.pickupKey} className="min-w-[6.5rem] border-b border-r border-white/5 px-1.5 py-1.5 sm:min-w-[9.5rem] sm:px-2 sm:py-2">
-                      <button
-                        onClick={() =>
-                          setTarget({
-                            service: s.service,
-                            pickupKey: p.pickupKey,
-                            jobKeys: safeParse(cell.jobKeys),
-                          })
-                        }
-                        className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-left transition hover:border-brand-400/40 hover:bg-brand-500/10 sm:px-3 sm:py-2"
-                      >
-                        <div className="text-xs font-semibold text-white sm:text-sm">{cell.jobCount} jobs</div>
-                        {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <p className="text-xs text-slate-500">
-        Columns across the top are <span className="text-brand-300">pickup-from locations</span> (where the goods are
-        collected). Service is frozen on the left. Swipe horizontally to browse, then tap a cell to see jobs (nearest
-        drop-off first) with Shiply links.
+        Columns are <span className="text-brand-300">major pickup hubs</span> (~{hubs.length} UK cities). Tap a cell to
+        see jobs grouped by sub-area (e.g. London SW, Bolton) — nearest drop-off first, with Shiply links.
       </p>
 
       <JobSheet target={target} onClose={() => setTarget(null)} />

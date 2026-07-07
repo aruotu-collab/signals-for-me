@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { listMatrixPickupKeys, listMatrixServices, getMatrixCells } from "@/lib/shiply";
+import { listMatrixHubs, listMatrixServices, getMatrixCells } from "@/lib/shiply";
 import { MatrixGrid } from "./ui/MatrixGrid";
 
 export const dynamic = "force-dynamic";
 
 export default async function MatrixPage() {
-  const [services, pickups] = await Promise.all([listMatrixServices(), listMatrixPickupKeys()]);
+  const [services, hubs] = await Promise.all([listMatrixServices(), listMatrixHubs()]);
 
   const serviceNames = services.map((s) => s.service);
-  const pickupKeys = pickups.map((p) => p.pickupKey);
+  const pickupHubs = hubs.map((h) => h.pickupHub);
 
-  const cells = await getMatrixCells(serviceNames, pickupKeys);
+  const cells = await getMatrixCells(serviceNames, pickupHubs);
 
   return (
     <div className="space-y-6">
@@ -19,7 +19,8 @@ export default async function MatrixPage() {
           <span className="chip border border-white/10 bg-white/5 text-slate-300">Shiply swipe matrix</span>
           <h1 className="mt-2 text-2xl font-bold text-white">Find jobs fast</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Service types on the left, pickup locations across the top. Swipe to browse — no search needed.
+            Service types on the left, major pickup hubs across the top (~{hubs.length} UK cities). Tap a cell to see
+            jobs by sub-area.
           </p>
         </div>
         <div className="flex gap-2">
@@ -29,7 +30,7 @@ export default async function MatrixPage() {
         </div>
       </header>
 
-      <MatrixGrid services={services} pickups={pickups} cells={cells} />
+      <MatrixGrid services={services} hubs={hubs} cells={cells} />
     </div>
   );
 }

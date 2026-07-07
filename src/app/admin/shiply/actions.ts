@@ -17,7 +17,7 @@ export async function importShiplyXlsx(formData: FormData) {
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
-    const result = await importShiplyJobsFromXlsx(buf);
+    const result = await importShiplyJobsFromXlsx(buf, { filename: file.name });
     revalidatePath("/");
     revalidatePath("/matrix");
     return { ok: true, ...result };

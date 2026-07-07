@@ -8,7 +8,8 @@ async function main() {
     process.exit(1);
   }
   const buf = readFileSync(path);
-  const result = await importShiplyJobsFromXlsx(buf);
+  const filename = path.split(/[\\/]/).pop() ?? path;
+  const result = await importShiplyJobsFromXlsx(buf, { filename });
   console.log("Import complete:", result);
 }
 

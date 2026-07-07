@@ -1,15 +1,37 @@
 import { prisma } from "@/lib/db";
-import { parseJobsDetailXlsx, pickupKeyFor, shiplyKeyFromUrl, type ShiplyJobRow } from "@/lib/shiply/parse";
+import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
+import { assignPickupHub } from "@/lib/shiply/hubs";
+
+export async function backfillPickupHubs(): Promise<{ updated: number }> {
+  const jobs = await prisma.shiplyJob.findMany({
+    select: {
+      id: true,
+      pickupTown: true,
+      pickupKey: true,
+      pickupAddress: true,
+      pickupLat: true,
+      pickupLng: true,
+    },
+  });
+
+  let updated = 0;
+  for (const j of jobs) {
+    const pickupHub = assignPickupHub(j);
+    await prisma.shiplyJob.update({ where: { id: j.id }, data: { pickupHub } });
+    updated += 1;
+  }
+  return { updated };
+}
 
 export async function importShiplyJobsFromXlsx(
   buf: Buffer,
+  opts: ParseShiplyOptions = {},
 ): Promise<{ inserted: number; updated: number; total: number; geocoded: number }> {
-  const rows = parseJobsDetailXlsx(buf);
+  const rows = parseShiplyXlsx(buf, opts);
   let inserted = 0;
   let updated = 0;
 
-  // Pre-resolve all outward codes in one pass (cached in the Outcode table).
   const allCodes: string[] = [];
   for (const r of rows) {
     const pu = extractOutcode(r.pickupAddress ?? r.pickupTown);
@@ -30,6 +52,14 @@ export async function importShiplyJobsFromXlsx(
     const dc = deliveryOutcode ? coords.get(deliveryOutcode) : undefined;
     if (dc) geocoded += 1;
 
+    const pickupHub = assignPickupHub({
+      pickupTown: r.pickupTown,
+      pickupKey,
+      pickupAddress: r.pickupAddress ?? null,
+      pickupLat: pc?.lat ?? null,
+      pickupLng: pc?.lng ?? null,
+    });
+
     const existing = await prisma.shiplyJob.findUnique({ where: { shiplyKey } });
     const data = {
       shiplyKey,
@@ -42,6 +72,7 @@ export async function importShiplyJobsFromXlsx(
       pickupAddress: r.pickupAddress ?? null,
       pickupZone,
       pickupKey,
+      pickupHub,
       deliveryTown: r.deliveryTown,
       deliveryAddress: r.deliveryAddress ?? null,
       miles: r.miles ?? null,
@@ -69,21 +100,26 @@ export async function importShiplyJobsFromXlsx(
 }
 
 export async function rebuildShiplyMatrixIndex() {
-  // Build per (service × pickupKey) sorted job keys.
   const jobs = await prisma.shiplyJob.findMany({
-    select: { shiplyKey: true, service: true, pickupKey: true, miles: true },
+    select: { shiplyKey: true, service: true, pickupHub: true, pickupKey: true, miles: true },
   });
 
-  const map = new Map<string, { service: string; pickupKey: string; keys: { k: string; m: number }[] }>();
+  const map = new Map<
+    string,
+    { service: string; pickupHub: string; areas: Set<string>; keys: { k: string; m: number }[] }
+  >();
+
   for (const j of jobs) {
     const m = j.miles ?? 9_999_999;
-    const key = `${j.service}|||${j.pickupKey}`;
-    const entry = map.get(key) ?? { service: j.service, pickupKey: j.pickupKey, keys: [] };
+    const key = `${j.service}|||${j.pickupHub}`;
+    const entry = map.get(key) ?? { service: j.service, pickupHub: j.pickupHub, areas: new Set<string>(), keys: [] };
+    entry.areas.add(j.pickupKey);
     entry.keys.push({ k: j.shiplyKey, m });
     map.set(key, entry);
   }
 
-  // Upsert cells. (Simple implementation; fine for MVP scale.)
+  await prisma.shiplyMatrixCell.deleteMany({});
+
   for (const entry of map.values()) {
     entry.keys.sort((a, b) => a.m - b.m);
     const milesSorted = entry.keys.map((x) => x.m).filter((x) => x !== 9_999_999);
@@ -91,10 +127,16 @@ export async function rebuildShiplyMatrixIndex() {
     const maxMiles = milesSorted.length ? Math.max(...milesSorted) : null;
     const jobKeys = JSON.stringify(entry.keys.map((x) => x.k));
 
-    await prisma.shiplyMatrixCell.upsert({
-      where: { service_pickupKey: { service: entry.service, pickupKey: entry.pickupKey } },
-      create: { service: entry.service, pickupKey: entry.pickupKey, jobCount: entry.keys.length, minMiles, maxMiles, jobKeys },
-      update: { jobCount: entry.keys.length, minMiles, maxMiles, jobKeys },
+    await prisma.shiplyMatrixCell.create({
+      data: {
+        service: entry.service,
+        pickupHub: entry.pickupHub,
+        jobCount: entry.keys.length,
+        areaCount: entry.areas.size,
+        minMiles,
+        maxMiles,
+        jobKeys,
+      },
     });
   }
 }
@@ -108,20 +150,32 @@ export async function listMatrixServices() {
   return rows;
 }
 
-export async function listMatrixPickupKeys(limit = 500) {
+export async function listMatrixHubs(limit = 120) {
   const groups = await prisma.shiplyJob.groupBy({
-    by: ["pickupKey"],
+    by: ["pickupHub"],
     _count: { _all: true },
-    orderBy: { pickupKey: "asc" },
-    take: limit,
   });
-  return groups.map((g) => ({ pickupKey: g.pickupKey, count: g._count._all }));
+  return groups
+    .sort((a, b) => b._count._all - a._count._all)
+    .slice(0, limit)
+    .map((g) => ({ pickupHub: g.pickupHub, count: g._count._all }));
 }
 
-export async function getMatrixCells(services: string[], pickupKeys: string[]) {
+/** @deprecated use listMatrixHubs */
+export const listMatrixPickupKeys = listMatrixHubs;
+
+export async function getMatrixCells(services: string[], pickupHubs: string[]) {
   return prisma.shiplyMatrixCell.findMany({
-    where: { service: { in: services }, pickupKey: { in: pickupKeys } },
-    select: { service: true, pickupKey: true, jobCount: true, minMiles: true, maxMiles: true, jobKeys: true },
+    where: { service: { in: services }, pickupHub: { in: pickupHubs } },
+    select: {
+      service: true,
+      pickupHub: true,
+      jobCount: true,
+      areaCount: true,
+      minMiles: true,
+      maxMiles: true,
+      jobKeys: true,
+    },
   });
 }
 
@@ -135,6 +189,7 @@ export async function getJobsByKeys(keys: string[]) {
       imageUrl: true,
       pickupTown: true,
       pickupKey: true,
+      pickupHub: true,
       deliveryTown: true,
       miles: true,
       quotes: true,
@@ -143,20 +198,17 @@ export async function getJobsByKeys(keys: string[]) {
   });
 }
 
-export async function listPlannerPickupKeys(limit = 500) {
-  const groups = await prisma.shiplyJob.groupBy({
-    by: ["pickupKey"],
-    _count: { _all: true },
-    orderBy: { pickupKey: "asc" },
-    take: limit,
-  });
-  return groups.map((g) => ({ pickupKey: g.pickupKey, count: g._count._all }));
+export async function listPlannerHubs(limit = 120) {
+  return listMatrixHubs(limit);
 }
 
-export async function getPlannerJobs(pickupKey: string, service?: string | null) {
+/** @deprecated use listPlannerHubs */
+export const listPlannerPickupKeys = listPlannerHubs;
+
+export async function getPlannerJobs(pickupHub: string, service?: string | null) {
   return prisma.shiplyJob.findMany({
     where: {
-      pickupKey,
+      pickupHub,
       ...(service ? { service } : {}),
     },
     orderBy: [{ miles: "asc" }],
@@ -167,6 +219,7 @@ export async function getPlannerJobs(pickupKey: string, service?: string | null)
       imageUrl: true,
       pickupTown: true,
       pickupKey: true,
+      pickupHub: true,
       deliveryTown: true,
       deliveryAddress: true,
       miles: true,
@@ -182,16 +235,12 @@ export async function getPlannerJobs(pickupKey: string, service?: string | null)
 
 export type PlannerJob = Awaited<ReturnType<typeof getPlannerJobs>>[number];
 
-// Nearest-next-stop ordering: start at the pickup location, then repeatedly
-// pick the closest un-visited delivery point (greedy TSP heuristic). Jobs
-// without coordinates are appended at the end sorted by Shiply miles.
 export function buildOptimizedRoute(jobs: PlannerJob[]): { ordered: PlannerJob[]; legMiles: (number | null)[] } {
   const geo = jobs.filter((j) => j.deliveryLat != null && j.deliveryLng != null);
   const noGeo = jobs
     .filter((j) => j.deliveryLat == null || j.deliveryLng == null)
     .sort((a, b) => (a.miles ?? 1e9) - (b.miles ?? 1e9));
 
-  // Start point: average of pickup coords if present, else the first delivery.
   const start = pickStart(geo);
   const remaining = [...geo];
   const ordered: PlannerJob[] = [];
@@ -227,7 +276,7 @@ function pickStart(geo: PlannerJob[]): { lat: number; lng: number } {
   const withPickup = geo.find((j) => j.pickupLat != null && j.pickupLng != null);
   if (withPickup) return { lat: withPickup.pickupLat as number, lng: withPickup.pickupLng as number };
   if (geo.length) return { lat: geo[0].deliveryLat as number, lng: geo[0].deliveryLng as number };
-  return { lat: 51.5074, lng: -0.1278 }; // London fallback
+  return { lat: 51.5074, lng: -0.1278 };
 }
 
 function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -240,4 +289,3 @@ function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-

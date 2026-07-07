@@ -50,8 +50,9 @@ export function ShiplyImportForm() {
       {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">{error}</div>}
 
       <div className="text-xs text-slate-500">
-        Tip: your file must include a sheet named <span className="font-mono">Jobs Detail</span> with the same columns as the
-        mockup.
+        Upload one category file at a time (e.g. <span className="font-mono">shiply Cars.xlsx</span>). Scraped Shiply
+        exports and the older <span className="font-mono">Jobs Detail</span> template are both supported — the category is
+        taken from the filename.
       </div>
     </form>
   );

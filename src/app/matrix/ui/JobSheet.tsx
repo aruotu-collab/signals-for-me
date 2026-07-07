@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type SheetJob = {
   shiplyKey: string;
@@ -9,6 +9,7 @@ export type SheetJob = {
   imageUrl: string | null;
   pickupTown: string;
   pickupKey: string;
+  pickupHub: string;
   deliveryTown: string;
   miles: number | null;
   quotes: number | null;
@@ -17,7 +18,7 @@ export type SheetJob = {
 
 export type SheetTarget = {
   service: string;
-  pickupKey: string;
+  pickupHub: string;
   jobKeys: string[];
 } | null;
 
@@ -47,6 +48,16 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
     };
   }, [target]);
 
+  const grouped = useMemo(() => {
+    const map = new Map<string, SheetJob[]>();
+    for (const j of jobs) {
+      const list = map.get(j.pickupKey) ?? [];
+      list.push(j);
+      map.set(j.pickupKey, list);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [jobs]);
+
   if (!target) return null;
 
   return (
@@ -55,9 +66,11 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
       <div className="relative z-10 max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-2xl border border-white/10 bg-ink-900 sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4">
           <div>
-            <div className="text-xs uppercase tracking-wide text-brand-300">📍 Pickup from {target.pickupKey}</div>
+            <div className="text-xs uppercase tracking-wide text-brand-300">📍 Pickup hub {target.pickupHub}</div>
             <h2 className="text-lg font-bold text-white">{target.service}</h2>
-            <p className="text-xs text-slate-400">{target.jobKeys.length} jobs · nearest drop-off first</p>
+            <p className="text-xs text-slate-400">
+              {target.jobKeys.length} jobs · {grouped.length || "…"} areas · nearest drop-off first
+            </p>
           </div>
           <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
             Close
@@ -68,36 +81,47 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
           {loading && <p className="text-sm text-slate-500">Loading jobs…</p>}
           {!loading && jobs.length === 0 && <p className="text-sm text-slate-500">No jobs found.</p>}
 
-          <ul className="space-y-3">
-            {jobs.map((j) => (
-              <li key={j.shiplyKey}>
-                <a
-                  href={j.shiplyUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-brand-400/30"
-                >
-                  {j.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={j.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                  ) : (
-                    <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-600">📦</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 text-sm font-medium text-white">{j.title}</div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      {j.pickupTown} → {j.deliveryTown}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
-                      {j.miles != null && <span className="chip bg-white/5 text-slate-300">{j.miles} mi</span>}
-                      {j.quotes != null && <span className="chip bg-white/5 text-slate-300">{j.quotes} quotes</span>}
-                      <span className="chip bg-brand-500/15 text-brand-200">Open on Shiply →</span>
-                    </div>
-                  </div>
-                </a>
-              </li>
+          <div className="space-y-6">
+            {grouped.map(([area, areaJobs]) => (
+              <section key={area}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {area} · {areaJobs.length} {areaJobs.length === 1 ? "job" : "jobs"}
+                </h3>
+                <ul className="space-y-3">
+                  {areaJobs.map((j) => (
+                    <li key={j.shiplyKey}>
+                      <a
+                        href={j.shiplyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-brand-400/30"
+                      >
+                        {j.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={j.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-600">
+                            📦
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-sm font-medium text-white">{j.title}</div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            {j.pickupTown} → {j.deliveryTown}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                            {j.miles != null && <span className="chip bg-white/5 text-slate-300">{j.miles} mi</span>}
+                            {j.quotes != null && <span className="chip bg-white/5 text-slate-300">{j.quotes} quotes</span>}
+                            <span className="chip bg-brand-500/15 text-brand-200">Open on Shiply →</span>
+                          </div>
+                        </div>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </div>
       </div>
     </div>
