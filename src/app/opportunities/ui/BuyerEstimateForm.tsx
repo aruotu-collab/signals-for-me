@@ -201,6 +201,7 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
           {result.itemTitle && <h3 className="line-clamp-2 font-semibold text-white">{result.itemTitle}</h3>}
           <div className="mt-1 flex flex-wrap gap-2">
             {result.buyingType && <span className="chip bg-white/5 text-slate-300">{result.buyingType}</span>}
+            {result.serviceCategory && <span className="chip bg-violet-500/15 text-violet-200">{result.serviceCategory}</span>}
             {result.pickupHub && <span className="chip bg-brand-500/15 text-brand-200">From {result.pickupHub}</span>}
           </div>
           <a href={result.ebayUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-amber-300 hover:underline">
@@ -222,6 +223,13 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
         </div>
       )}
 
+      {result.serviceCategory && result.distanceMiles != null && (
+        <p className="text-xs text-slate-500">
+          Guide based on {result.distanceMiles} mi · {result.serviceCategory} category pricing
+          {result.driversNearby > 0 ? ` · ${result.driversNearby} drivers nearby` : ""}.
+        </p>
+      )}
+
       {result.driversNearby > 0 && (
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2 text-sm text-sky-200">
           🚐 {result.driversNearby} {result.driversNearby === 1 ? "driver is" : "drivers are"} currently empty near{" "}
@@ -230,7 +238,7 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
       )}
 
       <p className="text-xs text-slate-500">
-        Guide price is algorithmic. Driver quotes may be lower if they&apos;re already doing a route nearby.
+        Guide price is category-aware (pianos, vehicles, furniture, etc.). Driver quotes may be lower if they&apos;re already doing a route nearby.
       </p>
     </div>
   );

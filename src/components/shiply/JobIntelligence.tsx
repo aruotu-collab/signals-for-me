@@ -10,7 +10,15 @@ const VERDICT_STYLES = {
   thin: "border-red-500/20 bg-red-500/5 text-red-200",
 } as const;
 
-export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; compact?: boolean }) {
+export function JobIntelligence({
+  job,
+  compact = false,
+  heading = "Route intelligence",
+}: {
+  job: JobIntelInput;
+  compact?: boolean;
+  heading?: string;
+}) {
   const { settings } = useDriverSettings();
   const intel = analyzeJob(job, settings);
   if (!intel) return null;
@@ -43,7 +51,7 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
     <div className={`mt-3 rounded-xl border p-3 ${VERDICT_STYLES[intel.verdict]}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Route intelligence</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-80">{heading}</div>
           <div className="mt-0.5 text-sm font-semibold">{intel.verdictLabel}</div>
           <div className="mt-0.5 text-xs opacity-80">{intel.verdictHint}</div>
         </div>

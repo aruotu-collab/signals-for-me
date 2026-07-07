@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { bidGuideChip, bidGuideLabel } from "@/lib/ebay/category";
+import { quoteCategory } from "@/lib/ebay/quoteIntel";
 import { acceptBid, confirmPurchaseAction } from "../actions";
 
 type Bid = {
@@ -50,6 +52,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
   }, [maxBidNum, deliveryCost]);
 
   const countdown = useAuctionCountdown(request.auctionEndsAt);
+  const category = quoteCategory(request.itemTitle);
 
   return (
     <div className="space-y-6">
@@ -67,6 +70,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
             <p className="mt-1 text-sm text-slate-400">
               {request.pickupHub ?? request.pickupPostcode} → {request.deliveryPostcode}
               {request.distanceMiles != null && ` · ${request.distanceMiles} mi`}
+              {` · ${category}`}
             </p>
             <a href={request.ebayUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-amber-300">
               Open on eBay →
@@ -80,10 +84,11 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
               ? `£${request.estimateLow}–£${request.estimateHigh}`
               : "—"
           } />
+          <MiniStat label="Category" value={category} />
           <MiniStat label="Driver quotes" value={String(request.bids.length)} />
           <MiniStat label="Lowest bid" value={lowest != null ? `£${lowest}` : "Waiting…"} />
-          <MiniStat label="Status" value={request.status} />
         </div>
+        <p className="mt-2 text-xs capitalize text-slate-500">Status: {request.status}</p>
 
         {countdown && (
           <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-sm text-amber-200">
@@ -184,7 +189,10 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
           </div>
         ) : (
           <ul className="space-y-3">
-            {request.bids.map((bid, i) => (
+            {request.bids.map((bid, i) => {
+              const guide = bidGuideLabel(bid.amount, request.estimateLow, request.estimateHigh);
+              const guideChip = bidGuideChip(guide);
+              return (
               <li key={bid.id} className="card flex flex-wrap items-center justify-between gap-4 p-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -192,7 +200,10 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
                       {i + 1}
                     </span>
                     <div>
-                      <div className="font-semibold text-white">{bid.driverName ?? "Driver"} · £{bid.amount}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-white">{bid.driverName ?? "Driver"} · £{bid.amount}</span>
+                        {guideChip && <span className={`chip ${guideChip.className}`}>{guideChip.text}</span>}
+                      </div>
                       <div className="text-xs text-slate-500">{bid.driverPhone}</div>
                     </div>
                   </div>
@@ -221,7 +232,8 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
                 {bid.status === "accepted" && <span className="chip bg-emerald-500/15 text-emerald-200">Accepted</span>}
                 {bid.status === "declined" && <span className="chip bg-white/5 text-slate-400">Not chosen</span>}
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </section>
