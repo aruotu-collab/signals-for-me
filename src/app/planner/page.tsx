@@ -36,7 +36,7 @@ export default async function PlannerPage({
           </p>
         </div>
         <Link href="/matrix" className="btn-ghost px-4 py-2 text-sm">
-          Back to matrix
+          Back to Pickup Radar
         </Link>
       </header>
 

@@ -8,9 +8,9 @@ import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
-const title = "SignalsForMe — Transport Job Finder";
+const title = "SignalsForMe — Route Radar for drivers";
 const description =
-  "Find delivery and transport jobs by swiping a service × location matrix. Nearest drop-off first, direct Shiply links.";
+  "Pickup Radar shows delivery jobs by pickup location — service × hub, nearest drop-off first. Plan routes, save favourites, and find early opportunities.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -50,7 +50,7 @@ export default async function RootLayout({
           <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
         </FavouritesProvider>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
-          <div>SignalsForMe — Transport Job Finder</div>
+          <div>SignalsForMe — Route Radar for drivers</div>
           <div className="mt-2 flex items-center justify-center gap-3">
             <a href="/privacy" className="text-slate-400 underline hover:text-slate-200">
               Privacy Policy

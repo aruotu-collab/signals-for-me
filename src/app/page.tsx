@@ -23,17 +23,18 @@ export default async function Home() {
     <div className="space-y-16">
       <section className="pt-8">
         <div className="text-center">
-          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">Transport job finder</span>
+          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">Route Radar · Driver intelligence</span>
           <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-            Find delivery jobs <span className="text-brand-400">by swiping</span>, not searching.
+            Find delivery work <span className="text-brand-400">by pickup location</span>.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            Service types down the side, pickup locations across the top. Scroll to the area you cover, tap a cell, and see
-            every job — sorted nearest drop-off first, with a direct Shiply link.
+            Route Radar shows where jobs cluster across the UK. Open <strong className="font-medium text-slate-300">Pickup Radar</strong> to
+            scan your patch — service types down the side, pickup locations across the top. Tap a cell for every job,
+            nearest drop-off first, with a direct Shiply link.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/matrix" className="btn-primary px-6 py-3 text-base">
-              Open the matrix
+              Open Pickup Radar
             </Link>
             <Link href="/planner" className="btn-ghost px-6 py-3 text-base">
               Driver planner
@@ -73,7 +74,7 @@ export default async function Home() {
         <h2 className="text-center text-2xl font-bold text-white">How it works</h2>
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
           {[
-            { n: "01", t: "Browse", d: "Open the matrix — service rows stay frozen, pickup columns scroll." },
+            { n: "01", t: "Open Pickup Radar", d: "Service rows stay frozen; swipe across pickup locations you cover." },
             { n: "02", t: "Swipe", d: "Slide across to the pickup area you cover. No search box needed." },
             { n: "03", t: "Tap a cell", d: "See every job for that service and area, nearest drop-off first." },
             { n: "04", t: "Open Shiply", d: "Click through to the job — log in on Shiply to quote." },
@@ -91,7 +92,7 @@ export default async function Home() {
         <section className="card p-8 text-center">
           <h2 className="text-xl font-bold text-white">No jobs imported yet</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-slate-400">
-            Upload your Shiply spreadsheet to populate the matrix.
+            Upload your Shiply spreadsheet to populate Pickup Radar.
           </p>
           <Link href="/admin/shiply" className="btn-primary mt-5 inline-flex px-6 py-3">
             Go to import

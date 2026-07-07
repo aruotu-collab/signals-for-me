@@ -59,7 +59,7 @@ export default function FavouritesPage() {
           <p className="mt-3 text-sm text-slate-400">
             No saved jobs yet. Tap the star on any job in the{" "}
             <Link href="/matrix" className="text-brand-300 underline">
-              matrix
+              Pickup Radar
             </Link>
             ,{" "}
             <Link href="/planner" className="text-brand-300 underline">

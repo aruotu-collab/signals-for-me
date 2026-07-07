@@ -81,7 +81,7 @@ export function MatrixGrid({
               <tr>
                 <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
                   <div>Service ↓</div>
-                  <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup hub →</div>
+                  <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup from →</div>
                 </th>
                 {hubs.map((h) => (
                   <th
@@ -89,7 +89,7 @@ export function MatrixGrid({
                     className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
                   >
                     <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
-                      📍 Pickup hub
+                      📍 Pickup from
                     </div>
                     <div className="break-words leading-tight">{h.pickupHub}</div>
                     <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{h.count} jobs</div>
@@ -156,8 +156,8 @@ export function MatrixGrid({
       </div>
 
       <p className="text-xs text-slate-500">
-        Columns are <span className="text-brand-300">major pickup hubs</span> (~{hubs.length} UK cities). Tap a cell to
-        see jobs grouped by sub-area (e.g. London SW, Bolton) — nearest drop-off first, with Shiply links.
+        <span className="text-brand-300">Columns = pickup from</span> · Rows = service type. Tap a cell to see jobs
+        grouped by sub-area (e.g. London SW, Bolton) — nearest drop-off first, with Shiply links.
       </p>
 
       <JobSheet target={target} onClose={() => setTarget(null)} />
