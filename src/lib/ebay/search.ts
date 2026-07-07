@@ -193,6 +193,23 @@ export async function searchCollectionOnlyListings(opts?: { category?: string; l
 }
 
 export async function getEbayItem(itemId: string): Promise<EbayItemSummary | null> {
+  // eBay Browse has two item endpoints:
+  //   - /item/{RESTful-id}          for IDs like "v1|123|0"
+  //   - /item/get_item_by_legacy_id for legacy numeric IDs (what item URLs use)
+  // Buyer-pasted URLs give a legacy numeric ID, so try that first.
+  const isLegacyNumeric = /^\d{6,}$/.test(itemId);
+
+  if (isLegacyNumeric) {
+    try {
+      const data = await ebayBrowse<EbayItemSummary>(
+        `/buy/browse/v1/item/get_item_by_legacy_id?legacy_item_id=${encodeURIComponent(itemId)}`,
+      );
+      if (data?.itemId) return data;
+    } catch {
+      // Fall through to the RESTful endpoint below.
+    }
+  }
+
   try {
     const data = await ebayBrowse<EbayItemSummary>(`/buy/browse/v1/item/${encodeURIComponent(itemId)}`);
     return data;
