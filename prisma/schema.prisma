@@ -401,6 +401,64 @@ model ShiplyMatrixCell {
   @@index([jobCount])
 }
 
+// Buyer asks drivers to quote before bidding on a collection-only eBay item.
+model DeliveryQuoteRequest {
+  id               String   @id @default(cuid())
+  publicToken      String   @unique @default(cuid())
+
+  ebayUrl          String
+  ebayItemId       String?
+  itemTitle        String?
+  imageUrl         String?
+  buyingType       String?
+
+  pickupPostcode   String?
+  pickupHub        String?
+  pickupTown       String?
+  deliveryPostcode String
+  deliveryOutcode  String?
+  distanceMiles    Int?
+  estimateLow      Int?
+  estimateHigh     Int?
+
+  buyerEmail       String?
+  buyerPhone       String?
+  notes            String?
+
+  status           String   @default("open") // open | awarded | closed | expired
+  expiresAt        DateTime?
+
+  bids             DriverQuoteBid[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([pickupHub])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model DriverQuoteBid {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     DeliveryQuoteRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  driverName  String?
+  driverEmail String?
+  driverPhone String
+  amount      Int
+  message     String?
+  etaNotes    String?
+
+  status      String   @default("pending") // pending | accepted | declined
+
+  createdAt   DateTime @default(now())
+
+  @@index([requestId])
+  @@index([status])
+}
+
 // Bookkeeping for pipeline runs (observability).
 model PipelineRun {
   id           String   @id @default(cuid())
