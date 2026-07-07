@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useFavourites } from "@/components/FavouritesProvider";
 import { AddManualJobForm } from "@/components/my-jobs/AddManualJobForm";
+import { EarningsSummary } from "@/components/my-jobs/EarningsSummary";
 import { MyJobCard } from "@/components/my-jobs/MyJobCard";
 import { ProfitBanner } from "@/components/my-jobs/ProfitBanner";
 import { useShiplyJobLookup } from "@/components/my-jobs/useShiplyJobLookup";
@@ -94,6 +95,8 @@ export default function FavouritesPage() {
         </div>
       ) : (
         <>
+          <EarningsSummary shiplyLookup={shiplyLookup} />
+
           <div className="flex flex-wrap items-center gap-2">
             <TabChip label={`Saved (${saved.length})`} active={tab === "saved"} onClick={() => setTab("saved")} />
             <TabChip label={`Won (${won.length})`} active={tab === "won"} onClick={() => setTab("won")} />

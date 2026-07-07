@@ -81,3 +81,75 @@ export function sumJobProfits(
   }
   return { total, count: items.length, withProfit };
 }
+
+export type EarningsWindow = {
+  profit: number;
+  jobs: number;
+  miles: number;
+};
+
+export type EarningsSummary = {
+  week: EarningsWindow;
+  month: EarningsWindow;
+  allTime: EarningsWindow;
+  upcoming: EarningsWindow;
+};
+
+const emptyWindow = (): EarningsWindow => ({ profit: 0, jobs: 0, miles: 0 });
+
+/**
+ * Earnings from completed jobs by time window (based on completedAt), plus
+ * an "upcoming" window for won-but-not-completed work still to supply.
+ */
+export function earningsSummary(
+  items: FavouriteItem[],
+  settings?: JobIntelSettings,
+  shiplyLookup?: Map<string, ShiplyJobLookup>,
+  now: number = Date.now(),
+): EarningsSummary {
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const monthStart = new Date(now);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const monthStartMs = monthStart.getTime();
+
+  const summary: EarningsSummary = {
+    week: emptyWindow(),
+    month: emptyWindow(),
+    allTime: emptyWindow(),
+    upcoming: emptyWindow(),
+  };
+
+  for (const item of items) {
+    const p = profitForJob(item, settings, shiplyLookup);
+    if (!p) continue;
+    const miles = item.miles ?? 0;
+
+    if (item.status === "won") {
+      summary.upcoming.profit += p.profit;
+      summary.upcoming.jobs += 1;
+      summary.upcoming.miles += miles;
+      continue;
+    }
+
+    if (item.status !== "completed") continue;
+    const when = item.completedAt ?? item.wonAt ?? item.savedAt;
+
+    summary.allTime.profit += p.profit;
+    summary.allTime.jobs += 1;
+    summary.allTime.miles += miles;
+
+    if (when >= monthStartMs) {
+      summary.month.profit += p.profit;
+      summary.month.jobs += 1;
+      summary.month.miles += miles;
+    }
+    if (when >= weekAgo) {
+      summary.week.profit += p.profit;
+      summary.week.jobs += 1;
+      summary.week.miles += miles;
+    }
+  }
+
+  return summary;
+}
