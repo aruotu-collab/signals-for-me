@@ -26,8 +26,7 @@ export default async function MatrixPage() {
           <span className="chip border border-white/10 bg-white/5 text-slate-300">Route Radar</span>
           <h1 className="mt-2 text-2xl font-bold text-white">Pickup Radar</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Delivery intelligence by pickup location — service types on the left, major pickup hubs across the top (~
-            {hubs.length} UK cities). Tap a cell to see jobs by sub-area.
+            Delivery intelligence by pickup location — tap a cell for est. fuel, winning bid, and profit on every job.
           </p>
         </div>
         <div className="flex gap-2">

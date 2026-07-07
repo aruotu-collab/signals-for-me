@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { listPlannerHubs, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
-import { FavouriteStar } from "@/components/FavouriteStar";
-import { shiplyFavourite } from "@/lib/favourites";
+import { PlannerJobList } from "./PlannerJobList";
 
 export const dynamic = "force-dynamic";
 
@@ -90,39 +89,7 @@ export default async function PlannerPage({
                 drop-offs; jobs without coordinates are listed last.
               </p>
             )}
-            <ol className="mt-4 space-y-3">
-              {ordered.map((j, i) => (
-                <li key={j.shiplyKey} className="relative">
-                  <a
-                    href={j.shiplyUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 pr-10 transition hover:border-brand-400/30"
-                  >
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500/15 text-sm font-bold text-brand-200">
-                      {i + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="line-clamp-1 text-sm font-medium text-white">{j.title}</div>
-                      <div className="text-xs text-slate-400">
-                        {j.pickupKey} → {j.deliveryTown} · {j.service}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {activeMode === "route" && legMiles[i] != null ? (
-                        <div className="text-sm font-semibold text-white">+{legMiles[i]} mi</div>
-                      ) : (
-                        j.miles != null && <div className="text-sm font-semibold text-white">{j.miles} mi</div>
-                      )}
-                      {j.quotes != null && <div className="text-[11px] text-slate-500">{j.quotes} quotes</div>}
-                    </div>
-                  </a>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <FavouriteStar item={shiplyFavourite(j)} />
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <PlannerJobList jobs={ordered} legMiles={legMiles} mode={activeMode} />
           </div>
         </>
       )}

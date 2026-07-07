@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { JobSheet, type SheetTarget } from "./JobSheet";
+import { analyzeJob, formatGbp } from "@/lib/shiply/intelligence";
 
 type Service = { service: string; serviceType: string };
 type Hub = { pickupHub: string; count: number };
@@ -144,6 +145,9 @@ export function MatrixGrid({
                             <div className="text-[10px] text-brand-300/80 sm:text-[11px]">{cell.areaCount} areas</div>
                           )}
                           {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
+                          {cell.minMiles != null && (
+                            <CellProfitHint miles={cell.minMiles} service={s.service} />
+                          )}
                         </button>
                       </td>
                     );
@@ -156,8 +160,8 @@ export function MatrixGrid({
       </div>
 
       <p className="text-xs text-slate-500">
-        <span className="text-brand-300">Columns = pickup from</span> · Rows = service type. Tap a cell to see jobs
-        grouped by sub-area (e.g. London SW, Bolton) — nearest drop-off first, with Shiply links.
+        <span className="text-brand-300">Columns = pickup from</span> · Rows = service type. Tap a cell for route
+        intelligence — est. fuel, winning bid, and profit per job.
       </p>
 
       <JobSheet target={target} onClose={() => setTarget(null)} />
@@ -172,4 +176,20 @@ function safeParse(s: string): string[] {
   } catch {
     return [];
   }
+}
+
+function CellProfitHint({ miles, service }: { miles: number; service: string }) {
+  const intel = analyzeJob({ miles, quotes: 4, service });
+  if (!intel || intel.verdict === "thin") return null;
+  const color =
+    intel.verdict === "strong"
+      ? "text-emerald-400"
+      : intel.verdict === "good"
+        ? "text-sky-400"
+        : "text-amber-400";
+  return (
+    <div className={`text-[10px] font-medium sm:text-[11px] ${color}`}>
+      ~{formatGbp(intel.profitAtBid)} est. profit
+    </div>
+  );
 }
