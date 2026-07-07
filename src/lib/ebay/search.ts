@@ -47,18 +47,20 @@ const CATEGORY_KEYWORDS: Record<string, string> = {
   Machinery: "machinery tools",
 };
 
-// eBay UK top-level category IDs for tighter targeting (optional; keyword still applied).
-// See https://www.isoldwhat.com / eBay category tree. These are stable top-level IDs.
+// eBay UK (EBAY_GB, category tree 3) category IDs — verified via the Taxonomy API
+// (get_category_suggestions). We use these as the PRIMARY constraint so that only
+// the actual bulky goods appear: manuals, parts, stickers and merch live in
+// separate categories (e.g. Vehicle Parts & Accessories) and are excluded outright.
 const CATEGORY_IDS: Record<string, string> = {
   Furniture: "3197", // Home, Furniture & DIY > Furniture
   Antiques: "20081", // Antiques
-  Cars: "9800", // Cars, Motorcycles & Vehicles > Cars
-  Motorcycles: "6024", // Motorcycles
-  Pianos: "16218", // Musical Instruments > Pianos, Keyboards & Organs
-  Haulage: "12576", // Business, Office & Industrial
+  Cars: "9801", // Cars, Motorcycles & Vehicles > Cars
+  Motorcycles: "422", // Cars, Motorcycles & Vehicles > Motorcycles & Scooters
+  Pianos: "181225", // Musical Instruments > Pianos, Keyboards & Organs > Pianos
+  Haulage: "26221", // Business, Office & Industrial > Material Handling
   Pets: "1281", // Pet Supplies
   Garden: "159912", // Garden & Patio
-  Machinery: "11804", // Business & Industrial > Industrial tools
+  Machinery: "12576", // Business, Office & Industrial
 };
 
 const SERVICE_TYPE_BY_CATEGORY: Record<string, string> = {
@@ -96,7 +98,7 @@ function buyingTypeOf(item: EbayItemSummary): BuyingType {
   return "Buy it now";
 }
 
-function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | null {
+function toListing(item: EbayItemSummary, hubOverride?: string, categoryOverride?: string): EbayListing | null {
   if (!item.itemId || !item.title) return null;
 
   const city = item.itemLocation?.city?.trim() || "Unknown";
@@ -110,7 +112,9 @@ function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | n
       pickupAddress: [city, postcode ?? ""].filter(Boolean).join(", "),
     });
 
-  const category = inferCategory(item);
+  // When we searched a known eBay category, trust it for bucketing — many valid
+  // listings (e.g. "Honda CBR600") have no category word in the title.
+  const category = categoryOverride ?? inferCategory(item);
   const buyingType = buyingTypeOf(item);
   const priceStr = item.currentBidPrice?.value ?? item.price?.value;
   const currency = item.currentBidPrice?.currency ?? item.price?.currency ?? "GBP";
@@ -133,13 +137,16 @@ function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | n
   };
 }
 
-async function searchHub(
-  hub: string,
-  postcode: string,
-  q: string,
-  categoryId: string | null,
-  limit = 20,
-): Promise<EbayListing[]> {
+async function searchHub(opts: {
+  hub: string;
+  postcode: string;
+  categoryLabel: string | null;
+  categoryId: string | null;
+  q: string | null;
+  limit: number;
+}): Promise<EbayListing[]> {
+  const { hub, postcode, categoryLabel, categoryId, q, limit } = opts;
+
   // Collection-only is defined by local pickup — NOT by auction. Include all
   // buying options so Buy-It-Now and Best-Offer collection items appear too.
   const filters = [
@@ -151,17 +158,35 @@ async function searchHub(
     "pickupRadiusUnit:mi",
   ].join(",");
 
-  const params = new URLSearchParams({
-    q,
-    limit: String(limit),
-    filter: filters,
-  });
+  const params = new URLSearchParams({ limit: String(limit), filter: filters });
+  // Category ID is the precise constraint (keeps out manuals/parts/merch). Only
+  // fall back to a keyword query when we have no category to target.
   if (categoryId) params.set("category_ids", categoryId);
+  if (q) params.set("q", q);
 
   const data = await ebayBrowse<EbaySearchResponse>(`/buy/browse/v1/item_summary/search?${params}`);
   return (data.itemSummaries ?? [])
-    .map((item) => toListing(item, hub))
+    .map((item) => toListing(item, hub, categoryLabel ?? undefined))
     .filter(Boolean) as EbayListing[];
+}
+
+async function searchCategoryAcrossHubs(
+  categoryLabel: string,
+  limitPerHub: number,
+): Promise<EbayListing[]> {
+  const categoryId = CATEGORY_IDS[categoryLabel] ?? null;
+  // With a valid category ID we omit the keyword entirely; the category alone is
+  // far more precise. If we somehow lack an ID, fall back to keyword targeting.
+  const q = categoryId ? null : CATEGORY_KEYWORDS[categoryLabel] ?? categoryLabel;
+
+  const batches = await Promise.all(
+    HUB_SEED_POSTCODES.map((seed) =>
+      searchHub({ hub: seed.hub, postcode: seed.postcode, categoryLabel, categoryId, q, limit: limitPerHub }).catch(
+        () => [] as EbayListing[],
+      ),
+    ),
+  );
+  return batches.flat();
 }
 
 export async function searchCollectionOnlyListings(opts?: { category?: string; limitPerHub?: number }): Promise<{
@@ -169,23 +194,26 @@ export async function searchCollectionOnlyListings(opts?: { category?: string; l
   source: "live" | "mock";
 }> {
   const category = opts?.category && opts.category !== "all" ? opts.category : null;
-  const q = category ? (CATEGORY_KEYWORDS[category] ?? category) : "collection only";
-  const categoryId = category ? CATEGORY_IDS[category] ?? null : null;
-
   const limitPerHub = opts?.limitPerHub ?? 12;
+
+  // For a specific category, search only that one. For "all", sweep every bulky
+  // category so the matrix is populated by real goods — not a fuzzy keyword.
+  const categoriesToSearch = category ? [category] : [...EBAY_CATEGORIES];
+  const perHub = category ? limitPerHub : Math.max(4, Math.round(limitPerHub / 2));
+
   const seen = new Set<string>();
   const listings: EbayListing[] = [];
 
-  for (const seed of HUB_SEED_POSTCODES) {
+  for (const cat of categoriesToSearch) {
     try {
-      const batch = await searchHub(seed.hub, seed.postcode, q, categoryId, limitPerHub);
+      const batch = await searchCategoryAcrossHubs(cat, perHub);
       for (const item of batch) {
         if (seen.has(item.id)) continue;
         seen.add(item.id);
         listings.push(item);
       }
     } catch {
-      // Continue other hubs if one search fails (quota, radius, etc.)
+      // Continue other categories if one sweep fails (quota, radius, etc.)
     }
   }
 
