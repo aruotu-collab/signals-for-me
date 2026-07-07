@@ -70,24 +70,21 @@ export function MatrixGrid({
         ))}
       </div>
 
-      <div className="relative overflow-auto rounded-2xl border border-white/10" style={{ maxHeight: "72vh" }}>
+      <div className="-mx-4 sm:mx-0">
+        <div className="relative overflow-auto rounded-none border-y border-white/10 sm:rounded-2xl sm:border" style={{ maxHeight: "72vh" }}>
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th
-                className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-ink-950 px-4 py-3 text-left font-semibold text-white"
-                style={{ minWidth: 180 }}
-              >
+              <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
                 Service
               </th>
               {pickups.map((p) => (
                 <th
                   key={p.pickupKey}
-                  className="sticky top-0 z-20 border-b border-r border-white/10 bg-ink-950 px-3 py-3 text-left font-medium text-slate-200"
-                  style={{ minWidth: 150 }}
+                  className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
                 >
-                  <div className="whitespace-nowrap">{p.pickupKey}</div>
-                  <div className="text-[11px] font-normal text-slate-500">{p.count} jobs</div>
+                  <div className="break-words leading-tight">{p.pickupKey}</div>
+                  <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{p.count} jobs</div>
                 </th>
               ))}
             </tr>
@@ -95,12 +92,11 @@ export function MatrixGrid({
           <tbody>
             {visibleServices.map((s) => (
               <tr key={s.service}>
-                <th
-                  className="sticky left-0 z-10 border-b border-r border-white/10 bg-ink-900 px-4 py-3 text-left font-medium text-white"
-                  style={{ minWidth: 180 }}
-                >
-                  <div className="whitespace-nowrap">{s.service}</div>
-                  <div className="text-[11px] font-normal text-slate-500">{s.serviceType}</div>
+                <th className="sticky left-0 z-10 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-900 px-2 py-2 text-left align-top sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3">
+                  <div className="break-words text-xs font-medium leading-snug text-white sm:text-sm">{s.service}</div>
+                  <div className="mt-0.5 break-words text-[10px] font-normal leading-tight text-slate-500 sm:text-[11px]">
+                    {s.serviceType}
+                  </div>
                 </th>
                 {pickups.map((p) => {
                   const cell = cellMap.get(`${s.service}|||${p.pickupKey}`);
@@ -108,7 +104,7 @@ export function MatrixGrid({
                     return (
                       <td
                         key={p.pickupKey}
-                        className="border-b border-r border-white/5 bg-ink-950/40 px-3 py-3 text-center text-slate-700"
+                        className="min-w-[6.5rem] border-b border-r border-white/5 bg-ink-950/40 px-2 py-2 text-center text-slate-700 sm:min-w-[9.5rem] sm:px-3 sm:py-3"
                       >
                         ·
                       </td>
@@ -121,7 +117,7 @@ export function MatrixGrid({
                         : `${cell.minMiles}–${cell.maxMiles} mi`
                       : "";
                   return (
-                    <td key={p.pickupKey} className="border-b border-r border-white/5 px-2 py-2">
+                    <td key={p.pickupKey} className="min-w-[6.5rem] border-b border-r border-white/5 px-1.5 py-1.5 sm:min-w-[9.5rem] sm:px-2 sm:py-2">
                       <button
                         onClick={() =>
                           setTarget({
@@ -130,10 +126,10 @@ export function MatrixGrid({
                             jobKeys: safeParse(cell.jobKeys),
                           })
                         }
-                        className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left transition hover:border-brand-400/40 hover:bg-brand-500/10"
+                        className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-left transition hover:border-brand-400/40 hover:bg-brand-500/10 sm:px-3 sm:py-2"
                       >
-                        <div className="text-sm font-semibold text-white">{cell.jobCount} jobs</div>
-                        {range && <div className="text-[11px] text-slate-400">{range}</div>}
+                        <div className="text-xs font-semibold text-white sm:text-sm">{cell.jobCount} jobs</div>
+                        {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
                       </button>
                     </td>
                   );
@@ -142,6 +138,7 @@ export function MatrixGrid({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <p className="text-xs text-slate-500">
