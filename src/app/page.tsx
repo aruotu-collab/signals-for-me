@@ -13,7 +13,7 @@ export default async function Home() {
     [jobCount, serviceCount, topPickups] = await Promise.all([
       prisma.shiplyJob.count(),
       prisma.shiplyJob.findMany({ distinct: ["service"], select: { service: true } }).then((r) => r.length),
-      listMatrixPickupKeys(10),
+      listMatrixPickupKeys(10), // first 10 alphabetically for home quick links
     ]);
   } catch {
     // DB may be empty pre-import
@@ -50,7 +50,7 @@ export default async function Home() {
 
       {topPickups.length > 0 && (
         <section>
-          <h2 className="text-2xl font-bold text-white">Busiest pickup areas</h2>
+          <h2 className="text-2xl font-bold text-white">Pickup areas (A–Z)</h2>
           <p className="mt-1 text-sm text-slate-400">Jump straight to a starting area for route planning.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {topPickups.map((p) => (

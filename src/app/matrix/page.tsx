@@ -5,7 +5,7 @@ import { MatrixGrid } from "./ui/MatrixGrid";
 export const dynamic = "force-dynamic";
 
 export default async function MatrixPage() {
-  const [services, pickups] = await Promise.all([listMatrixServices(), listMatrixPickupKeys(60)]);
+  const [services, pickups] = await Promise.all([listMatrixServices(), listMatrixPickupKeys()]);
 
   const serviceNames = services.map((s) => s.service);
   const pickupKeys = pickups.map((p) => p.pickupKey);

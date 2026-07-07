@@ -108,11 +108,11 @@ export async function listMatrixServices() {
   return rows;
 }
 
-export async function listMatrixPickupKeys(limit = 60) {
+export async function listMatrixPickupKeys(limit = 500) {
   const groups = await prisma.shiplyJob.groupBy({
     by: ["pickupKey"],
     _count: { _all: true },
-    orderBy: { _count: { pickupKey: "desc" } },
+    orderBy: { pickupKey: "asc" },
     take: limit,
   });
   return groups.map((g) => ({ pickupKey: g.pickupKey, count: g._count._all }));
@@ -143,11 +143,11 @@ export async function getJobsByKeys(keys: string[]) {
   });
 }
 
-export async function listPlannerPickupKeys(limit = 200) {
+export async function listPlannerPickupKeys(limit = 500) {
   const groups = await prisma.shiplyJob.groupBy({
     by: ["pickupKey"],
     _count: { _all: true },
-    orderBy: { _count: { pickupKey: "desc" } },
+    orderBy: { pickupKey: "asc" },
     take: limit,
   });
   return groups.map((g) => ({ pickupKey: g.pickupKey, count: g._count._all }));
