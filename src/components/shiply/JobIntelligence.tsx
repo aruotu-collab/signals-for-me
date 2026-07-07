@@ -1,6 +1,6 @@
 "use client";
 
-import { analyzeJob, formatGbp, type JobIntelInput } from "@/lib/shiply/intelligence";
+import { analyzeJob, formatDriveTime, formatGbp, type JobIntelInput } from "@/lib/shiply/intelligence";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 
 const VERDICT_STYLES = {
@@ -22,10 +22,14 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
       <span className="chip bg-red-500/15 text-red-200">✗ £{intel.hourlyRate}/h — below your £{settings.minHourlyRate}/h</span>
     );
 
+  const driveTime = formatDriveTime(intel.drivingHours);
+  const driveLabel = intel.returnLegIncluded ? `${driveTime} round trip` : `${driveTime} drive`;
+
   if (compact) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
         <span className={`chip ${VERDICT_STYLES[intel.verdict]}`}>{intel.verdictLabel}</span>
+        <span className="chip bg-white/10 text-slate-200">🕐 {driveLabel}</span>
         <span className="text-slate-500">
           Est. {formatGbp(intel.suggestedBid)} · fuel {formatGbp(intel.fuelCost)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h
         </span>
@@ -42,22 +46,28 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
           <div className="mt-0.5 text-sm font-semibold">{intel.verdictLabel}</div>
           <div className="mt-0.5 text-xs opacity-80">{intel.verdictHint}</div>
         </div>
-        <div className="text-right text-xs opacity-80">{intel.competitionLabel}</div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-black/25 px-2 py-1 text-sm font-bold">
+            🕐 {driveTime}
+            <span className="text-[10px] font-normal opacity-70">{intel.returnLegIncluded ? "round trip" : "drive"}</span>
+          </span>
+          <span className="text-xs opacity-80">{intel.competitionLabel}</span>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <IntelStat label="Est. winning bid" value={formatGbp(intel.suggestedBid)} sub={`${formatGbp(intel.bidLow)}–${formatGbp(intel.bidHigh)} range`} />
         <IntelStat
-          label="Est. fuel"
-          value={formatGbp(intel.fuelCost)}
-          sub={`${intel.fuelLitres}L${intel.returnLegIncluded ? " · incl. return" : ""} · ${intel.miles} mi`}
+          label="Drive time"
+          value={driveTime}
+          sub={`${intel.miles} mi${intel.returnLegIncluded ? " · incl. return" : " each way"}`}
         />
         <IntelStat
           label="Est. profit"
           value={formatGbp(intel.profitAtBid)}
           sub={`${formatGbp(intel.profitPerMile)}/mi · ${intel.marginPct}% margin`}
         />
-        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`~${intel.drivingHours}h${intel.returnLegIncluded ? " round trip" : ""}`} />
+        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`${formatGbp(intel.fuelCost)} fuel · ${intel.fuelLitres}L`} />
       </div>
 
       {rateBadge && <div className="mt-2">{rateBadge}</div>}

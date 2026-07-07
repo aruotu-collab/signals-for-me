@@ -214,6 +214,17 @@ export function formatGbp(amount: number): string {
   return `£${amount.toLocaleString("en-GB")}`;
 }
 
+/** Human-readable drive time, e.g. 3.6 → "3h 36m", 0.75 → "45m". */
+export function formatDriveTime(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return "—";
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 const LOADING_OVERHEAD_EXPORT = 15;
 
 /** Profit when you know the payment amount (won/completed jobs). */
