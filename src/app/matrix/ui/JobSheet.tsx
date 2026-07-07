@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FavouriteStar } from "@/components/FavouriteStar";
+import { shiplyFavourite } from "@/lib/favourites";
 
 export type SheetJob = {
   shiplyKey: string;
@@ -118,7 +119,7 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
                         </div>
                       </a>
                       <div className="absolute right-2 top-2">
-                        <FavouriteStar job={j} />
+                        <FavouriteStar item={shiplyFavourite(j)} />
                       </div>
                     </li>
                   ))}

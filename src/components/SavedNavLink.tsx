@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useFavourites } from "@/lib/favourites";
+import { useFavourites } from "@/components/FavouritesProvider";
 
 export function SavedNavLink() {
   const { count, ready } = useFavourites();

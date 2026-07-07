@@ -52,6 +52,34 @@ model User {
   demandComments DemandComment[]
   accounts      Account[]
   sessions      Session[]
+  savedJobs     SavedJob[]
+}
+
+// Driver's saved / favourite jobs (Shiply jobs and eBay collection-only
+// listings). Persisted per signed-in user so favourites follow them across
+// devices; anonymous users keep favourites in localStorage until they sign in.
+model SavedJob {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Stable identity: `${source}:${sourceId}` (e.g. "shiply:abc", "ebay:12345").
+  key       String
+  source    String   // shiply | ebay
+  sourceId  String
+
+  url       String
+  title     String
+  imageUrl  String?
+  line1     String?  // route or pickup location
+  service   String?
+  detail    String?  // miles/quotes or buyingType/price
+
+  savedAt   DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([source])
 }
 
 // ---- Auth.js (NextAuth) adapter models ----

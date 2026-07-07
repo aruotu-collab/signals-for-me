@@ -1,17 +1,17 @@
 "use client";
 
-import { useFavourites, type FavouriteJob } from "@/lib/favourites";
+import { useFavourites } from "@/components/FavouritesProvider";
+import type { FavouriteInput } from "@/lib/favourites";
 
 type Props = {
-  job: Omit<FavouriteJob, "savedAt">;
+  item: FavouriteInput;
   className?: string;
-  /** Show a text label next to the star. */
   withLabel?: boolean;
 };
 
-export function FavouriteStar({ job, className = "", withLabel = false }: Props) {
+export function FavouriteStar({ item, className = "", withLabel = false }: Props) {
   const { isFav, toggle, ready } = useFavourites();
-  const active = ready && isFav(job.shiplyKey);
+  const active = ready && isFav(item.key);
 
   return (
     <button
@@ -23,7 +23,7 @@ export function FavouriteStar({ job, className = "", withLabel = false }: Props)
         // Job cards are wrapped in links; don't navigate when starring.
         e.preventDefault();
         e.stopPropagation();
-        toggle(job);
+        toggle(item);
       }}
       className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-sm transition ${
         active

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { EBAY_CATEGORIES } from "@/lib/ebay/categories";
 import { groupListingsByCategoryAndHub, groupListingsByHub, type EbayListing } from "@/lib/ebay/types";
+import { FavouriteStar } from "@/components/FavouriteStar";
+import { ebayFavourite } from "@/lib/favourites";
 
 export function DriverOpportunityBoard() {
   const [category, setCategory] = useState<string>("all");
@@ -180,12 +182,12 @@ function ListingGroups({ listings }: { listings: EbayListing[] }) {
           </h4>
           <ul className="space-y-2">
             {items.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className="relative">
                 <a
                   href={item.ebayUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-amber-400/30"
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 pr-9 transition hover:border-amber-400/30"
                 >
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -222,6 +224,9 @@ function ListingGroups({ listings }: { listings: EbayListing[] }) {
                     <div className="text-[11px] text-amber-300">View on eBay →</div>
                   </div>
                 </a>
+                <div className="absolute right-1.5 top-1.5">
+                  <FavouriteStar item={ebayFavourite(item)} />
+                </div>
               </li>
             ))}
           </ul>

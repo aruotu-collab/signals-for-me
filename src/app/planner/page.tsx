@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listPlannerHubs, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
 import { FavouriteStar } from "@/components/FavouriteStar";
+import { shiplyFavourite } from "@/lib/favourites";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +118,7 @@ export default async function PlannerPage({
                     </div>
                   </a>
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <FavouriteStar job={j} />
+                    <FavouriteStar item={shiplyFavourite(j)} />
                   </div>
                 </li>
               ))}

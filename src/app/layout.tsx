@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { CookieConsent } from "@/components/CookieConsent";
+import { FavouritesProvider } from "@/components/FavouritesProvider";
+import { auth } from "@/auth";
 import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
@@ -32,16 +34,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const signedIn = Boolean(session?.user?.id);
+
   return (
     <html lang="en">
       <body>
-        <Nav />
-        <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
+        <FavouritesProvider signedIn={signedIn}>
+          <Nav />
+          <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
+        </FavouritesProvider>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
           <div>SignalsForMe — Transport Job Finder</div>
           <div className="mt-2 flex items-center justify-center gap-3">
