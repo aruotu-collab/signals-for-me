@@ -213,3 +213,14 @@ export function analyzeJob(input: JobIntelInput, settings?: JobIntelSettings): J
 export function formatGbp(amount: number): string {
   return `£${amount.toLocaleString("en-GB")}`;
 }
+
+/** True when the job should be shown with "only worth it" filter on. */
+export function jobPassesWorthItFilter(
+  input: JobIntelInput,
+  settings?: JobIntelSettings & { onlyWorthIt?: boolean },
+): boolean {
+  if (!settings?.onlyWorthIt || !settings.minHourlyRate || settings.minHourlyRate <= 0) return true;
+  const intel = analyzeJob(input, settings);
+  if (!intel) return false;
+  return intel.meetsHourlyRate !== false;
+}

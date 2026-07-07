@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { JobSheet, type SheetTarget } from "./JobSheet";
-import { analyzeJob, formatGbp } from "@/lib/shiply/intelligence";
+import { analyzeJob, formatGbp, jobPassesWorthItFilter } from "@/lib/shiply/intelligence";
 import { DriverSettingsPanel } from "@/components/shiply/DriverSettingsPanel";
+import { useDriverSettings } from "@/lib/shiply/driverSettings";
+import type { DriverSettings } from "@/lib/shiply/driverSettingsCore";
 
 type Service = { service: string; serviceType: string };
 type Hub = { pickupHub: string; count: number };
@@ -28,6 +30,7 @@ export function MatrixGrid({
 }) {
   const [target, setTarget] = useState<SheetTarget>(null);
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const { settings } = useDriverSettings();
 
   const cellMap = useMemo(() => {
     const m = new Map<string, Cell>();
@@ -128,6 +131,14 @@ export function MatrixGrid({
                           ? `${cell.minMiles} mi`
                           : `${cell.minMiles}–${cell.maxMiles} mi`
                         : "";
+                    const worthIt =
+                      cell.minMiles != null
+                        ? jobPassesWorthItFilter(
+                            { miles: cell.minMiles, quotes: 4, service: s.service },
+                            settings,
+                          )
+                        : true;
+                    const dimmed = settings.onlyWorthIt && !worthIt;
                     return (
                       <td
                         key={h.pickupHub}
@@ -141,7 +152,11 @@ export function MatrixGrid({
                               jobKeys: safeParse(cell.jobKeys),
                             })
                           }
-                          className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-left transition hover:border-brand-400/40 hover:bg-brand-500/10 sm:px-3 sm:py-2"
+                          className={`w-full rounded-lg border px-2 py-1.5 text-left transition sm:px-3 sm:py-2 ${
+                            dimmed
+                              ? "border-white/5 bg-white/[0.01] opacity-50 hover:opacity-70"
+                              : "border-white/10 bg-white/[0.03] hover:border-brand-400/40 hover:bg-brand-500/10"
+                          }`}
                         >
                           <div className="text-xs font-semibold text-white sm:text-sm">{cell.jobCount} jobs</div>
                           {cell.areaCount > 1 && (
@@ -149,7 +164,7 @@ export function MatrixGrid({
                           )}
                           {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
                           {cell.minMiles != null && (
-                            <CellProfitHint miles={cell.minMiles} service={s.service} />
+                            <CellProfitHint miles={cell.minMiles} service={s.service} settings={settings} />
                           )}
                         </button>
                       </td>
@@ -181,8 +196,24 @@ function safeParse(s: string): string[] {
   }
 }
 
-function CellProfitHint({ miles, service }: { miles: number; service: string }) {
-  const intel = analyzeJob({ miles, quotes: 4, service });
+function CellProfitHint({
+  miles,
+  service,
+  settings,
+}: {
+  miles: number;
+  service: string;
+  settings: DriverSettings;
+}) {
+  const passes = jobPassesWorthItFilter({ miles, quotes: 4, service }, settings);
+  if (settings.onlyWorthIt && !passes) {
+    return (
+      <div className="text-[10px] font-medium text-slate-600 sm:text-[11px]">
+        Below £{settings.minHourlyRate}/h
+      </div>
+    );
+  }
+  const intel = analyzeJob({ miles, quotes: 4, service }, settings);
   if (!intel || intel.verdict === "thin") return null;
   const color =
     intel.verdict === "strong"
@@ -192,7 +223,7 @@ function CellProfitHint({ miles, service }: { miles: number; service: string }) 
         : "text-amber-400";
   return (
     <div className={`text-[10px] font-medium sm:text-[11px] ${color}`}>
-      ~{formatGbp(intel.profitAtBid)} est. profit
+      ~{formatGbp(intel.profitAtBid)} est. profit · £{intel.hourlyRate}/h
     </div>
   );
 }

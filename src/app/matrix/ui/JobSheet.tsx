@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ShiplyJobCard, type ShiplyJobCardData } from "@/components/shiply/ShiplyJobCard";
-import { analyzeJob } from "@/lib/shiply/intelligence";
+import { useDriverSettings } from "@/lib/shiply/driverSettings";
+import { analyzeJob, jobPassesWorthItFilter } from "@/lib/shiply/intelligence";
 
 export type SheetJob = ShiplyJobCardData & { pickupHub: string };
 
@@ -15,6 +16,7 @@ export type SheetTarget = {
 export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: () => void }) {
   const [jobs, setJobs] = useState<SheetJob[]>([]);
   const [loading, setLoading] = useState(false);
+  const { settings } = useDriverSettings();
 
   useEffect(() => {
     if (!target) return;
@@ -38,29 +40,36 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
     };
   }, [target]);
 
+  const visibleJobs = useMemo(
+    () => jobs.filter((j) => jobPassesWorthItFilter(j, settings)),
+    [jobs, settings],
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, SheetJob[]>();
-    for (const j of jobs) {
+    for (const j of visibleJobs) {
       const list = map.get(j.pickupKey) ?? [];
       list.push(j);
       map.set(j.pickupKey, list);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [jobs]);
+  }, [visibleJobs]);
 
   const summary = useMemo(() => {
     let strong = 0;
     let totalProfit = 0;
     let withIntel = 0;
-    for (const j of jobs) {
-      const intel = analyzeJob(j);
+    for (const j of visibleJobs) {
+      const intel = analyzeJob(j, settings);
       if (!intel) continue;
       withIntel++;
       totalProfit += intel.profitAtBid;
       if (intel.verdict === "strong" || intel.verdict === "good") strong++;
     }
     return { strong, totalProfit, withIntel };
-  }, [jobs]);
+  }, [visibleJobs, settings]);
+
+  const hiddenCount = jobs.length - visibleJobs.length;
 
   if (!target) return null;
 
@@ -73,7 +82,9 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
             <div className="text-xs uppercase tracking-wide text-brand-300">📍 Pickup from {target.pickupHub}</div>
             <h2 className="text-lg font-bold text-white">{target.service}</h2>
             <p className="text-xs text-slate-400">
-              {target.jobKeys.length} jobs · {grouped.length || "…"} areas · nearest drop-off first
+              {visibleJobs.length} jobs shown
+              {hiddenCount > 0 && ` (${hiddenCount} hidden below £${settings.minHourlyRate}/h)`}
+              {grouped.length > 0 && ` · ${grouped.length} areas`} · nearest drop-off first
             </p>
             {!loading && summary.withIntel > 0 && (
               <p className="mt-2 text-xs text-sky-300">
@@ -89,7 +100,13 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
 
         <div className="max-h-[70vh] overflow-y-auto p-4">
           {loading && <p className="text-sm text-slate-500">Loading jobs…</p>}
-          {!loading && jobs.length === 0 && <p className="text-sm text-slate-500">No jobs found.</p>}
+          {!loading && visibleJobs.length === 0 && (
+            <p className="text-sm text-slate-400">
+              {jobs.length === 0
+                ? "No jobs found."
+                : `No jobs meet your £${settings.minHourlyRate}/hour minimum. Turn off the filter in Your van & rates or lower your target rate.`}
+            </p>
+          )}
 
           <div className="space-y-6">
             {grouped.map(([area, areaJobs]) => (

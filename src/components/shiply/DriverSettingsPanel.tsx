@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 
 export function DriverSettingsPanel() {
-  const { settings, update, reset, ready, isCustom } = useDriverSettings();
+  const { settings, update, reset, ready, isCustom, signedIn } = useDriverSettings();
   const [open, setOpen] = useState(false);
 
   if (!ready) return null;
@@ -16,15 +17,18 @@ export function DriverSettingsPanel() {
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-white">⚙️ Your van &amp; rates</span>
           {isCustom ? (
             <span className="chip bg-emerald-500/15 text-emerald-200">Personalised</span>
           ) : (
-            <span className="chip bg-white/5 text-slate-400">Using UK defaults</span>
+            <span className="chip bg-white/5 text-slate-400">UK defaults</span>
+          )}
+          {settings.onlyWorthIt && (
+            <span className="chip bg-brand-500/15 text-brand-200">Worth-it filter on</span>
           )}
         </div>
-        <span className="text-xs text-slate-400">
+        <span className="shrink-0 text-xs text-slate-400">
           {settings.mpg} mpg · £{settings.fuelPpl.toFixed(2)}/L · £{settings.minHourlyRate}/h {open ? "▲" : "▼"}
         </span>
       </button>
@@ -32,9 +36,19 @@ export function DriverSettingsPanel() {
       {open && (
         <div className="border-t border-white/10 p-4">
           <p className="mb-3 text-xs text-slate-400">
-            Tune these to match your van and target earnings. Every profit and £/hour estimate on Pickup Radar updates
-            instantly. Saved on this device.
+            Tune these to match your van and target earnings. Profit and £/hour estimates update instantly.
+            {signedIn ? " Synced to your account across devices." : " Saved on this device — sign in to sync everywhere."}
           </p>
+
+          {!signedIn && isCustom && (
+            <div className="mb-3 rounded-lg border border-brand-500/20 bg-brand-500/5 px-3 py-2 text-xs text-slate-300">
+              <Link href="/login" className="font-medium text-brand-300 underline">
+                Sign in
+              </Link>{" "}
+              to keep your van profile on phone, tablet and laptop.
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-3">
             <Field
               label="Van economy (mpg)"
@@ -72,7 +86,17 @@ export function DriverSettingsPanel() {
               onChange={(e) => update({ includeReturnLeg: e.target.checked })}
               className="h-4 w-4 rounded border-white/20 bg-ink-900"
             />
-            Include empty return leg (doubles fuel &amp; time — realistic if you drive home empty)
+            Include empty return leg (doubles fuel &amp; time if you drive home empty)
+          </label>
+
+          <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={settings.onlyWorthIt}
+              onChange={(e) => update({ onlyWorthIt: e.target.checked })}
+              className="h-4 w-4 rounded border-white/20 bg-ink-900"
+            />
+            Only show jobs meeting my £{settings.minHourlyRate}/hour minimum
           </label>
 
           {isCustom && (

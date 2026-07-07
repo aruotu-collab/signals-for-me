@@ -3,6 +3,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { CookieConsent } from "@/components/CookieConsent";
 import { FavouritesProvider } from "@/components/FavouritesProvider";
+import { DriverSettingsProvider } from "@/components/DriverSettingsProvider";
 import { auth } from "@/auth";
 import { SITE_URL } from "@/lib/site";
 
@@ -46,8 +47,10 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <FavouritesProvider signedIn={signedIn}>
-          <Nav />
-          <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
+          <DriverSettingsProvider signedIn={signedIn}>
+            <Nav />
+            <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
+          </DriverSettingsProvider>
         </FavouritesProvider>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
           <div>SignalsForMe — Route Radar for drivers</div>

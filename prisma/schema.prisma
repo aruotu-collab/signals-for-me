@@ -53,6 +53,22 @@ model User {
   accounts      Account[]
   sessions      Session[]
   savedJobs     SavedJob[]
+  driverProfile DriverProfile?
+}
+
+// Per-driver van & rate preferences — synced to account when signed in.
+model DriverProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mpg              Float    @default(28)
+  fuelPpl          Float    @default(1.45)
+  minHourlyRate    Float    @default(15)
+  includeReturnLeg Boolean  @default(false)
+  onlyWorthIt      Boolean  @default(false)
+
+  updatedAt        DateTime @updatedAt
 }
 
 // Driver's saved / favourite jobs (Shiply jobs and eBay collection-only
