@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
-import { listOpenQuoteRequests } from "@/lib/ebay/quotes";
+import { listOpenQuoteRequests, listQuoteRequestHubs } from "@/lib/ebay/quotes";
 import { OpportunitiesView } from "./ui/OpportunitiesView";
 
 export const metadata: Metadata = {
@@ -12,9 +12,16 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function OpportunitiesPage() {
-  const [openQuoteRequests] = await Promise.all([listOpenQuoteRequests(30)]);
+  const [openQuoteRequests, quoteHubs] = await Promise.all([
+    listOpenQuoteRequests({ limit: 30 }),
+    listQuoteRequestHubs(),
+  ]);
 
   return (
-    <OpportunitiesView ebayConnected={isEbayApiConfigured()} openQuoteRequests={openQuoteRequests} />
+    <OpportunitiesView
+      ebayConnected={isEbayApiConfigured()}
+      openQuoteRequests={openQuoteRequests}
+      quoteHubs={quoteHubs}
+    />
   );
 }

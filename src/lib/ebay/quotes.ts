@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { notifyBuyerOfBid, notifyDriverAccepted, notifyDriverPurchaseConfirmed } from "@/lib/ebay/notify";
 
 export type CreateQuoteRequestInput = {
   ebayUrl: string;
@@ -14,6 +15,8 @@ export type CreateQuoteRequestInput = {
   distanceMiles?: number | null;
   estimateLow?: number | null;
   estimateHigh?: number | null;
+  auctionEndsAt?: string | null;
+  maxItemPrice?: number | null;
   buyerEmail?: string | null;
   buyerPhone?: string | null;
   notes?: string | null;
@@ -37,6 +40,8 @@ export async function createQuoteRequest(input: CreateQuoteRequestInput) {
       distanceMiles: input.distanceMiles ?? null,
       estimateLow: input.estimateLow ?? null,
       estimateHigh: input.estimateHigh ?? null,
+      auctionEndsAt: input.auctionEndsAt ? new Date(input.auctionEndsAt) : null,
+      maxItemPrice: input.maxItemPrice ?? null,
       buyerEmail: input.buyerEmail ?? null,
       buyerPhone: input.buyerPhone ?? null,
       notes: input.notes ?? null,
@@ -55,20 +60,38 @@ export async function getQuoteRequestByToken(token: string) {
   });
 }
 
-export async function listOpenQuoteRequests(limit = 50) {
+export async function listOpenQuoteRequests(opts?: { limit?: number; hub?: string | null }) {
   const now = new Date();
   return prisma.deliveryQuoteRequest.findMany({
     where: {
       status: "open",
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      ...(opts?.hub && opts.hub !== "all" ? { pickupHub: opts.hub } : {}),
     },
     include: {
       bids: { orderBy: { amount: "asc" }, take: 1 },
       _count: { select: { bids: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: opts?.limit ?? 50,
   });
+}
+
+/** Distinct hubs that currently have open quote requests (for driver filter). */
+export async function listQuoteRequestHubs() {
+  const now = new Date();
+  const groups = await prisma.deliveryQuoteRequest.groupBy({
+    by: ["pickupHub"],
+    where: {
+      status: "open",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    _count: { _all: true },
+  });
+  return groups
+    .filter((g): g is typeof g & { pickupHub: string } => Boolean(g.pickupHub))
+    .map((g) => ({ hub: g.pickupHub, count: g._count._all }))
+    .sort((a, b) => b.count - a.count);
 }
 
 export async function submitDriverBid(input: {
@@ -83,7 +106,7 @@ export async function submitDriverBid(input: {
   const req = await prisma.deliveryQuoteRequest.findUnique({ where: { id: input.requestId } });
   if (!req || req.status !== "open") throw new Error("This quote request is no longer open.");
 
-  return prisma.driverQuoteBid.create({
+  const bid = await prisma.driverQuoteBid.create({
     data: {
       requestId: input.requestId,
       driverName: input.driverName ?? null,
@@ -94,6 +117,9 @@ export async function submitDriverBid(input: {
       etaNotes: input.etaNotes ?? null,
     },
   });
+
+  await notifyBuyerOfBid(req, bid);
+  return bid;
 }
 
 export async function acceptDriverBid(bidId: string, requestToken: string) {
@@ -111,8 +137,29 @@ export async function acceptDriverBid(bidId: string, requestToken: string) {
       data: { status: "declined" },
     }),
     prisma.driverQuoteBid.update({ where: { id: bidId }, data: { status: "accepted" } }),
-    prisma.deliveryQuoteRequest.update({ where: { id: req.id }, data: { status: "awarded" } }),
+    prisma.deliveryQuoteRequest.update({
+      where: { id: req.id },
+      data: { status: "awarded", acceptedBidId: bidId },
+    }),
   ]);
 
+  await notifyDriverAccepted(bid, req);
   return bid;
+}
+
+/** Buyer confirms they won the auction / bought the item. */
+export async function confirmPurchase(requestToken: string) {
+  const req = await prisma.deliveryQuoteRequest.findUnique({
+    where: { publicToken: requestToken },
+    include: { bids: true },
+  });
+  if (!req) throw new Error("Request not found.");
+  if (!req.acceptedBidId) throw new Error("Accept a driver quote before confirming your purchase.");
+
+  await prisma.deliveryQuoteRequest.update({ where: { id: req.id }, data: { status: "won" } });
+
+  const acceptedBid = req.bids.find((b) => b.id === req.acceptedBidId);
+  if (acceptedBid) await notifyDriverPurchaseConfirmed(acceptedBid, req);
+
+  return acceptedBid ?? null;
 }

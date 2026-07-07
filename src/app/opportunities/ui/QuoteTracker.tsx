@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { acceptBid } from "../actions";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { acceptBid, confirmPurchaseAction } from "../actions";
 
 type Bid = {
   id: string;
@@ -27,6 +27,8 @@ type Request = {
   distanceMiles: number | null;
   estimateLow: number | null;
   estimateHigh: number | null;
+  auctionEndsAt: Date | null;
+  maxItemPrice: number | null;
   status: string;
   expiresAt: Date | null;
   bids: Bid[];
@@ -35,9 +37,19 @@ type Request = {
 export function QuoteTracker({ request }: { request: Request }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [maxBid, setMaxBid] = useState(request.maxItemPrice != null ? String(request.maxItemPrice) : "");
 
   const lowest = request.bids[0]?.amount;
   const accepted = request.bids.find((b) => b.status === "accepted");
+  const deliveryCost = accepted?.amount ?? lowest ?? null;
+
+  const maxBidNum = Number.parseFloat(maxBid);
+  const totalCost = useMemo(() => {
+    if (!Number.isFinite(maxBidNum) || deliveryCost == null) return null;
+    return maxBidNum + deliveryCost;
+  }, [maxBidNum, deliveryCost]);
+
+  const countdown = useAuctionCountdown(request.auctionEndsAt);
 
   return (
     <div className="space-y-6">
@@ -72,7 +84,47 @@ export function QuoteTracker({ request }: { request: Request }) {
           <MiniStat label="Lowest bid" value={lowest != null ? `£${lowest}` : "Waiting…"} />
           <MiniStat label="Status" value={request.status} />
         </div>
+
+        {countdown && (
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-sm text-amber-200">
+            ⏰ Auction ends in <strong>{countdown}</strong>
+          </div>
+        )}
       </header>
+
+      {/* Total-cost calculator */}
+      <section className="card p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-300">Max total before you bid</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Enter your max eBay bid to see the all-in cost including delivery, so you never overpay.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-4">
+          <label className="text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">Your max eBay bid (£)</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="decimal"
+              value={maxBid}
+              onChange={(e) => setMaxBid(e.target.value)}
+              placeholder="e.g. 120"
+              className="w-32 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-brand-400"
+            />
+          </label>
+          <div className="text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">+ Delivery</span>
+            <div className="py-2 font-semibold text-white">
+              {deliveryCost != null ? `£${deliveryCost}` : "Awaiting quotes"}
+            </div>
+          </div>
+          <div className="text-sm">
+            <span className="mb-1 block text-xs text-slate-500">= All-in total</span>
+            <div className="py-2 text-lg font-bold text-emerald-300">
+              {totalCost != null ? `£${totalCost.toFixed(2)}` : "—"}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {request.status === "open" && (
         <div className="card border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-slate-300">
@@ -81,10 +133,37 @@ export function QuoteTracker({ request }: { request: Request }) {
         </div>
       )}
 
-      {accepted && (
+      {accepted && request.status !== "won" && (
         <div className="card border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-          You accepted a quote from {accepted.driverName ?? "a driver"} at <strong>£{accepted.amount}</strong>. Contact:{" "}
-          {accepted.driverPhone}
+          <p>
+            You accepted a quote from {accepted.driverName ?? "a driver"} at <strong>£{accepted.amount}</strong>. Contact:{" "}
+            {accepted.driverPhone}
+          </p>
+          <form
+            className="mt-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError("");
+              const fd = new FormData();
+              fd.set("token", request.publicToken);
+              startTransition(async () => {
+                const res = await confirmPurchaseAction(fd);
+                if (res.error) setError(res.error);
+              });
+            }}
+          >
+            <button type="submit" disabled={pending} className="btn-primary px-4 py-2 text-sm disabled:opacity-50">
+              ✅ I won / bought the item — confirm delivery
+            </button>
+            <p className="mt-1 text-xs text-emerald-200/70">This notifies your driver the job is confirmed.</p>
+          </form>
+        </div>
+      )}
+
+      {request.status === "won" && accepted && (
+        <div className="card border border-emerald-500/40 bg-emerald-500/15 p-4 text-sm text-emerald-100">
+          🎉 Purchase confirmed. {accepted.driverName ?? "Your driver"} has been notified and will arrange collection.
+          Contact: {accepted.driverPhone}
         </div>
       )}
 
@@ -133,17 +212,12 @@ export function QuoteTracker({ request }: { request: Request }) {
                   </form>
                 )}
                 {bid.status === "accepted" && <span className="chip bg-emerald-500/15 text-emerald-200">Accepted</span>}
+                {bid.status === "declined" && <span className="chip bg-white/5 text-slate-400">Not chosen</span>}
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      {request.status === "open" && request.bids.length > 0 && (
-        <p className="text-center text-sm text-slate-500">
-          Total before bidding ≈ item price + £{lowest ?? "?"} delivery
-        </p>
-      )}
     </div>
   );
 }
@@ -155,4 +229,25 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <div className="text-sm font-semibold capitalize text-white">{value}</div>
     </div>
   );
+}
+
+function useAuctionCountdown(endsAt: Date | null): string | null {
+  const end = endsAt ? new Date(endsAt).getTime() : null;
+  const [, force] = useState(0);
+
+  useEffect(() => {
+    if (end == null) return;
+    const id = window.setInterval(() => force((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [end]);
+
+  if (end == null) return null;
+  const diff = end - Date.now();
+  if (diff <= 0) return "ended";
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+  const mins = Math.floor((diff % 3_600_000) / 60_000);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }

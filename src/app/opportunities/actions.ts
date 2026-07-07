@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { acceptDriverBid, createQuoteRequest, submitDriverBid } from "@/lib/ebay/quotes";
+import { acceptDriverBid, confirmPurchase, createQuoteRequest, submitDriverBid } from "@/lib/ebay/quotes";
 import type { DeliveryEstimateResult } from "@/lib/ebay/estimate";
 
 export async function requestDriverQuotes(formData: FormData) {
@@ -10,6 +10,8 @@ export async function requestDriverQuotes(formData: FormData) {
   const buyerEmail = String(formData.get("buyerEmail") ?? "").trim() || null;
   const buyerPhone = String(formData.get("buyerPhone") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const maxItemPriceRaw = Number.parseInt(String(formData.get("maxItemPrice") ?? ""), 10);
+  const maxItemPrice = Number.isFinite(maxItemPriceRaw) && maxItemPriceRaw > 0 ? maxItemPriceRaw : null;
 
   const estimateJson = String(formData.get("estimate") ?? "");
   let estimate: DeliveryEstimateResult | null = null;
@@ -37,6 +39,8 @@ export async function requestDriverQuotes(formData: FormData) {
     distanceMiles: estimate.distanceMiles,
     estimateLow: estimate.estimateLow,
     estimateHigh: estimate.estimateHigh,
+    auctionEndsAt: estimate.auctionEndsAt,
+    maxItemPrice,
     buyerEmail,
     buyerPhone,
     notes,
@@ -80,5 +84,18 @@ export async function acceptBid(formData: FormData) {
     return { ok: true };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not accept bid." };
+  }
+}
+
+export async function confirmPurchaseAction(formData: FormData) {
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Missing request." };
+
+  try {
+    await confirmPurchase(token);
+    revalidatePath(`/opportunities/quote/${token}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not confirm purchase." };
   }
 }

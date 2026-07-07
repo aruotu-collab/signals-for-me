@@ -16,6 +16,8 @@ export type DeliveryEstimateResult = {
   imageUrl: string | null;
   ebayUrl: string;
   buyingType: string | null;
+  itemPrice: number | null;
+  auctionEndsAt: string | null;
   apiConnected: boolean;
   pickupPostcode: string | null;
   pickupTown: string | null;
@@ -55,6 +57,8 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
     imageUrl: null,
     ebayUrl,
     buyingType: null,
+    itemPrice: null,
+    auctionEndsAt: null,
     apiConnected: isEbayApiConfigured(),
     pickupPostcode: null,
     pickupTown: null,
@@ -76,6 +80,8 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
   let imageUrl: string | null = null;
   let buyingType: string | null = null;
   let pickupTown: string | null = null;
+  let itemPrice: number | null = null;
+  let auctionEndsAt: string | null = null;
 
   if (isEbayApiConfigured()) {
     const item = await getEbayItem(itemId);
@@ -85,6 +91,9 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
       buyingType = buyingTypeLabel(item.buyingOptions);
       pickupTown = item.itemLocation?.city ?? null;
       pickupPostcode = pickupPostcode ?? item.itemLocation?.postalCode ?? null;
+      const priceStr = item.currentBidPrice?.value ?? item.price?.value;
+      itemPrice = priceStr ? Number.parseFloat(priceStr) : null;
+      auctionEndsAt = item.itemEndDate ?? null;
     }
   }
 
@@ -110,6 +119,8 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
         imageUrl,
         ebayUrl,
         buyingType,
+        itemPrice,
+        auctionEndsAt,
         apiConnected: isEbayApiConfigured(),
         pickupPostcode,
         pickupTown,
@@ -135,6 +146,8 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
     itemTitle,
     imageUrl,
     buyingType,
+    itemPrice,
+    auctionEndsAt,
     pickupPostcode,
     pickupTown,
   };

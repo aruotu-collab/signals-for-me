@@ -29,9 +29,11 @@ type OpenRequest = {
 export function OpportunitiesView({
   ebayConnected,
   openQuoteRequests,
+  quoteHubs,
 }: {
   ebayConnected: boolean;
   openQuoteRequests: OpenRequest[];
+  quoteHubs: { hub: string; count: number }[];
 }) {
   const [tab, setTab] = useState<Tab>("buyers");
   const [driverTab, setDriverTab] = useState<DriverTab>("quotes");
@@ -103,7 +105,7 @@ export function OpportunitiesView({
       {tab === "buyers" ? (
         <BuyerEstimateForm />
       ) : driverTab === "quotes" ? (
-        <DriverQuoteBoard requests={openQuoteRequests} />
+        <DriverQuoteBoard requests={openQuoteRequests} hubs={quoteHubs} />
       ) : (
         <DriverOpportunityBoard />
       )}

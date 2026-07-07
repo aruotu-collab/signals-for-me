@@ -21,11 +21,20 @@ type OpenRequest = {
   bids: { amount: number }[];
 };
 
-export function DriverQuoteBoard({ requests }: { requests: OpenRequest[] }) {
+export function DriverQuoteBoard({
+  requests,
+  hubs = [],
+}: {
+  requests: OpenRequest[];
+  hubs?: { hub: string; count: number }[];
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [hubFilter, setHubFilter] = useState<string>("all");
+
+  const filtered = hubFilter === "all" ? requests : requests.filter((r) => r.pickupHub === hubFilter);
 
   return (
     <div className="space-y-4">
@@ -34,13 +43,38 @@ export function DriverQuoteBoard({ requests }: { requests: OpenRequest[] }) {
         before they bid. Submit your price; lowest useful quote often wins.
       </div>
 
-      {requests.length === 0 ? (
+      {hubs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Filter by pickup hub:</span>
+          <button
+            type="button"
+            onClick={() => setHubFilter("all")}
+            className={`chip ${hubFilter === "all" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          >
+            All ({requests.length})
+          </button>
+          {hubs.map((h) => (
+            <button
+              key={h.hub}
+              type="button"
+              onClick={() => setHubFilter(h.hub)}
+              className={`chip ${hubFilter === h.hub ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
+            >
+              {h.hub} ({h.count})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
         <div className="card p-8 text-center text-sm text-slate-400">
-          No open quote requests right now. Check the collection-only board for early leads, or check back soon.
+          {hubFilter === "all"
+            ? "No open quote requests right now. Check the collection-only board for early leads, or check back soon."
+            : `No open quote requests in ${hubFilter}. Try another hub or view all.`}
         </div>
       ) : (
         <ul className="space-y-3">
-          {requests.map((req) => (
+          {filtered.map((req) => (
             <li key={req.id} className="card overflow-hidden">
               <button
                 type="button"

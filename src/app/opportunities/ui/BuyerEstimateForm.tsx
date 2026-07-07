@@ -143,6 +143,18 @@ export function BuyerEstimateForm() {
             </label>
 
             <label className="block">
+              <span className="text-sm font-medium text-slate-300">Your max eBay bid (£, optional)</span>
+              <input
+                name="maxItemPrice"
+                type="number"
+                min={0}
+                inputMode="decimal"
+                placeholder="e.g. 120 — powers your total-cost calculator"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white"
+              />
+            </label>
+
+            <label className="block">
               <span className="text-sm font-medium text-slate-300">Notes for drivers (optional)</span>
               <textarea
                 name="notes"

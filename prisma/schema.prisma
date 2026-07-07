@@ -425,8 +425,15 @@ model DeliveryQuoteRequest {
   buyerPhone       String?
   notes            String?
 
-  status           String   @default("open") // open | awarded | closed | expired
+  // Auction timing (from eBay) + buyer's max item bid for the total-cost calc.
+  auctionEndsAt    DateTime?
+  maxItemPrice     Int?
+
+  status           String   @default("open") // open | awarded | won | closed | expired
   expiresAt        DateTime?
+
+  // Set when buyer accepts a driver bid.
+  acceptedBidId    String?
 
   bids             DriverQuoteBid[]
 

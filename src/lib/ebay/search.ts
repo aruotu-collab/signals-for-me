@@ -2,7 +2,7 @@ import { assignPickupHub } from "@/lib/shiply/hubs";
 import { ebayBrowse } from "@/lib/ebay/client";
 import type { BuyingType, EbayListing } from "@/lib/ebay/types";
 
-type EbayItemSummary = {
+export type EbayItemSummary = {
   itemId?: string;
   title?: string;
   itemWebUrl?: string;
