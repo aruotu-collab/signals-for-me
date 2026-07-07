@@ -30,8 +30,9 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
         <span className={`chip ${VERDICT_STYLES[intel.verdict]}`}>{intel.verdictLabel}</span>
         <span className="chip bg-white/10 text-slate-200">🕐 {driveLabel}</span>
+        <span className="chip bg-orange-500/20 text-orange-200">⛽ {formatGbp(intel.fuelCost)} fuel</span>
         <span className="text-slate-500">
-          Est. {formatGbp(intel.suggestedBid)} · fuel {formatGbp(intel.fuelCost)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h
+          Est. {formatGbp(intel.suggestedBid)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h
         </span>
         {rateBadge}
       </div>
@@ -47,15 +48,21 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
           <div className="mt-0.5 text-xs opacity-80">{intel.verdictHint}</div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-black/25 px-2 py-1 text-sm font-bold">
-            🕐 {driveTime}
-            <span className="text-[10px] font-normal opacity-70">{intel.returnLegIncluded ? "round trip" : "drive"}</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-black/25 px-2 py-1 text-sm font-bold">
+              🕐 {driveTime}
+              <span className="text-[10px] font-normal opacity-70">{intel.returnLegIncluded ? "round trip" : "drive"}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-lg bg-orange-500/20 px-2 py-1 text-sm font-bold text-orange-200">
+              ⛽ {formatGbp(intel.fuelCost)}
+              <span className="text-[10px] font-normal opacity-70">fuel</span>
+            </span>
+          </div>
           <span className="text-xs opacity-80">{intel.competitionLabel}</span>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <IntelStat label="Est. winning bid" value={formatGbp(intel.suggestedBid)} sub={`${formatGbp(intel.bidLow)}–${formatGbp(intel.bidHigh)} range`} />
         <IntelStat
           label="Drive time"
@@ -63,11 +70,17 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
           sub={`${intel.miles} mi${intel.returnLegIncluded ? " · incl. return" : " each way"}`}
         />
         <IntelStat
+          label="Est. fuel"
+          value={formatGbp(intel.fuelCost)}
+          sub={`${intel.fuelLitres}L${intel.returnLegIncluded ? " · incl. return" : ""}`}
+          accent="fuel"
+        />
+        <IntelStat
           label="Est. profit"
           value={formatGbp(intel.profitAtBid)}
           sub={`${formatGbp(intel.profitPerMile)}/mi · ${intel.marginPct}% margin`}
         />
-        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`${formatGbp(intel.fuelCost)} fuel · ${intel.fuelLitres}L`} />
+        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`after fuel & time`} />
       </div>
 
       {rateBadge && <div className="mt-2">{rateBadge}</div>}
@@ -80,11 +93,13 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
   );
 }
 
-function IntelStat({ label, value, sub }: { label: string; value: string; sub: string }) {
+function IntelStat({ label, value, sub, accent }: { label: string; value: string; sub: string; accent?: "fuel" }) {
+  const box = accent === "fuel" ? "bg-orange-500/15 ring-1 ring-orange-500/25" : "bg-black/20";
+  const valueColor = accent === "fuel" ? "text-orange-200" : "";
   return (
-    <div className="rounded-lg bg-black/20 px-2 py-1.5">
+    <div className={`rounded-lg px-2 py-1.5 ${box}`}>
       <div className="text-[9px] uppercase tracking-wide opacity-70">{label}</div>
-      <div className="text-sm font-bold">{value}</div>
+      <div className={`text-sm font-bold ${valueColor}`}>{value}</div>
       <div className="text-[10px] opacity-70">{sub}</div>
     </div>
   );
