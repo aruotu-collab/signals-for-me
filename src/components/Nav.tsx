@@ -28,6 +28,9 @@ export async function Nav() {
           <Link href="/planner" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Planner
           </Link>
+          <Link href="/opportunities" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
+            Opportunities
+          </Link>
           <AuthButtons email={session?.user?.email ?? null} />
         </nav>
       </div>

@@ -128,6 +128,43 @@ function nearestHub(lat: number, lng: number): string {
   return best.name;
 }
 
+export function listHubNames(): string[] {
+  return HUBS.map((h) => h.name);
+}
+
+const KNOWN_HUBS = new Set([...HUBS.map((h) => h.name), "International", "Other UK"]);
+
+export function isKnownHub(name: string): boolean {
+  return KNOWN_HUBS.has(name);
+}
+
+export function hubRank(name: string): number {
+  const idx = HUBS.findIndex((h) => h.name === name);
+  if (idx >= 0) return idx;
+  if (name === "Other UK") return 900;
+  if (name === "International") return 901;
+  return 999;
+}
+
+const NON_UK_MARKERS =
+  /\b(spain|france|germany|italy|portugal|netherlands|belgium|ireland(?!\s+north)|usa|united states|canada|australia|poland|sweden|denmark|norway|finland|austria|switzerland|greece|turkey|mexico|brazil|india|china|japan)\b/i;
+
+function isNonUkAddress(...parts: (string | null | undefined)[]): boolean {
+  const blob = parts.filter(Boolean).join(" ");
+  if (NON_UK_MARKERS.test(blob)) return true;
+  // Country at end of comma-separated address (common in Shiply scrape).
+  const tokens = blob.split(",").map((t) => t.trim());
+  const last = tokens[tokens.length - 1]?.toLowerCase() ?? "";
+  if (last && !/^(uk|united kingdom|england|scotland|wales|northern ireland|great britain|gb)$/.test(last)) {
+    if (/^[a-z\s.'-]{3,}$/i.test(last) && !/\d/.test(last) && tokens.length >= 3) return true;
+  }
+  return false;
+}
+
+function isInUkBBox(lat: number, lng: number): boolean {
+  return lat >= 49 && lat <= 61 && lng >= -8.5 && lng <= 2.5;
+}
+
 export function assignPickupHub(input: {
   pickupTown: string;
   pickupKey: string;
@@ -135,16 +172,18 @@ export function assignPickupHub(input: {
   pickupLat?: number | null;
   pickupLng?: number | null;
 }): string {
+  if (isNonUkAddress(input.pickupTown, input.pickupKey, input.pickupAddress)) return "International";
+
   if (isLondonArea(input.pickupTown, input.pickupKey, input.pickupAddress)) return "London";
 
   const byName = matchHubByName(input.pickupTown, input.pickupKey);
   if (byName) return byName;
 
   if (typeof input.pickupLat === "number" && typeof input.pickupLng === "number") {
+    if (!isInUkBBox(input.pickupLat, input.pickupLng)) return "International";
     return nearestHub(input.pickupLat, input.pickupLng);
   }
 
-  // Last resort: fuzzy match on town only
   const town = norm(input.pickupTown);
   if (town) {
     for (const hub of HUBS) {
@@ -155,9 +194,5 @@ export function assignPickupHub(input: {
     }
   }
 
-  return input.pickupTown.trim() || input.pickupKey || "Other";
-}
-
-export function listHubNames(): string[] {
-  return HUBS.map((h) => h.name);
+  return "Other UK";
 }

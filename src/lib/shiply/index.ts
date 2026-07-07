@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
-import { assignPickupHub } from "@/lib/shiply/hubs";
+import { assignPickupHub, hubRank, isKnownHub } from "@/lib/shiply/hubs";
 
 export async function backfillPickupHubs(): Promise<{ updated: number }> {
   const jobs = await prisma.shiplyJob.findMany({
@@ -156,7 +156,11 @@ export async function listMatrixHubs(limit = 120) {
     _count: { _all: true },
   });
   return groups
-    .sort((a, b) => b._count._all - a._count._all)
+    .filter((g) => isKnownHub(g.pickupHub))
+    .sort((a, b) => {
+      if (b._count._all !== a._count._all) return b._count._all - a._count._all;
+      return hubRank(a.pickupHub) - hubRank(b.pickupHub);
+    })
     .slice(0, limit)
     .map((g) => ({ pickupHub: g.pickupHub, count: g._count._all }));
 }

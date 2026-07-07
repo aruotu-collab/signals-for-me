@@ -38,6 +38,9 @@ export default async function Home() {
             <Link href="/planner" className="btn-ghost px-6 py-3 text-base">
               Driver planner
             </Link>
+            <Link href="/opportunities" className="btn-ghost px-6 py-3 text-base">
+              eBay opportunities
+            </Link>
           </div>
         </div>
 
