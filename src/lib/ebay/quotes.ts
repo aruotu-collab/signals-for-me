@@ -16,6 +16,7 @@ export type CreateQuoteRequestInput = {
   estimateLow?: number | null;
   estimateHigh?: number | null;
   auctionEndsAt?: string | null;
+  itemPrice?: number | null;
   maxItemPrice?: number | null;
   buyerEmail?: string | null;
   buyerPhone?: string | null;
@@ -41,6 +42,7 @@ export async function createQuoteRequest(input: CreateQuoteRequestInput) {
       estimateLow: input.estimateLow ?? null,
       estimateHigh: input.estimateHigh ?? null,
       auctionEndsAt: input.auctionEndsAt ? new Date(input.auctionEndsAt) : null,
+      itemPrice: input.itemPrice != null ? Math.round(input.itemPrice) : null,
       maxItemPrice: input.maxItemPrice ?? null,
       buyerEmail: input.buyerEmail ?? null,
       buyerPhone: input.buyerPhone ?? null,

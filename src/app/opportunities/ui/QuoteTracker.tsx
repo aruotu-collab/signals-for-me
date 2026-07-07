@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { bidGuideChip, bidGuideLabel } from "@/lib/ebay/category";
 import { quoteCategory } from "@/lib/ebay/quoteIntel";
 import { acceptBid, confirmPurchaseAction } from "../actions";
+import { BudgetBreakdown } from "./BudgetBreakdown";
 
 type Bid = {
   id: string;
@@ -30,6 +31,7 @@ type Request = {
   estimateLow: number | null;
   estimateHigh: number | null;
   auctionEndsAt: Date | null;
+  itemPrice: number | null;
   maxItemPrice: number | null;
   status: string;
   expiresAt: Date | null;
@@ -39,17 +41,32 @@ type Request = {
 export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; nearbyVans?: number }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const [maxBid, setMaxBid] = useState(request.maxItemPrice != null ? String(request.maxItemPrice) : "");
+  const [maxBid, setMaxBid] = useState(
+    request.maxItemPrice != null
+      ? String(request.maxItemPrice)
+      : request.itemPrice != null
+        ? String(request.itemPrice)
+        : "",
+  );
 
   const lowest = request.bids[0]?.amount;
   const accepted = request.bids.find((b) => b.status === "accepted");
-  const deliveryCost = accepted?.amount ?? lowest ?? null;
 
+  const deliverySource: "guide" | "lowest" | "accepted" = accepted
+    ? "accepted"
+    : lowest != null
+      ? "lowest"
+      : "guide";
+
+  const deliveryActual = accepted?.amount ?? lowest ?? null;
   const maxBidNum = Number.parseFloat(maxBid);
+  const itemOverride = Number.isFinite(maxBidNum) && maxBidNum > 0 ? maxBidNum : null;
+  const itemForTotal = itemOverride ?? request.itemPrice;
+
   const totalCost = useMemo(() => {
-    if (!Number.isFinite(maxBidNum) || deliveryCost == null) return null;
-    return maxBidNum + deliveryCost;
-  }, [maxBidNum, deliveryCost]);
+    if (itemForTotal == null || deliveryActual == null) return null;
+    return itemForTotal + deliveryActual;
+  }, [itemForTotal, deliveryActual]);
 
   const countdown = useAuctionCountdown(request.auctionEndsAt);
   const category = quoteCategory(request.itemTitle);
@@ -104,39 +121,60 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
         )}
       </header>
 
-      {/* Total-cost calculator */}
+      <BudgetBreakdown
+        itemPrice={request.itemPrice}
+        buyingType={request.buyingType}
+        deliveryLow={request.estimateLow}
+        deliveryHigh={request.estimateHigh}
+        deliveryActual={deliveryActual}
+        deliverySource={deliverySource}
+        itemOverride={itemOverride}
+      />
+
+      {/* Interactive max-bid tweak */}
       <section className="card p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-300">Max total before you bid</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-300">Adjust your budget</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Enter your max eBay bid to see the all-in cost including delivery, so you never overpay.
+          {accepted
+            ? "Delivery is locked to your accepted quote. Update your max item bid to see the final all-in total."
+            : lowest != null
+              ? "Delivery uses the lowest driver quote so far. Accept a quote to lock it in."
+              : "No driver quotes yet — delivery uses the guide estimate until bids arrive."}
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-4">
           <label className="text-sm text-slate-300">
-            <span className="mb-1 block text-xs text-slate-500">Your max eBay bid (£)</span>
+            <span className="mb-1 block text-xs text-slate-500">
+              {request.buyingType === "Auction" ? "Your max item bid (£)" : "Item cost (£)"}
+            </span>
             <input
               type="number"
               min={0}
               inputMode="decimal"
               value={maxBid}
               onChange={(e) => setMaxBid(e.target.value)}
-              placeholder="e.g. 120"
+              placeholder={request.itemPrice != null ? String(request.itemPrice) : "e.g. 120"}
               className="w-32 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-brand-400"
             />
           </label>
-          <div className="text-sm text-slate-300">
-            <span className="mb-1 block text-xs text-slate-500">+ Delivery</span>
-            <div className="py-2 font-semibold text-white">
-              {deliveryCost != null ? `£${deliveryCost}` : "Awaiting quotes"}
-            </div>
-          </div>
-          <div className="text-sm">
-            <span className="mb-1 block text-xs text-slate-500">= All-in total</span>
-            <div className="py-2 text-lg font-bold text-emerald-300">
-              {totalCost != null ? `£${totalCost.toFixed(2)}` : "—"}
-            </div>
-          </div>
+          {request.itemPrice != null && request.buyingType === "Auction" && (
+            <p className="pb-2 text-xs text-slate-500">
+              Current eBay bid: £{request.itemPrice.toLocaleString("en-GB")}
+            </p>
+          )}
         </div>
       </section>
+
+      {/* Legacy inline total — keep visible when calculator has values */}
+      {totalCost != null && (
+        <div className="card border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+          <div className="text-xs uppercase tracking-wide text-emerald-300/80">All-in total</div>
+          <div className="mt-1 text-3xl font-bold text-emerald-200">£{totalCost.toLocaleString("en-GB")}</div>
+          <p className="mt-1 text-xs text-slate-400">
+            £{itemForTotal!.toLocaleString("en-GB")} item + £{deliveryActual!.toLocaleString("en-GB")}{" "}
+            {deliverySource === "accepted" ? "accepted delivery" : deliverySource === "lowest" ? "lowest quote" : "guide"}
+          </p>
+        </div>
+      )}
 
       {request.status === "open" && (
         <div className="card border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-slate-300">

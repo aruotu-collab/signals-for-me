@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { DeliveryEstimateResult } from "@/lib/ebay/estimate";
 import { requestDriverQuotes } from "../actions";
+import { BudgetBreakdown } from "./BudgetBreakdown";
 
 export function BuyerEstimateForm() {
   const router = useRouter();
@@ -149,7 +150,7 @@ export function BuyerEstimateForm() {
                 type="number"
                 min={0}
                 inputMode="decimal"
-                placeholder="e.g. 120 — powers your total-cost calculator"
+                placeholder={result.itemPrice != null ? `e.g. ${result.itemPrice} — refines your total budget` : "e.g. 120"}
                 className="mt-2 w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white"
               />
             </label>
@@ -217,10 +218,26 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
           <Stat label="Pickup" value={result.pickupArea ?? "—"} />
           <Stat label="Delivery" value={result.deliveryArea} />
           <Stat label="Distance" value={`${result.distanceMiles} mi`} />
+          {result.itemPrice != null && (
+            <Stat
+              label={result.buyingType === "Auction" ? "Current bid" : "Item price"}
+              value={`£${result.itemPrice.toLocaleString("en-GB")}`}
+            />
+          )}
           {result.estimateLow != null && result.estimateHigh != null && (
-            <Stat label="Guide price" value={`£${result.estimateLow}–£${result.estimateHigh}`} />
+            <Stat label="Delivery guide" value={`£${result.estimateLow}–£${result.estimateHigh}`} />
           )}
         </div>
+      )}
+
+      {result.estimateLow != null && result.estimateHigh != null && (
+        <BudgetBreakdown
+          itemPrice={result.itemPrice}
+          buyingType={result.buyingType}
+          deliveryLow={result.estimateLow}
+          deliveryHigh={result.estimateHigh}
+          deliverySource="guide"
+        />
       )}
 
       {result.serviceCategory && result.distanceMiles != null && (

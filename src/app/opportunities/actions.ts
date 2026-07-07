@@ -42,6 +42,7 @@ export async function requestDriverQuotes(formData: FormData) {
     estimateLow: estimate.estimateLow,
     estimateHigh: estimate.estimateHigh,
     auctionEndsAt: estimate.auctionEndsAt,
+    itemPrice: estimate.itemPrice,
     maxItemPrice,
     buyerEmail,
     buyerPhone,

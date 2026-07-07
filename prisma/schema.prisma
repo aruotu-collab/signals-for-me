@@ -480,6 +480,7 @@ model DeliveryQuoteRequest {
 
   // Auction timing (from eBay) + buyer's max item bid for the total-cost calc.
   auctionEndsAt    DateTime?
+  itemPrice        Int?     // eBay current BIN price or current auction bid at estimate time
   maxItemPrice     Int?
 
   status           String   @default("open") // open | awarded | won | closed | expired
