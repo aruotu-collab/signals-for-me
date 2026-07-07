@@ -330,6 +330,58 @@ model ServiceRequest {
   @@index([urgency])
 }
 
+// ---- Shiply swipe-matrix product ----
+model ShiplyJob {
+  id             String   @id @default(cuid())
+  // stable key derived from Shiply URL (e.g. 9JXGX06QA)
+  shiplyKey      String   @unique
+  shiplyUrl      String
+  title          String
+  imageUrl       String?
+
+  serviceType    String
+  service        String
+
+  pickupTown     String
+  pickupAddress  String?
+  pickupZone     String?  // e.g. "SW", "SE" when pickup is London
+  pickupKey      String   // pickupTown or "London SW"
+
+  deliveryTown    String
+  deliveryAddress String?
+
+  miles          Int?
+  quotes         Int?
+
+  importedAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([serviceType])
+  @@index([service])
+  @@index([pickupKey])
+  @@index([pickupTown])
+  @@index([pickupZone])
+  @@index([miles])
+}
+
+// Precomputed cell index for the matrix UI (service × pickupKey).
+model ShiplyMatrixCell {
+  id         String   @id @default(cuid())
+  service    String
+  pickupKey  String
+  jobCount   Int      @default(0)
+  minMiles   Int?
+  maxMiles   Int?
+  // JSON string of shiply keys in sorted order (nearest → farthest).
+  jobKeys    String   @default("[]")
+  updatedAt  DateTime @updatedAt
+
+  @@unique([service, pickupKey])
+  @@index([service])
+  @@index([pickupKey])
+  @@index([jobCount])
+}
+
 // Bookkeeping for pipeline runs (observability).
 model PipelineRun {
   id           String   @id @default(cuid())

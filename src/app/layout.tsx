@@ -6,9 +6,9 @@ import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
-const title = "SignalsForMe — Customer Demand Intelligence";
+const title = "SignalsForMe — Transport Job Finder";
 const description =
-  "Vote for products and services you wish existed. Businesses discover validated customer demand before building.";
+  "Find delivery and transport jobs by swiping a service × location matrix. Nearest drop-off first, direct Shiply links.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -43,10 +43,15 @@ export default function RootLayout({
         <Nav />
         <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
-          <div>SignalsForMe — Customer Demand Intelligence Platform</div>
-          <a href="/privacy" className="mt-2 inline-block text-slate-400 underline hover:text-slate-200">
-            Privacy Policy
-          </a>
+          <div>SignalsForMe — Transport Job Finder</div>
+          <div className="mt-2 flex items-center justify-center gap-3">
+            <a href="/privacy" className="text-slate-400 underline hover:text-slate-200">
+              Privacy Policy
+            </a>
+            <a href="/legacy" className="text-slate-400 underline hover:text-slate-200">
+              Legacy
+            </a>
+          </div>
         </footer>
         {GA_ID ? <CookieConsent gaId={GA_ID} /> : null}
       </body>
