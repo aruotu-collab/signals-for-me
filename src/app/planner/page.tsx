@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listPlannerHubs, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
+import { FavouriteStar } from "@/components/FavouriteStar";
 
 export const dynamic = "force-dynamic";
 
@@ -90,12 +91,12 @@ export default async function PlannerPage({
             )}
             <ol className="mt-4 space-y-3">
               {ordered.map((j, i) => (
-                <li key={j.shiplyKey}>
+                <li key={j.shiplyKey} className="relative">
                   <a
                     href={j.shiplyUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-brand-400/30"
+                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 pr-10 transition hover:border-brand-400/30"
                   >
                     <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500/15 text-sm font-bold text-brand-200">
                       {i + 1}
@@ -115,6 +116,9 @@ export default async function PlannerPage({
                       {j.quotes != null && <div className="text-[11px] text-slate-500">{j.quotes} quotes</div>}
                     </div>
                   </a>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <FavouriteStar job={j} />
+                  </div>
                 </li>
               ))}
             </ol>

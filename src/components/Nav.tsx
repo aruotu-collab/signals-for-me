@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { AuthButtons } from "./AuthButtons";
+import { SavedNavLink } from "./SavedNavLink";
 
 export async function Nav() {
   const session = await auth();
@@ -31,6 +32,7 @@ export async function Nav() {
           <Link href="/opportunities" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Opportunities
           </Link>
+          <SavedNavLink />
           <AuthButtons email={session?.user?.email ?? null} />
         </nav>
       </div>

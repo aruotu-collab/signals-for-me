@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FavouriteStar } from "@/components/FavouriteStar";
 
 export type SheetJob = {
   shiplyKey: string;
@@ -89,12 +90,12 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
                 </h3>
                 <ul className="space-y-3">
                   {areaJobs.map((j) => (
-                    <li key={j.shiplyKey}>
+                    <li key={j.shiplyKey} className="relative">
                       <a
                         href={j.shiplyUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-brand-400/30"
+                        className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 pr-10 transition hover:border-brand-400/30"
                       >
                         {j.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -116,6 +117,9 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
                           </div>
                         </div>
                       </a>
+                      <div className="absolute right-2 top-2">
+                        <FavouriteStar job={j} />
+                      </div>
                     </li>
                   ))}
                 </ul>
