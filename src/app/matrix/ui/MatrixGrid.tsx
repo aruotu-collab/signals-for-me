@@ -75,14 +75,18 @@ export function MatrixGrid({
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
-                Service
+              <th className="sticky left-0 top-0 z-30 w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-semibold text-white sm:w-36 sm:min-w-36 sm:max-w-36 sm:px-3 sm:py-3 sm:text-sm">
+                <div>Service ↓</div>
+                <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup from →</div>
               </th>
               {pickups.map((p) => (
                 <th
                   key={p.pickupKey}
-                  className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
+                  className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
                 >
+                  <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
+                    📍 Pickup from
+                  </div>
                   <div className="break-words leading-tight">{p.pickupKey}</div>
                   <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{p.count} jobs</div>
                 </th>
@@ -142,8 +146,9 @@ export function MatrixGrid({
       </div>
 
       <p className="text-xs text-slate-500">
-        Service is frozen on the left, pickup locations are frozen on top. Swipe/scroll horizontally to browse, then tap a
-        cell to see jobs (nearest drop-off first) with Shiply links.
+        Columns across the top are <span className="text-brand-300">pickup-from locations</span> (where the goods are
+        collected). Service is frozen on the left. Swipe horizontally to browse, then tap a cell to see jobs (nearest
+        drop-off first) with Shiply links.
       </p>
 
       <JobSheet target={target} onClose={() => setTarget(null)} />

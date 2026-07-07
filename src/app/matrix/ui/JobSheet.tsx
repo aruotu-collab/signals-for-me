@@ -55,7 +55,7 @@ export function JobSheet({ target, onClose }: { target: SheetTarget; onClose: ()
       <div className="relative z-10 max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-2xl border border-white/10 bg-ink-900 sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">{target.pickupKey}</div>
+            <div className="text-xs uppercase tracking-wide text-brand-300">📍 Pickup from {target.pickupKey}</div>
             <h2 className="text-lg font-bold text-white">{target.service}</h2>
             <p className="text-xs text-slate-400">{target.jobKeys.length} jobs · nearest drop-off first</p>
           </div>
