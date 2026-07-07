@@ -466,6 +466,39 @@ model DriverQuoteBid {
   @@index([status])
 }
 
+// Driver "empty van" availability — powers return-load / backhaul matching.
+// A driver marks where they're empty, optionally where they're heading, and
+// when the availability expires. Buyers only ever see aggregated hub counts.
+model EmptyVan {
+  id             String   @id @default(cuid())
+
+  driverName     String?
+  driverEmail    String?
+  driverPhone    String
+
+  // Where the van is empty right now.
+  hub            String
+  postcode       String?
+
+  // Optional onward direction for corridor / return-load matching.
+  headingHub     String?
+  headingPostcode String?
+
+  vanSize        String?  // small | swb | lwb | luton | other
+  note           String?
+
+  status         String   @default("active") // active | cancelled | expired
+  availableUntil DateTime
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([hub])
+  @@index([headingHub])
+  @@index([availableUntil])
+}
+
 // Bookkeeping for pipeline runs (observability).
 model PipelineRun {
   id           String   @id @default(cuid())

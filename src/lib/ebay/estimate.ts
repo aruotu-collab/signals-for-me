@@ -3,6 +3,7 @@ import { assignPickupHub } from "@/lib/shiply/hubs";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
 import { getEbayItem } from "@/lib/ebay/search";
 import { parseEbayItemId } from "@/lib/ebay/types";
+import { countVansForHub } from "@/lib/ebay/emptyVans";
 
 export type DeliveryEstimateInput = {
   ebayUrl: string;
@@ -27,6 +28,7 @@ export type DeliveryEstimateResult = {
   distanceMiles: number | null;
   estimateLow: number | null;
   estimateHigh: number | null;
+  driversNearby: number;
   message: string;
 };
 
@@ -68,6 +70,7 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
     distanceMiles: null,
     estimateLow: null,
     estimateHigh: null,
+    driversNearby: 0,
     message,
   });
 
@@ -113,6 +116,7 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
         pickupLat: from.lat,
         pickupLng: from.lng,
       });
+      const driversNearby = await countVansForHub(hub);
       return {
         itemId,
         itemTitle,
@@ -130,6 +134,7 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
         distanceMiles,
         estimateLow: range.low,
         estimateHigh: range.high,
+        driversNearby,
         message: itemTitle
           ? `Instant estimate for “${itemTitle}” — ${distanceMiles} miles from ${hub} to ${deliveryOutcode}.`
           : `Instant estimate — ${distanceMiles} miles from ${pickupOutcode} to ${deliveryOutcode}.`,

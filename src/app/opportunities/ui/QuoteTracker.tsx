@@ -34,7 +34,7 @@ type Request = {
   bids: Bid[];
 };
 
-export function QuoteTracker({ request }: { request: Request }) {
+export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; nearbyVans?: number }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [maxBid, setMaxBid] = useState(request.maxItemPrice != null ? String(request.maxItemPrice) : "");
@@ -88,6 +88,13 @@ export function QuoteTracker({ request }: { request: Request }) {
         {countdown && (
           <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-sm text-amber-200">
             ⏰ Auction ends in <strong>{countdown}</strong>
+          </div>
+        )}
+
+        {nearbyVans > 0 && (
+          <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2 text-sm text-sky-200">
+            🚐 <strong>{nearbyVans}</strong> {nearbyVans === 1 ? "driver is" : "drivers are"} empty near{" "}
+            {request.pickupHub ?? "the pickup"} — you&apos;re likely to get competitive quotes.
           </div>
         )}
       </header>

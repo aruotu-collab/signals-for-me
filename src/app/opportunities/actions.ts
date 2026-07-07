@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { acceptDriverBid, confirmPurchase, createQuoteRequest, submitDriverBid } from "@/lib/ebay/quotes";
+import { cancelEmptyVan, markVanEmpty } from "@/lib/ebay/emptyVans";
+import { isKnownHub } from "@/lib/shiply/hubs";
 import type { DeliveryEstimateResult } from "@/lib/ebay/estimate";
 
 export async function requestDriverQuotes(formData: FormData) {
@@ -97,5 +99,55 @@ export async function confirmPurchaseAction(formData: FormData) {
     return { ok: true };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not confirm purchase." };
+  }
+}
+
+export async function markVanEmptyAction(formData: FormData) {
+  const driverPhone = String(formData.get("driverPhone") ?? "").trim();
+  const hub = String(formData.get("hub") ?? "").trim();
+  const driverName = String(formData.get("driverName") ?? "").trim() || null;
+  const driverEmail = String(formData.get("driverEmail") ?? "").trim() || null;
+  const postcode = String(formData.get("postcode") ?? "").trim() || null;
+  const headingHubRaw = String(formData.get("headingHub") ?? "").trim();
+  const headingHub = headingHubRaw && headingHubRaw !== "any" ? headingHubRaw : null;
+  const headingPostcode = String(formData.get("headingPostcode") ?? "").trim() || null;
+  const vanSize = String(formData.get("vanSize") ?? "").trim() || null;
+  const note = String(formData.get("note") ?? "").trim() || null;
+  const hoursRaw = Number.parseInt(String(formData.get("hours") ?? "24"), 10);
+  const hours = Number.isFinite(hoursRaw) ? hoursRaw : 24;
+
+  if (!driverPhone) return { error: "Phone number is required so buyers can reach you." };
+  if (!hub || !isKnownHub(hub)) return { error: "Select the hub where your van is empty." };
+  if (headingHub && !isKnownHub(headingHub)) return { error: "Select a valid destination hub." };
+
+  try {
+    await markVanEmpty({
+      driverPhone,
+      driverName,
+      driverEmail,
+      hub,
+      postcode,
+      headingHub,
+      headingPostcode,
+      vanSize,
+      note,
+      hours,
+    });
+    revalidatePath("/opportunities");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not post availability." };
+  }
+}
+
+export async function cancelEmptyVanAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing van id." };
+  try {
+    await cancelEmptyVan(id);
+    revalidatePath("/opportunities");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not cancel." };
   }
 }

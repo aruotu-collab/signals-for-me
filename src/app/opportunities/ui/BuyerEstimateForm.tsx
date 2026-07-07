@@ -222,6 +222,13 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
         </div>
       )}
 
+      {result.driversNearby > 0 && (
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2 text-sm text-sky-200">
+          🚐 {result.driversNearby} {result.driversNearby === 1 ? "driver is" : "drivers are"} currently empty near{" "}
+          {result.pickupHub ?? "this pickup"} — request quotes to lock in a price before you bid.
+        </div>
+      )}
+
       <p className="text-xs text-slate-500">
         Guide price is algorithmic. Driver quotes may be lower if they&apos;re already doing a route nearby.
       </p>
