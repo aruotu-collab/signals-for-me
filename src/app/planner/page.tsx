@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listPlannerHubs, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
 import { PlannerJobList } from "./PlannerJobList";
+import { DriverSettingsPanel } from "@/components/shiply/DriverSettingsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,8 @@ export default async function PlannerPage({
               </Link>
             ))}
           </div>
+
+          <DriverSettingsPanel />
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-slate-500">Ordering:</span>

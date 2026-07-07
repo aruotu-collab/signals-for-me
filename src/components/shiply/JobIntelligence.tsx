@@ -1,6 +1,7 @@
 "use client";
 
 import { analyzeJob, formatGbp, type JobIntelInput } from "@/lib/shiply/intelligence";
+import { useDriverSettings } from "@/lib/shiply/driverSettings";
 
 const VERDICT_STYLES = {
   strong: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
@@ -10,16 +11,25 @@ const VERDICT_STYLES = {
 } as const;
 
 export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; compact?: boolean }) {
-  const intel = analyzeJob(job);
+  const { settings } = useDriverSettings();
+  const intel = analyzeJob(job, settings);
   if (!intel) return null;
+
+  const rateBadge =
+    intel.meetsHourlyRate == null ? null : intel.meetsHourlyRate ? (
+      <span className="chip bg-emerald-500/15 text-emerald-200">✓ £{intel.hourlyRate}/h — meets your rate</span>
+    ) : (
+      <span className="chip bg-red-500/15 text-red-200">✗ £{intel.hourlyRate}/h — below your £{settings.minHourlyRate}/h</span>
+    );
 
   if (compact) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
         <span className={`chip ${VERDICT_STYLES[intel.verdict]}`}>{intel.verdictLabel}</span>
         <span className="text-slate-500">
-          Est. {formatGbp(intel.suggestedBid)} · fuel {formatGbp(intel.fuelCost)} · profit ~{formatGbp(intel.profitAtBid)}
+          Est. {formatGbp(intel.suggestedBid)} · fuel {formatGbp(intel.fuelCost)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h
         </span>
+        {rateBadge}
       </div>
     );
   }
@@ -37,17 +47,24 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <IntelStat label="Est. winning bid" value={formatGbp(intel.suggestedBid)} sub={`${formatGbp(intel.bidLow)}–${formatGbp(intel.bidHigh)} range`} />
-        <IntelStat label="Est. fuel" value={formatGbp(intel.fuelCost)} sub={`${intel.fuelLitres}L diesel · ${intel.miles} mi`} />
+        <IntelStat
+          label="Est. fuel"
+          value={formatGbp(intel.fuelCost)}
+          sub={`${intel.fuelLitres}L${intel.returnLegIncluded ? " · incl. return" : ""} · ${intel.miles} mi`}
+        />
         <IntelStat
           label="Est. profit"
           value={formatGbp(intel.profitAtBid)}
           sub={`${formatGbp(intel.profitPerMile)}/mi · ${intel.marginPct}% margin`}
         />
-        <IntelStat label="Drive time" value={`~${intel.drivingHours}h`} sub={`${formatGbp(intel.ratePerMile)}/mi guide rate`} />
+        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`~${intel.drivingHours}h${intel.returnLegIncluded ? " round trip" : ""}`} />
       </div>
 
+      {rateBadge && <div className="mt-2">{rateBadge}</div>}
+
       <p className="mt-2 text-[10px] opacity-60">
-        Estimates use UK van fuel ({intel.fuelLitres}L), category pricing, and {intel.competition === "high" ? "competition-adjusted" : "route"} bid modelling — not live Shiply quotes.
+        Based on your van ({settings.mpg} mpg, £{settings.fuelPpl.toFixed(2)}/L){intel.returnLegIncluded ? ", return leg included" : ""} and
+        category pricing — estimates, not live Shiply quotes.
       </p>
     </div>
   );

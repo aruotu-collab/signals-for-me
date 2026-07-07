@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { JobSheet, type SheetTarget } from "./JobSheet";
 import { analyzeJob, formatGbp } from "@/lib/shiply/intelligence";
+import { DriverSettingsPanel } from "@/components/shiply/DriverSettingsPanel";
 
 type Service = { service: string; serviceType: string };
 type Hub = { pickupHub: string; count: number };
@@ -58,6 +59,8 @@ export function MatrixGrid({
 
   return (
     <div className="space-y-4">
+      <DriverSettingsPanel />
+
       <div className="flex flex-wrap gap-2">
         {serviceTypes.map((t) => (
           <button

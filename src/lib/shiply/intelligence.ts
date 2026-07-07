@@ -10,6 +10,14 @@ export type JobIntelInput = {
   service: string;
 };
 
+/** Optional per-driver overrides that personalise the estimates. */
+export type JobIntelSettings = {
+  mpg?: number;
+  fuelPpl?: number;
+  minHourlyRate?: number;
+  includeReturnLeg?: boolean;
+};
+
 export type JobIntelligence = {
   miles: number;
   /** Litres of diesel for the run (one-way). */
@@ -27,6 +35,12 @@ export type JobIntelligence = {
   marginPct: number;
   ratePerMile: number;
   drivingHours: number;
+  /** Estimated £/hour earned at the suggested bid (profit ÷ time). */
+  hourlyRate: number;
+  /** True when hourlyRate meets the driver's minimum (only when a min is set). */
+  meetsHourlyRate: boolean | null;
+  /** True when the empty return leg was included in fuel/time. */
+  returnLegIncluded: boolean;
   competition: "low" | "medium" | "high" | "unknown";
   competitionLabel: string;
   verdict: "strong" | "good" | "marginal" | "thin";
@@ -84,10 +98,10 @@ function bidRange(miles: number, service: string): { low: number; high: number }
   return { low: Math.max(low, 25), high: Math.max(high, low + 15) };
 }
 
-function fuelFromMiles(miles: number): { litres: number; cost: number } {
-  const gallons = miles / VAN_MPG;
+function fuelFromMiles(miles: number, mpg: number, ppl: number): { litres: number; cost: number } {
+  const gallons = miles / mpg;
   const litres = gallons * LITRES_PER_UK_GALLON;
-  const cost = litres * fuelPricePerLitre();
+  const cost = litres * ppl;
   return { litres, cost };
 }
 
@@ -137,11 +151,20 @@ function verdict(
   };
 }
 
-export function analyzeJob(input: JobIntelInput): JobIntelligence | null {
+export function analyzeJob(input: JobIntelInput, settings?: JobIntelSettings): JobIntelligence | null {
   const miles = input.miles;
   if (miles == null || miles < 1) return null;
 
-  const { litres, cost: fuelCost } = fuelFromMiles(miles);
+  const mpg = settings?.mpg && settings.mpg > 0 ? settings.mpg : VAN_MPG;
+  const ppl = settings?.fuelPpl && settings.fuelPpl > 0 ? settings.fuelPpl : fuelPricePerLitre();
+  const includeReturn = Boolean(settings?.includeReturnLeg);
+
+  // The paid job is one-way; if the driver runs back empty, double the miles
+  // for fuel and time but keep bid/rate based on the loaded (billable) leg.
+  const fuelMiles = includeReturn ? miles * 2 : miles;
+  const timeMiles = includeReturn ? miles * 2 : miles;
+
+  const { litres, cost: fuelCost } = fuelFromMiles(fuelMiles, mpg, ppl);
   const { low: bidLow, high: bidHigh } = bidRange(miles, input.service);
   const mid = (bidLow + bidHigh) / 2;
 
@@ -155,7 +178,11 @@ export function analyzeJob(input: JobIntelInput): JobIntelligence | null {
   const profitPerMile = Math.round((profitAtBid / miles) * 100) / 100;
   const marginPct = suggestedBid > 0 ? Math.round((profitAtBid / suggestedBid) * 100) : 0;
   const ratePerMile = Math.round((suggestedBid / miles) * 100) / 100;
-  const drivingHours = Math.round((miles / AVG_SPEED_MPH + 0.75) * 10) / 10;
+  const drivingHours = Math.round((timeMiles / AVG_SPEED_MPH + 0.75) * 10) / 10;
+  const hourlyRate = drivingHours > 0 ? Math.round(profitAtBid / drivingHours) : profitAtBid;
+
+  const minRate = settings?.minHourlyRate;
+  const meetsHourlyRate = minRate != null && minRate > 0 ? hourlyRate >= minRate : null;
 
   const comp = competitionLevel(input.quotes);
   const v = verdict(profitPerMile, marginPct);
@@ -174,6 +201,9 @@ export function analyzeJob(input: JobIntelInput): JobIntelligence | null {
     marginPct,
     ratePerMile,
     drivingHours,
+    hourlyRate,
+    meetsHourlyRate,
+    returnLegIncluded: includeReturn,
     competition: comp,
     competitionLabel: competitionLabel(comp, input.quotes),
     ...v,
