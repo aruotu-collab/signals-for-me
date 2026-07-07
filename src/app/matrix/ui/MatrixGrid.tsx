@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { JobSheet, type SheetTarget } from "./JobSheet";
 import { analyzeJob, formatGbp, jobPassesWorthItFilter } from "@/lib/shiply/intelligence";
-import { DriverSettingsPanel } from "@/components/shiply/DriverSettingsPanel";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 import type { DriverSettings } from "@/lib/shiply/driverSettingsCore";
 
@@ -62,8 +61,6 @@ export function MatrixGrid({
 
   return (
     <div className="space-y-4">
-      <DriverSettingsPanel />
-
       <div className="flex flex-wrap gap-2">
         {serviceTypes.map((t) => (
           <button
@@ -223,7 +220,7 @@ function CellProfitHint({
         : "text-amber-400";
   return (
     <div className={`text-[10px] font-medium sm:text-[11px] ${color}`}>
-      ~{formatGbp(intel.profitAtBid)} est. profit · £{intel.hourlyRate}/h
+      ~{formatGbp(intel.profitAtBid)} est. profit · £{intel.hourlyRate}/h profit
     </div>
   );
 }

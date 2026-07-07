@@ -17,9 +17,9 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
 
   const rateBadge =
     intel.meetsHourlyRate == null ? null : intel.meetsHourlyRate ? (
-      <span className="chip bg-emerald-500/15 text-emerald-200">✓ £{intel.hourlyRate}/h — meets your rate</span>
+      <span className="chip bg-emerald-500/15 text-emerald-200">✓ £{intel.hourlyRate}/h profit — meets your rate</span>
     ) : (
-      <span className="chip bg-red-500/15 text-red-200">✗ £{intel.hourlyRate}/h — below your £{settings.minHourlyRate}/h</span>
+      <span className="chip bg-red-500/15 text-red-200">✗ £{intel.hourlyRate}/h profit — below your £{settings.minHourlyRate}/h</span>
     );
 
   const driveTime = formatDriveTime(intel.drivingHours);
@@ -32,7 +32,7 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
         <span className="chip bg-white/10 text-slate-200">🕐 {driveLabel}</span>
         <span className="chip bg-orange-500/20 text-orange-200">⛽ {formatGbp(intel.fuelCost)} fuel</span>
         <span className="text-slate-500">
-          Est. {formatGbp(intel.suggestedBid)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h
+          Est. {formatGbp(intel.suggestedBid)} · profit ~{formatGbp(intel.profitAtBid)} · £{intel.hourlyRate}/h profit
         </span>
         {rateBadge}
       </div>
@@ -80,7 +80,12 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
           value={formatGbp(intel.profitAtBid)}
           sub={`${formatGbp(intel.profitPerMile)}/mi · ${intel.marginPct}% margin`}
         />
-        <IntelStat label="Est. £/hour" value={`£${intel.hourlyRate}`} sub={`after fuel & time`} />
+        <IntelStat
+          label="Est. profit/hour"
+          value={`£${intel.hourlyRate}`}
+          sub="take-home per hour"
+          accent="profit"
+        />
       </div>
 
       {rateBadge && <div className="mt-2">{rateBadge}</div>}
@@ -93,9 +98,14 @@ export function JobIntelligence({ job, compact = false }: { job: JobIntelInput; 
   );
 }
 
-function IntelStat({ label, value, sub, accent }: { label: string; value: string; sub: string; accent?: "fuel" }) {
-  const box = accent === "fuel" ? "bg-orange-500/15 ring-1 ring-orange-500/25" : "bg-black/20";
-  const valueColor = accent === "fuel" ? "text-orange-200" : "";
+function IntelStat({ label, value, sub, accent }: { label: string; value: string; sub: string; accent?: "fuel" | "profit" }) {
+  const box =
+    accent === "fuel"
+      ? "bg-orange-500/15 ring-1 ring-orange-500/25"
+      : accent === "profit"
+        ? "bg-emerald-500/15 ring-1 ring-emerald-500/25"
+        : "bg-black/20";
+  const valueColor = accent === "fuel" ? "text-orange-200" : accent === "profit" ? "text-emerald-200" : "";
   return (
     <div className={`rounded-lg px-2 py-1.5 ${box}`}>
       <div className="text-[9px] uppercase tracking-wide opacity-70">{label}</div>

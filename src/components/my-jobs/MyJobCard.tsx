@@ -69,7 +69,7 @@ export function MyJobCard({
               <span className="chip bg-emerald-500/15 text-emerald-200">
                 {profit.label === "actual" ? "" : "Est. "}
                 {formatGbp(profit.profit)} profit
-                {profit.hourlyRate != null && ` · £${profit.hourlyRate}/h`}
+                {profit.hourlyRate != null && ` · £${profit.hourlyRate}/h profit`}
               </span>
             )}
           </div>
