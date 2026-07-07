@@ -353,6 +353,14 @@ model ShiplyJob {
   miles          Int?
   quotes         Int?
 
+  // Geocoding (UK outward codes → lat/lng) for route optimization.
+  pickupOutcode   String?
+  deliveryOutcode String?
+  pickupLat       Float?
+  pickupLng       Float?
+  deliveryLat     Float?
+  deliveryLng     Float?
+
   importedAt     DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -362,6 +370,14 @@ model ShiplyJob {
   @@index([pickupTown])
   @@index([pickupZone])
   @@index([miles])
+}
+
+// Cache of UK outward-code centroids (from postcodes.io) to avoid re-geocoding.
+model Outcode {
+  code      String   @id
+  lat       Float
+  lng       Float
+  updatedAt DateTime @updatedAt
 }
 
 // Precomputed cell index for the matrix UI (service × pickupKey).

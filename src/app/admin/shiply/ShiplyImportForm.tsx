@@ -6,7 +6,9 @@ import { importShiplyXlsx } from "./actions";
 export function ShiplyImportForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<{ inserted: number; updated: number; total: number } | null>(null);
+  const [success, setSuccess] = useState<{ inserted: number; updated: number; total: number; geocoded?: number } | null>(
+    null,
+  );
 
   return (
     <form
@@ -41,7 +43,8 @@ export function ShiplyImportForm() {
 
       {success && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200">
-          Imported {success.total} rows. Inserted {success.inserted}, updated {success.updated}.
+          Imported {success.total} rows. Inserted {success.inserted}, updated {success.updated}
+          {typeof success.geocoded === "number" ? `, geocoded ${success.geocoded}` : ""}.
         </div>
       )}
       {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">{error}</div>}

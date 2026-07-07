@@ -1,18 +1,26 @@
 import Link from "next/link";
-import { listPlannerPickupKeys, getPlannerJobs } from "@/lib/shiply";
+import { listPlannerPickupKeys, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlannerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; service?: string }>;
+  searchParams: Promise<{ from?: string; service?: string; mode?: string }>;
 }) {
-  const { from, service } = await searchParams;
+  const { from, service, mode } = await searchParams;
   const pickups = await listPlannerPickupKeys(200);
 
   const activeFrom = from || pickups[0]?.pickupKey || "";
-  const jobs = activeFrom ? await getPlannerJobs(activeFrom, service ?? null) : [];
+  const activeMode = mode === "miles" ? "miles" : "route";
+  const rawJobs = activeFrom ? await getPlannerJobs(activeFrom, service ?? null) : [];
+
+  const { ordered, legMiles } =
+    activeMode === "route"
+      ? buildOptimizedRoute(rawJobs)
+      : { ordered: rawJobs, legMiles: rawJobs.map(() => null as number | null) };
+
+  const geocodedCount = rawJobs.filter((j) => j.deliveryLat != null).length;
 
   return (
     <div className="space-y-6">
@@ -21,7 +29,8 @@ export default async function PlannerPage({
           <span className="chip border border-white/10 bg-white/5 text-slate-300">Driver planner</span>
           <h1 className="mt-2 text-2xl font-bold text-white">Plan from a starting area</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Pick where you&apos;re starting. Jobs are listed nearest drop-off first, so you can plan the run.
+            Pick where you&apos;re starting. Choose an optimized nearest-next-stop route, or sort by distance from the
+            start.
           </p>
         </div>
         <Link href="/matrix" className="btn-ghost px-4 py-2 text-sm">
@@ -43,7 +52,7 @@ export default async function PlannerPage({
             {pickups.slice(0, 40).map((p) => (
               <Link
                 key={p.pickupKey}
-                href={`/planner?from=${encodeURIComponent(p.pickupKey)}`}
+                href={`/planner?from=${encodeURIComponent(p.pickupKey)}&mode=${activeMode}`}
                 className={`chip ${
                   p.pickupKey === activeFrom ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
                 }`}
@@ -53,12 +62,34 @@ export default async function PlannerPage({
             ))}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Ordering:</span>
+            <Link
+              href={`/planner?from=${encodeURIComponent(activeFrom)}&mode=route`}
+              className={`chip ${activeMode === "route" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
+            >
+              🧭 Optimized route (nearest next stop)
+            </Link>
+            <Link
+              href={`/planner?from=${encodeURIComponent(activeFrom)}&mode=miles`}
+              className={`chip ${activeMode === "miles" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
+            >
+              📏 Distance from start
+            </Link>
+          </div>
+
           <div>
             <h2 className="text-lg font-semibold text-white">
-              Starting from <span className="text-brand-300">{activeFrom}</span> · {jobs.length} jobs
+              Starting from <span className="text-brand-300">{activeFrom}</span> · {ordered.length} jobs
             </h2>
+            {activeMode === "route" && (
+              <p className="mt-1 text-xs text-slate-500">
+                {geocodedCount} of {rawJobs.length} jobs have postcode coordinates. Chain uses real distances between
+                drop-offs; jobs without coordinates are listed last.
+              </p>
+            )}
             <ol className="mt-4 space-y-3">
-              {jobs.map((j, i) => (
+              {ordered.map((j, i) => (
                 <li key={j.shiplyKey}>
                   <a
                     href={j.shiplyUrl}
@@ -76,7 +107,11 @@ export default async function PlannerPage({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      {j.miles != null && <div className="text-sm font-semibold text-white">{j.miles} mi</div>}
+                      {activeMode === "route" && legMiles[i] != null ? (
+                        <div className="text-sm font-semibold text-white">+{legMiles[i]} mi</div>
+                      ) : (
+                        j.miles != null && <div className="text-sm font-semibold text-white">{j.miles} mi</div>
+                      )}
                       {j.quotes != null && <div className="text-[11px] text-slate-500">{j.quotes} quotes</div>}
                     </div>
                   </a>

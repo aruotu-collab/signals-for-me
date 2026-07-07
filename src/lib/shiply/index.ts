@@ -1,14 +1,34 @@
 import { prisma } from "@/lib/db";
 import { parseJobsDetailXlsx, pickupKeyFor, shiplyKeyFromUrl, type ShiplyJobRow } from "@/lib/shiply/parse";
+import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
 
-export async function importShiplyJobsFromXlsx(buf: Buffer): Promise<{ inserted: number; updated: number; total: number }> {
+export async function importShiplyJobsFromXlsx(
+  buf: Buffer,
+): Promise<{ inserted: number; updated: number; total: number; geocoded: number }> {
   const rows = parseJobsDetailXlsx(buf);
   let inserted = 0;
   let updated = 0;
 
+  // Pre-resolve all outward codes in one pass (cached in the Outcode table).
+  const allCodes: string[] = [];
+  for (const r of rows) {
+    const pu = extractOutcode(r.pickupAddress ?? r.pickupTown);
+    const de = extractOutcode(r.deliveryAddress ?? r.deliveryTown);
+    if (pu) allCodes.push(pu);
+    if (de) allCodes.push(de);
+  }
+  const coords = await resolveOutcodes(allCodes);
+  let geocoded = 0;
+
   for (const r of rows) {
     const shiplyKey = shiplyKeyFromUrl(r.shiplyUrl);
     const { pickupKey, pickupZone } = pickupKeyFor(r.pickupTown, r.pickupAddress ?? null);
+
+    const pickupOutcode = extractOutcode(r.pickupAddress ?? r.pickupTown);
+    const deliveryOutcode = extractOutcode(r.deliveryAddress ?? r.deliveryTown);
+    const pc = pickupOutcode ? coords.get(pickupOutcode) : undefined;
+    const dc = deliveryOutcode ? coords.get(deliveryOutcode) : undefined;
+    if (dc) geocoded += 1;
 
     const existing = await prisma.shiplyJob.findUnique({ where: { shiplyKey } });
     const data = {
@@ -26,6 +46,12 @@ export async function importShiplyJobsFromXlsx(buf: Buffer): Promise<{ inserted:
       deliveryAddress: r.deliveryAddress ?? null,
       miles: r.miles ?? null,
       quotes: r.quotes ?? null,
+      pickupOutcode: pickupOutcode ?? null,
+      deliveryOutcode: deliveryOutcode ?? null,
+      pickupLat: pc?.lat ?? null,
+      pickupLng: pc?.lng ?? null,
+      deliveryLat: dc?.lat ?? null,
+      deliveryLng: dc?.lng ?? null,
     };
 
     if (!existing) {
@@ -39,7 +65,7 @@ export async function importShiplyJobsFromXlsx(buf: Buffer): Promise<{ inserted:
 
   await rebuildShiplyMatrixIndex();
 
-  return { inserted, updated, total: rows.length };
+  return { inserted, updated, total: rows.length, geocoded };
 }
 
 export async function rebuildShiplyMatrixIndex() {
@@ -146,7 +172,72 @@ export async function getPlannerJobs(pickupKey: string, service?: string | null)
       miles: true,
       quotes: true,
       service: true,
+      pickupLat: true,
+      pickupLng: true,
+      deliveryLat: true,
+      deliveryLng: true,
     },
   });
+}
+
+export type PlannerJob = Awaited<ReturnType<typeof getPlannerJobs>>[number];
+
+// Nearest-next-stop ordering: start at the pickup location, then repeatedly
+// pick the closest un-visited delivery point (greedy TSP heuristic). Jobs
+// without coordinates are appended at the end sorted by Shiply miles.
+export function buildOptimizedRoute(jobs: PlannerJob[]): { ordered: PlannerJob[]; legMiles: (number | null)[] } {
+  const geo = jobs.filter((j) => j.deliveryLat != null && j.deliveryLng != null);
+  const noGeo = jobs
+    .filter((j) => j.deliveryLat == null || j.deliveryLng == null)
+    .sort((a, b) => (a.miles ?? 1e9) - (b.miles ?? 1e9));
+
+  // Start point: average of pickup coords if present, else the first delivery.
+  const start = pickStart(geo);
+  const remaining = [...geo];
+  const ordered: PlannerJob[] = [];
+  const legMiles: (number | null)[] = [];
+
+  let current = start;
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const j = remaining[i];
+      const d = haversine(current, { lat: j.deliveryLat as number, lng: j.deliveryLng as number });
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    const next = remaining.splice(bestIdx, 1)[0];
+    ordered.push(next);
+    legMiles.push(Number.isFinite(bestDist) ? Math.round(bestDist) : null);
+    current = { lat: next.deliveryLat as number, lng: next.deliveryLng as number };
+  }
+
+  for (const j of noGeo) {
+    ordered.push(j);
+    legMiles.push(null);
+  }
+
+  return { ordered, legMiles };
+}
+
+function pickStart(geo: PlannerJob[]): { lat: number; lng: number } {
+  const withPickup = geo.find((j) => j.pickupLat != null && j.pickupLng != null);
+  if (withPickup) return { lat: withPickup.pickupLat as number, lng: withPickup.pickupLng as number };
+  if (geo.length) return { lat: geo[0].deliveryLat as number, lng: geo[0].deliveryLng as number };
+  return { lat: 51.5074, lng: -0.1278 }; // London fallback
+}
+
+function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 3958.8;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }
 
