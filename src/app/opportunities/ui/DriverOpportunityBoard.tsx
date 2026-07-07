@@ -195,15 +195,28 @@ function ListingGroups({ listings }: { listings: EbayListing[] }) {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="line-clamp-2 text-sm font-medium text-white">{item.title}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Ends {new Date(item.endsAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span
+                        className={`chip ${
+                          item.buyingType === "Auction"
+                            ? "bg-amber-500/15 text-amber-200"
+                            : "bg-sky-500/15 text-sky-200"
+                        }`}
+                      >
+                        {item.buyingType}
+                      </span>
+                      {item.endsAt && (
+                        <span>
+                          Ends {new Date(item.endsAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    {item.currentBid != null && (
+                    {item.price != null && (
                       <div className="text-sm font-semibold text-white">
                         {item.currency === "GBP" ? "£" : ""}
-                        {item.currentBid}
+                        {item.price}
                       </div>
                     )}
                     <div className="text-[11px] text-amber-300">View on eBay →</div>

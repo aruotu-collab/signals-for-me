@@ -1,6 +1,6 @@
 import { assignPickupHub } from "@/lib/shiply/hubs";
 import { ebayBrowse } from "@/lib/ebay/client";
-import type { EbayListing } from "@/lib/ebay/types";
+import type { BuyingType, EbayListing } from "@/lib/ebay/types";
 
 type EbayItemSummary = {
   itemId?: string;
@@ -36,15 +36,29 @@ const HUB_SEED_POSTCODES: { hub: string; postcode: string }[] = [
 ];
 
 const CATEGORY_KEYWORDS: Record<string, string> = {
-  Furniture: "furniture sofa wardrobe table collection",
-  Antiques: "antique vintage collection",
-  Cars: "car vehicle collection",
-  Motorcycles: "motorcycle motorbike collection",
-  Pianos: "piano collection",
-  Haulage: "pallet machinery industrial collection",
-  Pets: "dog crate kennel collection",
-  Garden: "garden furniture shed collection",
-  Machinery: "machinery tools collection",
+  Furniture: "furniture sofa wardrobe table",
+  Antiques: "antique vintage",
+  Cars: "car",
+  Motorcycles: "motorcycle motorbike",
+  Pianos: "piano",
+  Haulage: "pallet industrial",
+  Pets: "dog crate kennel",
+  Garden: "garden furniture shed",
+  Machinery: "machinery tools",
+};
+
+// eBay UK top-level category IDs for tighter targeting (optional; keyword still applied).
+// See https://www.isoldwhat.com / eBay category tree. These are stable top-level IDs.
+const CATEGORY_IDS: Record<string, string> = {
+  Furniture: "3197", // Home, Furniture & DIY > Furniture
+  Antiques: "20081", // Antiques
+  Cars: "9800", // Cars, Motorcycles & Vehicles > Cars
+  Motorcycles: "6024", // Motorcycles
+  Pianos: "16218", // Musical Instruments > Pianos, Keyboards & Organs
+  Haulage: "12576", // Business, Office & Industrial
+  Pets: "1281", // Pet Supplies
+  Garden: "159912", // Garden & Patio
+  Machinery: "11804", // Business & Industrial > Industrial tools
 };
 
 const SERVICE_TYPE_BY_CATEGORY: Record<string, string> = {
@@ -75,6 +89,13 @@ function inferCategory(item: EbayItemSummary): string {
   return "Furniture";
 }
 
+function buyingTypeOf(item: EbayItemSummary): BuyingType {
+  const opts = item.buyingOptions ?? [];
+  if (opts.includes("AUCTION")) return "Auction";
+  if (opts.includes("BEST_OFFER")) return "Best offer";
+  return "Buy it now";
+}
+
 function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | null {
   if (!item.itemId || !item.title) return null;
 
@@ -90,7 +111,8 @@ function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | n
     });
 
   const category = inferCategory(item);
-  const bid = item.currentBidPrice?.value ?? item.price?.value;
+  const buyingType = buyingTypeOf(item);
+  const priceStr = item.currentBidPrice?.value ?? item.price?.value;
   const currency = item.currentBidPrice?.currency ?? item.price?.currency ?? "GBP";
 
   return {
@@ -100,8 +122,10 @@ function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | n
     serviceType: SERVICE_TYPE_BY_CATEGORY[category] ?? "Deliveries",
     pickupHub,
     subArea: pickupKey,
-    endsAt: item.itemEndDate ?? new Date(Date.now() + 86_400_000).toISOString(),
-    currentBid: bid ? Number.parseFloat(bid) : null,
+    // Only auctions have a meaningful end time.
+    endsAt: buyingType === "Auction" ? item.itemEndDate ?? null : null,
+    buyingType,
+    price: priceStr ? Number.parseFloat(priceStr) : null,
     currency,
     imageUrl: item.image?.imageUrl ?? null,
     ebayUrl: item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`,
@@ -109,9 +133,17 @@ function toListing(item: EbayItemSummary, hubOverride?: string): EbayListing | n
   };
 }
 
-async function searchHub(hub: string, postcode: string, q: string, limit = 20): Promise<EbayListing[]> {
+async function searchHub(
+  hub: string,
+  postcode: string,
+  q: string,
+  categoryId: string | null,
+  limit = 20,
+): Promise<EbayListing[]> {
+  // Collection-only is defined by local pickup — NOT by auction. Include all
+  // buying options so Buy-It-Now and Best-Offer collection items appear too.
   const filters = [
-    "buyingOptions:{AUCTION}",
+    "buyingOptions:{AUCTION|FIXED_PRICE|BEST_OFFER}",
     "deliveryOptions:{SELLER_ARRANGED_LOCAL_PICKUP}",
     "pickupCountry:GB",
     `pickupPostalCode:${postcode.replace(/\s+/g, "")}`,
@@ -122,9 +154,9 @@ async function searchHub(hub: string, postcode: string, q: string, limit = 20): 
   const params = new URLSearchParams({
     q,
     limit: String(limit),
-    sort: "endingSoonest",
     filter: filters,
   });
+  if (categoryId) params.set("category_ids", categoryId);
 
   const data = await ebayBrowse<EbaySearchResponse>(`/buy/browse/v1/item_summary/search?${params}`);
   return (data.itemSummaries ?? [])
@@ -137,7 +169,8 @@ export async function searchCollectionOnlyListings(opts?: { category?: string; l
   source: "live" | "mock";
 }> {
   const category = opts?.category && opts.category !== "all" ? opts.category : null;
-  const q = category ? (CATEGORY_KEYWORDS[category] ?? `${category} collection`) : "collection only furniture";
+  const q = category ? (CATEGORY_KEYWORDS[category] ?? category) : "collection only";
+  const categoryId = category ? CATEGORY_IDS[category] ?? null : null;
 
   const limitPerHub = opts?.limitPerHub ?? 12;
   const seen = new Set<string>();
@@ -145,7 +178,7 @@ export async function searchCollectionOnlyListings(opts?: { category?: string; l
 
   for (const seed of HUB_SEED_POSTCODES) {
     try {
-      const batch = await searchHub(seed.hub, seed.postcode, q, limitPerHub);
+      const batch = await searchHub(seed.hub, seed.postcode, q, categoryId, limitPerHub);
       for (const item of batch) {
         if (seen.has(item.id)) continue;
         seen.add(item.id);

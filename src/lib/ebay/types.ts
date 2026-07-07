@@ -1,3 +1,5 @@
+export type BuyingType = "Auction" | "Buy it now" | "Best offer";
+
 export type EbayListing = {
   id: string;
   title: string;
@@ -5,8 +7,9 @@ export type EbayListing = {
   serviceType: string;
   pickupHub: string;
   subArea: string;
-  endsAt: string;
-  currentBid: number | null;
+  endsAt: string | null;
+  buyingType: BuyingType;
+  price: number | null;
   currency: string;
   imageUrl: string | null;
   ebayUrl: string;
