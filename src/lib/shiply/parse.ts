@@ -134,12 +134,39 @@ function mapDqcCategory(raw: string): { service: string; serviceType: string } {
   };
 }
 
+/** Map scrape filenames like "cars shiply (1).csv" onto Radar service names. */
+const FILENAME_TO_SERVICE: Record<string, string> = {
+  cars: "Cars",
+  motorcycle: "Motorcycles",
+  motorcycles: "Motorcycles",
+  "other vehicle": "Other Vehicles",
+  "other vehicles": "Other Vehicles",
+  "vehicle parts": "Vehicle Parts",
+  boats: "Boats",
+  boat: "Boats",
+  "furniture and general items": "Furniture & General Items",
+  "furniture & general items": "Furniture & General Items",
+  boxes: "Boxes",
+  piano: "Pianos",
+  pianos: "Pianos",
+  other: "Other",
+  "moving home": "Moving Home",
+  haulage: "Haulage",
+  "pets & livestock": "Pets & Livestock",
+  "pets and livestock": "Pets & Livestock",
+};
+
 export function categoryFromFilename(filename: string): { service: string; serviceType: string } {
   const base = filename
     .replace(/\.(xlsx|xls|csv)$/i, "")
+    .replace(/\s*\(\d+\)\s*$/i, "")
+    .replace(/\s+shiply\s*$/i, "")
     .replace(/^shiply\s+/i, "")
-    .trim();
-  const service = base || "Unknown";
+    .trim()
+    .toLowerCase();
+
+  const mapped = FILENAME_TO_SERVICE[base];
+  const service = mapped ?? (base ? base.replace(/\b\w/g, (c) => c.toUpperCase()) : "Unknown");
   const serviceType = SERVICE_TYPE_BY_CATEGORY[service] ?? "Deliveries";
   return { service, serviceType };
 }
