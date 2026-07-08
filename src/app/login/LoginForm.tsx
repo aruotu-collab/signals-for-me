@@ -19,10 +19,9 @@ function authErrorMessage(code: string | null): string | null {
 
 export function LoginForm() {
   const params = useSearchParams();
-  // Land everyone on the opportunity-first home (/brief). It auto-generates a
-  // returning user's brief from their saved profile, and bounces brand-new
-  // users (no interests/profile yet) to onboarding — so they never set up twice.
-  const callbackUrl = params.get("callbackUrl") || "/ideas";
+  // After sign-in, land on Pickup Radar (delivery product). Legacy demand pages
+  // live under /legacy and /ideas for old bookmarks only.
+  const callbackUrl = params.get("callbackUrl") || "/matrix";
   const authError = authErrorMessage(params.get("error"));
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
