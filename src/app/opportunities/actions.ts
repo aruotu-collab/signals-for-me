@@ -28,6 +28,7 @@ export async function requestDriverQuotes(formData: FormData) {
   if (!estimate?.distanceMiles) return { error: "Get a delivery estimate first (distance required)." };
 
   const req = await createQuoteRequest({
+    source: "ebay",
     ebayUrl,
     ebayItemId: estimate.itemId,
     itemTitle: estimate.itemTitle,
@@ -44,6 +45,64 @@ export async function requestDriverQuotes(formData: FormData) {
     auctionEndsAt: estimate.auctionEndsAt,
     itemPrice: estimate.itemPrice,
     maxItemPrice,
+    buyerEmail,
+    buyerPhone,
+    notes,
+  });
+
+  revalidatePath("/opportunities");
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${req.publicToken}`);
+  revalidatePath(`/opportunities/quote/${req.publicToken}`);
+
+  return { ok: true, token: req.publicToken };
+}
+
+export async function requestManualDriverQuotes(formData: FormData) {
+  const itemTitle = String(formData.get("itemTitle") ?? "").trim();
+  const service = String(formData.get("service") ?? "").trim();
+  const pickupPostcode = String(formData.get("pickupPostcode") ?? "").trim();
+  const deliveryPostcode = String(formData.get("deliveryPostcode") ?? "").trim();
+  const buyerEmail = String(formData.get("buyerEmail") ?? "").trim() || null;
+  const buyerPhone = String(formData.get("buyerPhone") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  const estimateJson = String(formData.get("estimate") ?? "");
+  let estimate: {
+    itemTitle: string;
+    service: string;
+    pickupPostcode: string;
+    pickupHub: string | null;
+    pickupTown: string | null;
+    deliveryArea: string;
+    distanceMiles: number;
+    estimateLow: number;
+    estimateHigh: number;
+  } | null = null;
+  try {
+    estimate = estimateJson ? JSON.parse(estimateJson) : null;
+  } catch {
+    return { error: "Invalid estimate data. Please get an estimate first." };
+  }
+
+  if (!itemTitle || !service || !pickupPostcode || !deliveryPostcode) {
+    return { error: "Title, category, and both postcodes are required." };
+  }
+  if (!buyerEmail && !buyerPhone) return { error: "Enter an email or phone so drivers can reach you." };
+  if (!estimate?.distanceMiles) return { error: "Get a delivery estimate first (distance required)." };
+
+  const req = await createQuoteRequest({
+    source: "manual",
+    itemTitle: estimate.itemTitle || itemTitle,
+    service: estimate.service || service,
+    pickupPostcode: estimate.pickupPostcode || pickupPostcode,
+    pickupHub: estimate.pickupHub,
+    pickupTown: estimate.pickupTown,
+    deliveryPostcode,
+    deliveryOutcode: estimate.deliveryArea,
+    distanceMiles: estimate.distanceMiles,
+    estimateLow: estimate.estimateLow,
+    estimateHigh: estimate.estimateHigh,
     buyerEmail,
     buyerPhone,
     notes,

@@ -2,15 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { JobIntelligence } from "@/components/shiply/JobIntelligence";
-import { bidQualityWarnings, quoteIntelInput } from "@/lib/ebay/quoteIntel";
+import { bidQualityWarnings, quoteIntelInputFromRequest } from "@/lib/ebay/quoteIntel";
 import { analyzeJob, formatGbp, profitAtPayment } from "@/lib/shiply/intelligence";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 import { placeDriverBid } from "../actions";
 
 type QuoteRequest = {
   id: string;
+  source?: string;
+  service?: string | null;
   itemTitle: string | null;
-  ebayUrl: string;
+  ebayUrl?: string | null;
   distanceMiles: number | null;
   estimateLow: number | null;
   notes: string | null;
@@ -27,7 +29,8 @@ export function QuoteBidForm({
   const { settings } = useDriverSettings();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const intelInput = quoteIntelInput({
+  const intelInput = quoteIntelInputFromRequest({
+    service: req.service,
     itemTitle: req.itemTitle,
     distanceMiles: req.distanceMiles,
     bidCount: req._count.bids,
@@ -66,9 +69,11 @@ export function QuoteBidForm({
   return (
     <div>
       {req.notes && <p className="mb-3 text-sm text-slate-400">Buyer notes: {req.notes}</p>}
-      <a href={req.ebayUrl} target="_blank" rel="noreferrer" className="mb-4 inline-block text-xs text-amber-300">
-        View eBay item →
-      </a>
+      {req.ebayUrl && (
+        <a href={req.ebayUrl} target="_blank" rel="noreferrer" className="mb-4 inline-block text-xs text-amber-300">
+          View eBay item →
+        </a>
+      )}
 
       {intelInput && <JobIntelligence job={intelInput} heading="Quote intelligence" />}
 

@@ -104,6 +104,9 @@ const SERVICE_TYPE_BY_CATEGORY: Record<string, string> = {
   "Pets & Livestock": "Pets & Livestock",
 };
 
+/** Service names shown in Pickup Radar and buyer job forms. */
+export const MATRIX_SERVICE_NAMES = Object.keys(SERVICE_TYPE_BY_CATEGORY).sort((a, b) => a.localeCompare(b));
+
 /** Map DeliveryQuoteCompare category labels onto our Radar service names. */
 const DQC_CATEGORY_TO_SERVICE: Record<string, string> = {
   "Furniture & general items": "Furniture & General Items",

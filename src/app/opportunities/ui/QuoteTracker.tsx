@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { bidGuideChip, bidGuideLabel } from "@/lib/ebay/category";
-import { quoteCategory } from "@/lib/ebay/quoteIntel";
+import { quoteCategoryForRequest } from "@/lib/ebay/quoteIntel";
 import { estimateTravelHours, formatDriveTime } from "@/lib/shiply/intelligence";
 import { acceptBid, confirmPurchaseAction } from "../actions";
 import { BudgetBreakdown } from "./BudgetBreakdown";
@@ -21,9 +21,11 @@ type Bid = {
 type Request = {
   id: string;
   publicToken: string;
+  source: string;
+  service: string | null;
   itemTitle: string | null;
   imageUrl: string | null;
-  ebayUrl: string;
+  ebayUrl: string | null;
   buyingType: string | null;
   pickupHub: string | null;
   pickupPostcode: string | null;
@@ -70,13 +72,16 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
   }, [itemForTotal, deliveryActual]);
 
   const countdown = useAuctionCountdown(request.auctionEndsAt);
-  const category = quoteCategory(request.itemTitle);
+  const category = quoteCategoryForRequest(request);
   const driveTimeHours = estimateTravelHours(request.distanceMiles);
+  const isManual = request.source === "manual";
 
   return (
     <div className="space-y-6">
       <header className="card p-6">
-        <div className="text-xs font-semibold uppercase tracking-wide text-brand-300">Your delivery quote request</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-brand-300">
+          {isManual ? "Your delivery job" : "Your delivery quote request"}
+        </div>
         <div className="mt-3 flex gap-4">
           {request.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -85,16 +90,21 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
             <div className="grid h-20 w-20 place-items-center rounded-lg bg-white/5 text-2xl">📦</div>
           )}
           <div>
-            <h1 className="text-xl font-bold text-white">{request.itemTitle ?? "eBay item"}</h1>
+            <h1 className="text-xl font-bold text-white">{request.itemTitle ?? (isManual ? "Delivery job" : "eBay item")}</h1>
             <p className="mt-1 text-sm text-slate-400">
               {request.pickupHub ?? request.pickupPostcode} → {request.deliveryPostcode}
               {request.distanceMiles != null && ` · ${request.distanceMiles} mi`}
               {driveTimeHours != null && ` · ~${formatDriveTime(driveTimeHours)} drive`}
               {` · ${category}`}
             </p>
-            <a href={request.ebayUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-amber-300">
-              Open on eBay →
-            </a>
+            {request.ebayUrl && (
+              <a href={request.ebayUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-amber-300">
+                Open on eBay →
+              </a>
+            )}
+            {isManual && (
+              <span className="mt-2 inline-block chip bg-violet-500/15 text-violet-200">Buyer job</span>
+            )}
           </div>
         </div>
 
@@ -124,18 +134,30 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
         )}
       </header>
 
-      <BudgetBreakdown
-        itemPrice={request.itemPrice}
-        buyingType={request.buyingType}
-        deliveryLow={request.estimateLow}
-        deliveryHigh={request.estimateHigh}
-        deliveryActual={deliveryActual}
-        deliverySource={deliverySource}
-        itemOverride={itemOverride}
-      />
+      {!isManual && (
+        <BudgetBreakdown
+          itemPrice={request.itemPrice}
+          buyingType={request.buyingType}
+          deliveryLow={request.estimateLow}
+          deliveryHigh={request.estimateHigh}
+          deliveryActual={deliveryActual}
+          deliverySource={deliverySource}
+          itemOverride={itemOverride}
+        />
+      )}
 
-      {/* Interactive max-bid tweak */}
-      <section className="card p-5">
+      {isManual && deliveryActual != null && (
+        <div className="card border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+          <div className="text-xs uppercase tracking-wide text-emerald-300/80">Delivery quote</div>
+          <div className="mt-1 text-3xl font-bold text-emerald-200">£{deliveryActual.toLocaleString("en-GB")}</div>
+          <p className="mt-1 text-xs text-slate-400">
+            {deliverySource === "accepted" ? "Accepted driver quote" : "Lowest quote so far"}
+          </p>
+        </div>
+      )}
+
+      {!isManual && (
+        <section className="card p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-300">Adjust your budget</h2>
         <p className="mt-1 text-sm text-slate-400">
           {accepted
@@ -166,9 +188,9 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
           )}
         </div>
       </section>
+      )}
 
-      {/* Legacy inline total — keep visible when calculator has values */}
-      {totalCost != null && (
+      {!isManual && totalCost != null && (
         <div className="card border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
           <div className="text-xs uppercase tracking-wide text-emerald-300/80">All-in total</div>
           <div className="mt-1 text-3xl font-bold text-emerald-200">£{totalCost.toLocaleString("en-GB")}</div>
@@ -181,7 +203,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
 
       {request.status === "open" && (
         <div className="card border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-slate-300">
-          Share this page link with yourself — drivers can bid from <strong>Quote requests</strong> on eBay jobs.
+          Share this page link — drivers can bid from <strong>Quote requests</strong> on eBay jobs.
           Quotes close {request.expiresAt ? new Date(request.expiresAt).toLocaleString("en-GB") : "in 48 hours"}.
         </div>
       )}
@@ -206,16 +228,18 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
             }}
           >
             <button type="submit" disabled={pending} className="btn-primary px-4 py-2 text-sm disabled:opacity-50">
-              ✅ I won / bought the item — confirm delivery
+              {isManual ? "✅ Confirm delivery job" : "✅ I won / bought the item — confirm delivery"}
             </button>
-            <p className="mt-1 text-xs text-emerald-200/70">This notifies your driver the job is confirmed.</p>
+            <p className="mt-1 text-xs text-emerald-200/70">
+              {isManual ? "This notifies your driver the job is confirmed." : "This notifies your driver the job is confirmed."}
+            </p>
           </form>
         </div>
       )}
 
       {request.status === "won" && accepted && (
         <div className="card border border-emerald-500/40 bg-emerald-500/15 p-4 text-sm text-emerald-100">
-          🎉 Purchase confirmed. {accepted.driverName ?? "Your driver"} has been notified and will arrange collection.
+          🎉 {isManual ? "Job confirmed." : "Purchase confirmed."} {accepted.driverName ?? "Your driver"} has been notified and will arrange collection.
           Contact: {accepted.driverPhone}
         </div>
       )}
@@ -226,7 +250,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
         <h2 className="text-lg font-semibold text-white">Driver quotes {request.bids.length ? `(lowest first)` : ""}</h2>
         {request.bids.length === 0 ? (
           <div className="card p-8 text-center text-sm text-slate-400">
-            No bids yet. Drivers usually respond within a few hours. Check back soon before you bid on eBay.
+            No bids yet. Drivers usually respond within a few hours. Check back soon.
           </div>
         ) : (
           <ul className="space-y-3">

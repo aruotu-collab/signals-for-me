@@ -2,11 +2,13 @@ import { prisma } from "@/lib/db";
 import { notifyBuyerOfBid, notifyDriverAccepted, notifyDriverPurchaseConfirmed } from "@/lib/ebay/notify";
 
 export type CreateQuoteRequestInput = {
-  ebayUrl: string;
+  source?: "ebay" | "manual";
+  ebayUrl?: string | null;
   ebayItemId?: string | null;
   itemTitle?: string | null;
   imageUrl?: string | null;
   buyingType?: string | null;
+  service?: string | null;
   pickupPostcode?: string | null;
   pickupHub?: string | null;
   pickupTown?: string | null;
@@ -25,14 +27,17 @@ export type CreateQuoteRequestInput = {
 
 export async function createQuoteRequest(input: CreateQuoteRequestInput) {
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h for drivers to bid
+  const source = input.source ?? (input.ebayUrl ? "ebay" : "manual");
 
   return prisma.deliveryQuoteRequest.create({
     data: {
-      ebayUrl: input.ebayUrl,
+      source,
+      ebayUrl: input.ebayUrl ?? null,
       ebayItemId: input.ebayItemId ?? null,
       itemTitle: input.itemTitle ?? null,
       imageUrl: input.imageUrl ?? null,
       buyingType: input.buyingType ?? null,
+      service: input.service ?? null,
       pickupPostcode: input.pickupPostcode ?? null,
       pickupHub: input.pickupHub ?? null,
       pickupTown: input.pickupTown ?? null,

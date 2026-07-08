@@ -454,16 +454,18 @@ model ShiplyMatrixCell {
   @@index([jobCount])
 }
 
-// Buyer asks drivers to quote before bidding on a collection-only eBay item.
+// Buyer asks drivers to quote — from an eBay item or a manual job post.
 model DeliveryQuoteRequest {
   id               String   @id @default(cuid())
   publicToken      String   @unique @default(cuid())
 
-  ebayUrl          String
+  source           String   @default("ebay") // ebay | manual
+  ebayUrl          String?
   ebayItemId       String?
   itemTitle        String?
   imageUrl         String?
   buyingType       String?
+  service          String?  // Radar service category (required for manual jobs)
 
   pickupPostcode   String?
   pickupHub        String?
@@ -495,6 +497,7 @@ model DeliveryQuoteRequest {
   updatedAt        DateTime @updatedAt
 
   @@index([status])
+  @@index([source])
   @@index([pickupHub])
   @@index([createdAt])
   @@index([expiresAt])

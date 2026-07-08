@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { quoteCategory } from "@/lib/ebay/quoteIntel";
+import { quoteCategoryForRequest, quoteIntelInputFromRequest } from "@/lib/ebay/quoteIntel";
 import { QuoteBidForm } from "./QuoteBidForm";
 
 type OpenRequest = {
   id: string;
+  source: string;
+  service: string | null;
   itemTitle: string | null;
   imageUrl: string | null;
-  ebayUrl: string;
+  ebayUrl: string | null;
   pickupHub: string | null;
   pickupPostcode: string | null;
   deliveryPostcode: string;
@@ -38,8 +40,8 @@ export function DriverQuoteBoard({
   return (
     <div className="space-y-4">
       <div className="card border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100">
-        <strong className="text-amber-200">Quote jobs</strong> — buyers need delivery on collection-only eBay items
-        before they bid. Route intelligence shows fuel, profit and suggested quotes based on your van settings.
+        <strong className="text-amber-200">Quote jobs</strong> — buyers need delivery on eBay items or their own jobs.
+        Route intelligence shows fuel, profit and suggested quotes based on your van settings.
       </div>
 
       {hubs.length > 0 && (
@@ -74,7 +76,8 @@ export function DriverQuoteBoard({
       ) : (
         <ul className="space-y-3">
           {filtered.map((req) => {
-            const category = quoteCategory(req.itemTitle);
+            const category = quoteCategoryForRequest(req);
+            const isManual = req.source === "manual";
             const isOpen = expanded === req.id;
 
             return (
@@ -91,12 +94,15 @@ export function DriverQuoteBoard({
                     <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-white/5">📦</div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 font-medium text-white">{req.itemTitle ?? "eBay delivery job"}</div>
+                    <div className="line-clamp-2 font-medium text-white">{req.itemTitle ?? (isManual ? "Buyer delivery job" : "eBay delivery job")}</div>
                     <div className="mt-1 text-xs text-slate-400">
                       {req.pickupHub ?? req.pickupPostcode} → {req.deliveryPostcode}
                       {req.distanceMiles != null && ` · ${req.distanceMiles} mi`}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`chip ${isManual ? "bg-violet-500/15 text-violet-200" : "bg-amber-500/15 text-amber-200"}`}>
+                        {isManual ? "Buyer job" : "eBay"}
+                      </span>
                       <span className="chip bg-violet-500/15 text-violet-200">{category}</span>
                       {req.estimateLow != null && (
                         <span className="chip bg-white/5 text-slate-300">

@@ -20,6 +20,43 @@ export function quoteCategory(title: string | null): string {
   return inferCategoryFromTitle(title);
 }
 
+export function quoteServiceForRequest(req: { service?: string | null; itemTitle?: string | null }): string {
+  if (req.service?.trim()) return req.service.trim();
+  return intelServiceFromTitle(req.itemTitle);
+}
+
+export function quoteCategoryForRequest(req: { service?: string | null; itemTitle?: string | null }): string {
+  if (req.service?.trim()) return req.service.trim();
+  return inferCategoryFromTitle(req.itemTitle);
+}
+
+export function quoteIntelInputFromRequest(req: {
+  service?: string | null;
+  itemTitle?: string | null;
+  distanceMiles?: number | null;
+  bidCount?: number;
+}): JobIntelInput | null {
+  if (req.distanceMiles == null || req.distanceMiles < 1) return null;
+  return {
+    miles: req.distanceMiles,
+    quotes: req.bidCount ?? 0,
+    service: quoteServiceForRequest(req),
+  };
+}
+
+export function deliveryGuideRangeForService(miles: number, service: string) {
+  const category = service;
+  const intel = analyzeJob({ miles, quotes: 0, service });
+  if (!intel) {
+    const base = 35;
+    const perMile = 0.55;
+    const low = Math.round(base + miles * perMile * 0.85);
+    const high = Math.round(base + miles * perMile * 1.35);
+    return { low: Math.max(low, 25), high: Math.max(high, low + 15), category, service };
+  }
+  return { low: intel.bidLow, high: intel.bidHigh, category, service };
+}
+
 export function deliveryGuideRange(miles: number, itemTitle: string | null | undefined) {
   const service = intelServiceFromTitle(itemTitle);
   const category = inferCategoryFromTitle(itemTitle);

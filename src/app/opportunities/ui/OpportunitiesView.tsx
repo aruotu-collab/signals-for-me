@@ -9,9 +9,11 @@ type DriverTab = "board" | "quotes" | "empty";
 
 type OpenRequest = {
   id: string;
+  source: string;
+  service: string | null;
   itemTitle: string | null;
   imageUrl: string | null;
-  ebayUrl: string;
+  ebayUrl: string | null;
   pickupHub: string | null;
   pickupPostcode: string | null;
   deliveryPostcode: string;
