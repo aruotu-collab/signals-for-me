@@ -4,16 +4,22 @@ import { prisma } from "@/lib/db";
 // free-text address. Returns uppercase outward code or null.
 export function extractOutcode(address?: string | null): string | null {
   if (!address) return null;
-  // Skip obviously non-UK addresses (contain a country other than UK at the end).
   const s = address.trim().toUpperCase();
-  // Outward code: 1-2 letters, 1 digit, optional trailing letter/digit.
-  // We look for it as a comma-separated token near the end.
+
+  // Prefer a full UK postcode (inward+outward), then take the outward part.
+  // Handles spaced ("NE3 3DQ"), glued ("NE33DQ"), and town-glued forms
+  // like DeliveryQuoteCompare's "Barnard CastleDL12 8LQ".
+  const full = s.match(/([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/);
+  if (full) return full[1];
+
+  // Comma-separated outward-only token near the end (Shiply-style).
   const tokens = s.split(",").map((t) => t.trim());
   for (let i = tokens.length - 1; i >= 0; i--) {
     const m = tokens[i].match(/^([A-Z]{1,2}\d[A-Z\d]?)$/);
     if (m) return m[1];
   }
-  // Fallback: any outward-code-looking token anywhere.
+
+  // Fallback: any outward-code-looking token.
   const m = s.match(/\b([A-Z]{1,2}\d[A-Z\d]?)\b/);
   return m ? m[1] : null;
 }

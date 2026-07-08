@@ -28,23 +28,60 @@ function asInt(v: unknown): number | null {
 }
 
 export function shiplyKeyFromUrl(url: string): string {
-  // examples:
-  // https://www.shiply.com/transport/.../9JXGX06QA
-  const m = url.match(/\/([A-Z0-9]{6,12})$/i);
-  return (m?.[1] ?? url).toUpperCase();
+  // DeliveryQuoteCompare: .../load/details/id/1257104
+  const dqc = url.match(/\/load\/details\/id\/(\d+)/i);
+  if (dqc?.[1]) return `DQC-${dqc[1]}`;
+
+  // Shiply: https://www.shiply.com/transport/.../9JXGX06QA
+  const shiply = url.match(/\/([A-Z0-9]{6,12})$/i);
+  if (shiply?.[1]) return shiply[1].toUpperCase();
+
+  return url.toUpperCase();
+}
+
+export function townFromAddress(address: string): string {
+  const a = address.trim();
+  if (!a) return "Unknown";
+  if (a.toLowerCase().includes("london")) return "London";
+  const parts = a
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts[0] || "Unknown";
+}
+
+/** Split a DQC "TownPOSTCODE" or "Town, County, Outcode" string into town + full address. */
+export function splitTownPostcode(raw: string): { town: string; address: string } {
+  const s = raw.trim();
+  if (!s) return { town: "Unknown", address: "" };
+
+  // Already Shiply-style "Town, County, Outcode"
+  if (s.includes(",")) {
+    return { town: townFromAddress(s), address: s };
+  }
+
+  // DQC glued form: "Barnard CastleDL12 8LQ" or "BelfastBT12 6HR" or "SouthamptonSO"
+  const m = s.match(/^(.*?)([A-Z]{1,2}\d[A-Z\d]?(?:\s*\d[A-Z]{2})?)$/i);
+  if (m) {
+    const town = m[1].trim() || "Unknown";
+    const postcode = m[2].trim().toUpperCase().replace(/\s+/, " ");
+    return { town: townFromAddress(town), address: `${town}, ${postcode}` };
+  }
+
+  return { town: townFromAddress(s), address: s };
 }
 
 export function computeLondonZone(addressOrTown: string): string | null {
-  // Capture outward code prefixes like SW7, W6, SE15, EC1V, WC2N, NW1.
   const s = addressOrTown.toUpperCase();
   const m = s.match(/\b(EC|WC|SW|SE|NW|NE|W|E|N)\d?[A-Z]?\b/);
   if (!m) return null;
-  // Map SW7 -> SW
-  const prefix = m[1];
-  return prefix;
+  return m[1];
 }
 
-export function pickupKeyFor(town: string, pickupAddress?: string | null): { pickupKey: string; pickupZone: string | null } {
+export function pickupKeyFor(
+  town: string,
+  pickupAddress?: string | null,
+): { pickupKey: string; pickupZone: string | null } {
   const t = town.trim();
   const maybeLondon = t.toLowerCase().includes("london");
   const zone = computeLondonZone([t, pickupAddress ?? ""].join(" "));
@@ -67,6 +104,36 @@ const SERVICE_TYPE_BY_CATEGORY: Record<string, string> = {
   "Pets & Livestock": "Pets & Livestock",
 };
 
+/** Map DeliveryQuoteCompare category labels onto our Radar service names. */
+const DQC_CATEGORY_TO_SERVICE: Record<string, string> = {
+  "Furniture & general items": "Furniture & General Items",
+  "Cars, motorcycles & vehicles": "Cars",
+  Caravans: "Other Vehicles",
+  "Boat & watercrafts": "Boats",
+  "Vehicle parts": "Vehicle Parts",
+  "House removals": "Moving Home",
+  "Office & commercial removals": "Moving Home",
+  "Road haulage": "Haulage",
+  "Pallet delivery": "Haulage",
+  "Heavy equipment & machinery": "Haulage",
+  "Sea freight": "Haulage",
+  "Air freight": "Haulage",
+  "Freight forwarding": "Haulage",
+  "Electrical items": "Other",
+  "Special care items": "Other",
+  "Parcel delivery": "Boxes",
+  Pianos: "Pianos",
+  Other: "Other",
+};
+
+function mapDqcCategory(raw: string): { service: string; serviceType: string } {
+  const service = DQC_CATEGORY_TO_SERVICE[raw] ?? "Other";
+  return {
+    service,
+    serviceType: SERVICE_TYPE_BY_CATEGORY[service] ?? "Deliveries",
+  };
+}
+
 export function categoryFromFilename(filename: string): { service: string; serviceType: string } {
   const base = filename
     .replace(/\.(xlsx|xls|csv)$/i, "")
@@ -75,17 +142,6 @@ export function categoryFromFilename(filename: string): { service: string; servi
   const service = base || "Unknown";
   const serviceType = SERVICE_TYPE_BY_CATEGORY[service] ?? "Deliveries";
   return { service, serviceType };
-}
-
-export function townFromAddress(address: string): string {
-  const a = address.trim();
-  if (!a) return "Unknown";
-  if (a.toLowerCase().includes("london")) return "London";
-  const parts = a
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return parts[0] || "Unknown";
 }
 
 function firstString(row: Record<string, unknown>, keys: string[]): string {
@@ -100,11 +156,45 @@ function isScrapedShiplyFormat(columns: string[]): boolean {
   return columns.some((c) => c === "anchor-visited-highlight href" || c === "search-cell-box-content-address");
 }
 
-// The "UK listings" export: one file, every category, columns:
-// Category, Item Name, Link, Collection Location, Delivery Location, Mileage, Number of Quotes
 function isListingsFormat(columns: string[]): boolean {
   const set = new Set(columns.map((c) => c.trim().toLowerCase()));
   return set.has("item name") && set.has("link") && set.has("collection location");
+}
+
+function isDeliveryQuoteCompareFormat(columns: string[]): boolean {
+  const set = new Set(columns.map((c) => c.trim().toLowerCase()));
+  return set.has("description href") && set.has("address-details") && set.has("distance 2");
+}
+
+function parseDeliveryQuoteCompareRows(rows: Record<string, unknown>[]): ShiplyJobRow[] {
+  return rows
+    .map((r) => {
+      const url = firstString(r, ["description href"]);
+      const title = firstString(r, ["description 2"]);
+      const categoryRaw = firstString(r, ["description"]);
+      const pickupRaw = firstString(r, ["address-details"]);
+      const deliveryRaw = firstString(r, ["address-details 3"]);
+      if (!url || !title || !pickupRaw || !deliveryRaw) return null;
+
+      const { service, serviceType } = mapDqcCategory(categoryRaw || "Other");
+      const pickup = splitTownPostcode(pickupRaw);
+      const delivery = splitTownPostcode(deliveryRaw);
+
+      return {
+        serviceType,
+        service,
+        pickupTown: pickup.town,
+        deliveryTown: delivery.town,
+        pickupAddress: pickup.address,
+        deliveryAddress: delivery.address,
+        miles: asInt(firstString(r, ["distance 2"]) || null),
+        quotes: asInt(firstString(r, ["quotes-count"]) || null),
+        title,
+        shiplyUrl: url,
+        imageUrl: firstString(r, ["thumb src"]) || null,
+      } satisfies ShiplyJobRow;
+    })
+    .filter(Boolean) as ShiplyJobRow[];
 }
 
 function parseListingsRows(rows: Record<string, unknown>[]): ShiplyJobRow[] {
@@ -124,7 +214,6 @@ function parseListingsRows(rows: Record<string, unknown>[]): ShiplyJobRow[] {
         service: category,
         pickupTown: townFromAddress(collection),
         deliveryTown: townFromAddress(delivery),
-        // Keep the full "Town, County, Outcode" string so outcode extraction works.
         pickupAddress: collection,
         deliveryAddress: delivery,
         miles: asInt(firstString(r, ["Mileage", "mileage"]) || null),
@@ -217,6 +306,9 @@ export function parseShiplyXlsx(buf: Buffer, opts: ParseShiplyOptions = {}): Shi
   if (!rows.length) return [];
 
   const columns = Object.keys(rows[0] ?? {});
+  if (isDeliveryQuoteCompareFormat(columns)) {
+    return parseDeliveryQuoteCompareRows(rows);
+  }
   if (isListingsFormat(columns)) {
     return parseListingsRows(rows);
   }
@@ -234,4 +326,3 @@ export function parseShiplyXlsx(buf: Buffer, opts: ParseShiplyOptions = {}): Shi
 export function parseJobsDetailXlsx(buf: Buffer, sheetName = "Jobs Detail"): ShiplyJobRow[] {
   return parseShiplyXlsx(buf, { sheetName });
 }
-

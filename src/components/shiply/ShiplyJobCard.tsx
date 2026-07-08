@@ -70,7 +70,7 @@ export function ShiplyJobCard({
           rel="noreferrer"
           className="chip bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"
         >
-          Open on Shiply →
+          Open on listing →
         </Link>
       </div>
     </div>

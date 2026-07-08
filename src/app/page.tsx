@@ -99,7 +99,7 @@ export default async function Home() {
             { n: "01", t: "Open Pickup Radar", d: "Service rows stay frozen; swipe across pickup locations you cover." },
             { n: "02", t: "Swipe", d: "Slide across to the pickup area you cover. No search box needed." },
             { n: "03", t: "Tap a cell", d: "See every job for that service and area, nearest drop-off first." },
-            { n: "04", t: "Open Shiply", d: "Click through to the job — log in on Shiply to quote." },
+            { n: "04", t: "Open listing", d: "Click through to the job — log in on the listing site to quote." },
           ].map((s) => (
             <div key={s.n} className="card p-5">
               <div className="text-sm font-bold text-brand-400">{s.n}</div>
