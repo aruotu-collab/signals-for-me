@@ -15,6 +15,7 @@
     "db:seed-intents": "tsx scripts/seed-intent-campaigns.ts",
     "import:shiply": "tsx scripts/import-shiply.ts",
     "import:shiply-all": "tsx scripts/import-shiply-all.ts",
+    "refresh:shiply": "tsx scripts/refresh-shiply.ts",
     "backfill:hubs": "tsx scripts/backfill-hubs.ts",
     "postinstall": "prisma generate"
   },

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
@@ -97,6 +98,101 @@ export async function importShiplyJobsFromXlsx(
   await rebuildShiplyMatrixIndex();
 
   return { inserted, updated, total: rows.length, geocoded };
+}
+
+/**
+ * Full refresh: wipe all Shiply jobs and the matrix, then bulk-insert the given
+ * rows and rebuild the index. Far faster than per-row upsert for large files
+ * (batched createMany instead of ~2 queries/row), so it's safe over a remote DB.
+ */
+export async function refreshShiplyJobsFromRows(
+  rows: ReturnType<typeof parseShiplyXlsx>,
+  onProgress?: (msg: string) => void,
+): Promise<{ inserted: number; total: number; geocoded: number; skippedDuplicates: number }> {
+  const log = onProgress ?? (() => {});
+
+  // Geocode every referenced outward code once (cached in the Outcode table).
+  const allCodes: string[] = [];
+  for (const r of rows) {
+    const pu = extractOutcode(r.pickupAddress ?? r.pickupTown);
+    const de = extractOutcode(r.deliveryAddress ?? r.deliveryTown);
+    if (pu) allCodes.push(pu);
+    if (de) allCodes.push(de);
+  }
+  log(`Geocoding ${new Set(allCodes).size} unique outward codes…`);
+  const coords = await resolveOutcodes(allCodes);
+
+  // Build rows, de-duplicating by shiplyKey (the unique constraint).
+  const seen = new Set<string>();
+  let skippedDuplicates = 0;
+  let geocoded = 0;
+  const data: Prisma.ShiplyJobCreateManyInput[] = [];
+
+  for (const r of rows) {
+    const shiplyKey = shiplyKeyFromUrl(r.shiplyUrl);
+    if (seen.has(shiplyKey)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+    seen.add(shiplyKey);
+
+    const { pickupKey, pickupZone } = pickupKeyFor(r.pickupTown, r.pickupAddress ?? null);
+    const pickupOutcode = extractOutcode(r.pickupAddress ?? r.pickupTown);
+    const deliveryOutcode = extractOutcode(r.deliveryAddress ?? r.deliveryTown);
+    const pc = pickupOutcode ? coords.get(pickupOutcode) : undefined;
+    const dc = deliveryOutcode ? coords.get(deliveryOutcode) : undefined;
+    if (dc) geocoded += 1;
+
+    const pickupHub = assignPickupHub({
+      pickupTown: r.pickupTown,
+      pickupKey,
+      pickupAddress: r.pickupAddress ?? null,
+      pickupLat: pc?.lat ?? null,
+      pickupLng: pc?.lng ?? null,
+    });
+
+    data.push({
+      shiplyKey,
+      shiplyUrl: r.shiplyUrl,
+      title: r.title,
+      imageUrl: r.imageUrl ?? null,
+      serviceType: r.serviceType,
+      service: r.service,
+      pickupTown: r.pickupTown,
+      pickupAddress: r.pickupAddress ?? null,
+      pickupZone,
+      pickupKey,
+      pickupHub,
+      deliveryTown: r.deliveryTown,
+      deliveryAddress: r.deliveryAddress ?? null,
+      miles: r.miles ?? null,
+      quotes: r.quotes ?? null,
+      pickupOutcode: pickupOutcode ?? null,
+      deliveryOutcode: deliveryOutcode ?? null,
+      pickupLat: pc?.lat ?? null,
+      pickupLng: pc?.lng ?? null,
+      deliveryLat: dc?.lat ?? null,
+      deliveryLng: dc?.lng ?? null,
+    });
+  }
+
+  log(`Wiping existing jobs and matrix…`);
+  await prisma.shiplyMatrixCell.deleteMany({});
+  await prisma.shiplyJob.deleteMany({});
+
+  let inserted = 0;
+  const BATCH = 1000;
+  for (let i = 0; i < data.length; i += BATCH) {
+    const batch = data.slice(i, i + BATCH);
+    const res = await prisma.shiplyJob.createMany({ data: batch, skipDuplicates: true });
+    inserted += res.count;
+    log(`Inserted ${inserted}/${data.length}…`);
+  }
+
+  log(`Rebuilding matrix index…`);
+  await rebuildShiplyMatrixIndex();
+
+  return { inserted, total: rows.length, geocoded, skippedDuplicates };
 }
 
 export async function rebuildShiplyMatrixIndex() {
