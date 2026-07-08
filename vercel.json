@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.signalsforme.com" }],
+      "destination": "https://signalsforme.com/:path*",
+      "permanent": true
+    }
+  ],
   "crons": [
     {
       "path": "/api/digest/send",
