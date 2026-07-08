@@ -69,7 +69,7 @@ const SERVICE_TYPE_BY_CATEGORY: Record<string, string> = {
 
 export function categoryFromFilename(filename: string): { service: string; serviceType: string } {
   const base = filename
-    .replace(/\.xlsx$/i, "")
+    .replace(/\.(xlsx|xls|csv)$/i, "")
     .replace(/^shiply\s+/i, "")
     .trim();
   const service = base || "Unknown";

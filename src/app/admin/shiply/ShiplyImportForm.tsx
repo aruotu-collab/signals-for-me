@@ -27,11 +27,11 @@ export function ShiplyImportForm() {
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-slate-300">Upload .xlsx</span>
+        <span className="text-sm font-medium text-slate-300">Upload spreadsheet (.xlsx, .xls or .csv)</span>
         <input
           type="file"
           name="file"
-          accept=".xlsx"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
           required
           className="mt-2 block w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-slate-200 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-500/30"
         />
@@ -50,9 +50,10 @@ export function ShiplyImportForm() {
       {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">{error}</div>}
 
       <div className="text-xs text-slate-500">
-        Upload one category file at a time (e.g. <span className="font-mono">shiply Cars.xlsx</span>). Scraped Shiply
-        exports and the older <span className="font-mono">Jobs Detail</span> template are both supported — the category is
-        taken from the filename.
+        Upload one category file at a time (e.g. <span className="font-mono">shiply Cars.xlsx</span> or{" "}
+        <span className="font-mono">shiply Cars.csv</span>). Excel (.xlsx/.xls) and CSV are all supported. Scraped Shiply
+        exports and the older <span className="font-mono">Jobs Detail</span> template both work — the category is taken
+        from the filename.
       </div>
     </form>
   );

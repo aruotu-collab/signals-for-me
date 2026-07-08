@@ -11,8 +11,10 @@ export async function importShiplyXlsx(formData: FormData) {
   if (!email || !isAdminEmail(email)) return { error: "Unauthorized." };
 
   const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "Please upload an .xlsx file." };
-  if (!file.name.toLowerCase().endsWith(".xlsx")) return { error: "File must be an .xlsx spreadsheet." };
+  if (!(file instanceof File)) return { error: "Please upload a spreadsheet file." };
+  if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+    return { error: "File must be a .xlsx, .xls or .csv spreadsheet." };
+  }
 
   const buf = Buffer.from(await file.arrayBuffer());
 
