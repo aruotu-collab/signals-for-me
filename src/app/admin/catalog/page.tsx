@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminEmail } from "@/lib/admin";
-import { AdminNav } from "@/components/AdminNav";
 import { DEMAND_CATEGORIES } from "@/lib/demandCategories";
 import { CatalogManager } from "./CatalogManager";
 
@@ -11,11 +7,6 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Catalog Manager", robots: { index: false, follow: false } };
 
 export default async function AdminCatalogPage() {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) redirect("/login?callbackUrl=/admin/catalog");
-  if (!isAdminEmail(email)) notFound();
-
   const [rows, total, byCategory] = await Promise.all([
     prisma.demandIdea.findMany({
       where: { source: "platform" },
@@ -41,7 +32,6 @@ export default async function AdminCatalogPage() {
 
   return (
     <div>
-      <AdminNav email={email} />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Catalog manager</h1>

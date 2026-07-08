@@ -103,6 +103,15 @@ export async function importShiplyJobsFromXlsx(
   return { inserted, updated, total: rows.length, geocoded };
 }
 
+/** Full refresh from an uploaded spreadsheet (wipes existing jobs first). */
+export async function refreshShiplyJobsFromXlsx(
+  buf: Buffer,
+  opts: ParseShiplyOptions = {},
+): Promise<{ inserted: number; total: number; geocoded: number; skippedDuplicates: number }> {
+  const rows = parseShiplyXlsx(buf, opts);
+  return refreshShiplyJobsFromRows(rows);
+}
+
 /**
  * Full refresh: wipe all Shiply jobs and the matrix, then bulk-insert the given
  * rows and rebuild the index. Far faster than per-row upsert for large files

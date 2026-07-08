@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminEmail } from "@/lib/admin";
-import { AdminNav } from "@/components/AdminNav";
 import { LeadsManager } from "./LeadsManager";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Service Leads", robots: { index: false, follow: false } };
 
 export default async function AdminLeadsPage() {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) redirect("/login?callbackUrl=/admin/leads");
-  if (!isAdminEmail(email)) notFound();
-
   const [rows, statusGroups] = await Promise.all([
     prisma.serviceRequest.findMany({
       orderBy: { createdAt: "desc" },
@@ -33,7 +24,6 @@ export default async function AdminLeadsPage() {
 
   return (
     <div>
-      <AdminNav email={email} />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Service requests</h1>
         <p className="text-sm text-slate-400">

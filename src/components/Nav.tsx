@@ -3,9 +3,12 @@ import { auth } from "@/auth";
 import { AuthButtons } from "./AuthButtons";
 import { SavedNavLink } from "./SavedNavLink";
 import { VanSettingsNavLink } from "./VanSettingsNavLink";
+import { isAdminEmail } from "@/lib/admin";
 
 export async function Nav() {
   const session = await auth();
+  const email = session?.user?.email ?? null;
+  const showAdmin = isAdminEmail(email);
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-3">
@@ -38,7 +41,12 @@ export async function Nav() {
           </Link>
           <VanSettingsNavLink />
           <SavedNavLink />
-          <AuthButtons email={session?.user?.email ?? null} />
+          {showAdmin && (
+            <Link href="/admin" className="shrink-0 rounded-lg px-2 py-2 text-amber-300/90 hover:bg-white/5 hover:text-amber-200 sm:px-3">
+              Admin
+            </Link>
+          )}
+          <AuthButtons email={email} />
         </nav>
       </div>
     </header>

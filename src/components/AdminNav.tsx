@@ -5,8 +5,12 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/admin", label: "Overview", match: (p: string) => p === "/admin" },
+  { href: "/admin/jobs", label: "Jobs", match: (p: string) => p.startsWith("/admin/jobs") },
+  { href: "/admin/quotes", label: "Quotes", match: (p: string) => p.startsWith("/admin/quotes") },
+  { href: "/admin/vans", label: "Empty vans", match: (p: string) => p.startsWith("/admin/vans") },
+  { href: "/admin/users", label: "Users", match: (p: string) => p.startsWith("/admin/users") },
   { href: "/admin/leads", label: "Leads", match: (p: string) => p.startsWith("/admin/leads") },
-  { href: "/admin/shiply", label: "Shiply", match: (p: string) => p.startsWith("/admin/shiply") },
+  { href: "/admin/shiply", label: "Import", match: (p: string) => p.startsWith("/admin/shiply") },
   { href: "/admin/intents", label: "Intents", match: (p: string) => p.startsWith("/admin/intents") },
   { href: "/admin/catalog", label: "Catalog", match: (p: string) => p.startsWith("/admin/catalog") },
 ];
@@ -29,7 +33,7 @@ export function AdminNav({ email }: { email: string }) {
             <Link
               key={link.href}
               href={link.href}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition sm:px-4 ${
                 active
                   ? "bg-brand-500/20 text-brand-200"
                   : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"

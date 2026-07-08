@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { importShiplyXlsx } from "./actions";
 
+type MergeResult = { inserted: number; updated: number; total: number; geocoded?: number };
+type RefreshResult = { inserted: number; total: number; geocoded: number; skippedDuplicates: number };
+
 export function ShiplyImportForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<{ inserted: number; updated: number; total: number; geocoded?: number } | null>(
-    null,
-  );
+  const [success, setSuccess] = useState<(MergeResult | RefreshResult) & { fullRefresh?: boolean } | null>(null);
 
   return (
     <form
@@ -21,8 +22,8 @@ export function ShiplyImportForm() {
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
           const res = await importShiplyXlsx(fd);
-          if ((res as any).error) setError((res as any).error);
-          else setSuccess(res as any);
+          if ("error" in res && res.error) setError(res.error);
+          else if ("ok" in res) setSuccess(res as typeof success);
         });
       }}
     >
@@ -37,25 +38,48 @@ export function ShiplyImportForm() {
         />
       </label>
 
+      <label className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <input type="checkbox" name="fullRefresh" className="mt-1" />
+        <span className="text-sm text-slate-300">
+          <strong className="text-amber-200">Full refresh</strong> — delete all existing jobs and matrix cells, then
+          import this file only. Use for a single master export (e.g. deliveryquotecompare.csv). Leave unchecked to
+          merge/update alongside existing data.
+        </span>
+      </label>
+
       <button type="submit" disabled={pending} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
         {pending ? "Importing…" : "Import and rebuild matrix"}
       </button>
 
       {success && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200">
-          Imported {success.total} rows. Inserted {success.inserted}, updated {success.updated}
-          {typeof success.geocoded === "number" ? `, geocoded ${success.geocoded}` : ""}.
+          {success.fullRefresh ? (
+            <>
+              Full refresh complete — {success.total} rows parsed, {success.inserted} inserted
+              {"geocoded" in success && typeof success.geocoded === "number" ? `, ${success.geocoded} geocoded` : ""}
+              {"skippedDuplicates" in success && success.skippedDuplicates
+                ? `, ${success.skippedDuplicates} duplicates skipped`
+                : ""}
+              .
+            </>
+          ) : (
+            <>
+              Imported {success.total} rows. Inserted {(success as MergeResult).inserted}, updated{" "}
+              {(success as MergeResult).updated}
+              {typeof (success as MergeResult).geocoded === "number"
+                ? `, geocoded ${(success as MergeResult).geocoded}`
+                : ""}
+              .
+            </>
+          )}
         </div>
       )}
       {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">{error}</div>}
 
       <div className="text-xs text-slate-500">
-        Upload one category file at a time (e.g. <span className="font-mono">shiply Cars.xlsx</span> or{" "}
-        <span className="font-mono">shiply Cars.csv</span>). Excel (.xlsx/.xls) and CSV are all supported. Scraped Shiply
-        exports and the older <span className="font-mono">Jobs Detail</span> template both work — the category is taken
-        from the filename.
+        Upload one category file at a time for Shiply merges (e.g. <span className="font-mono">shiply Cars.csv</span>).
+        Excel (.xlsx/.xls) and CSV are supported. Category is taken from the filename when using Shiply exports.
       </div>
     </form>
   );
 }
-

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
-import { auth } from "@/auth";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { isAdminEmail } from "@/lib/admin";
-import { AdminNav } from "@/components/AdminNav";
+import { loadOpsStats } from "@/lib/admin/opsStats";
+import { requireAdminSession } from "@/lib/admin/requireAdmin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
@@ -11,46 +10,135 @@ export const metadata: Metadata = { title: "Admin", robots: { index: false, foll
 const DAY = 86_400_000;
 
 export default async function AdminPage() {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) redirect("/login?callbackUrl=/admin");
-  if (!isAdminEmail(email)) notFound();
+  await requireAdminSession("/admin");
 
   const now = new Date();
   const d7 = new Date(now.getTime() - 7 * DAY);
   const d30 = new Date(now.getTime() - 30 * DAY);
 
+  let ops = null;
+  let opsError = false;
   let data: AdminData | null = null;
   let dbError = false;
+
   try {
-    data = await loadData(d7, d30);
+    [ops, data] = await Promise.all([loadOpsStats(), loadLegacyData(d7, d30)]);
   } catch {
+    opsError = true;
     dbError = true;
+    try {
+      ops = await loadOpsStats();
+      opsError = false;
+    } catch {
+      /* both failed */
+    }
+    try {
+      data = await loadLegacyData(d7, d30);
+      dbError = false;
+    } catch {
+      /* legacy failed */
+    }
   }
 
   return (
-    <div>
-      <AdminNav email={email} />
-      <header className="mb-6">
+    <div className="space-y-10">
+      <header>
         <h1 className="text-2xl font-bold text-white">Admin dashboard</h1>
-        <p className="text-sm text-slate-400">Live user, subscriber, lead & content metrics.</p>
+        <p className="text-sm text-slate-400">Delivery operations, quotes, users, and legacy signals metrics.</p>
       </header>
 
-      {dbError || !data ? (
-        <div className="card p-6 text-sm text-slate-300">
-          Couldn&apos;t load metrics — the database may be unreachable. Try again shortly.
-        </div>
+      {opsError || !ops ? (
+        <div className="card p-6 text-sm text-slate-300">Couldn&apos;t load delivery ops — check the database connection.</div>
       ) : (
-        <Dashboard data={data} />
+        <OpsDashboard ops={ops} />
+      )}
+
+      {dbError || !data ? (
+        <div className="card p-6 text-sm text-slate-300">Couldn&apos;t load legacy metrics.</div>
+      ) : (
+        <LegacyDashboard data={data} />
       )}
     </div>
   );
 }
 
-function Dashboard({ data }: { data: AdminData }) {
+function OpsDashboard({ ops }: { ops: NonNullable<Awaited<ReturnType<typeof loadOpsStats>>> }) {
   return (
-    <div className="space-y-8">
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-lg font-semibold text-white">Delivery operations</h2>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <QuickLink href="/admin/jobs">Browse jobs</QuickLink>
+          <QuickLink href="/admin/quotes">Quote requests</QuickLink>
+          <QuickLink href="/admin/vans">Empty vans</QuickLink>
+          <QuickLink href="/admin/shiply">Import data</QuickLink>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Metric label="Total jobs" value={ops.jobs.total} />
+        <Metric label="Shiply" value={ops.jobs.shiply} />
+        <Metric label="DQC" value={ops.jobs.deliveryquotecompare} />
+        <Metric label="Matrix cells" value={ops.jobs.matrixCells} />
+        <Metric
+          label="Last import"
+          value={ops.jobs.lastImportAt ? fmtDate(ops.jobs.lastImportAt) : "—"}
+          isText
+        />
+        <Metric label="Open quotes" value={ops.quotes.open} hint={`${ops.quotes.bidsPending} pending bids`} />
+        <Metric label="Active vans" value={ops.vans.active} hint={`${ops.vans.total} total listings`} />
+        <Metric label="Users" value={ops.users.total} hint={`+${ops.users.new7d} this week`} />
+        <Metric label="New leads" value={ops.leads.new} hint={`${ops.leads.total} total`} />
+        <Metric label="Manual quotes" value={ops.quotes.manual} />
+        <Metric label="eBay quotes" value={ops.quotes.ebay} />
+        <Metric label="Saved jobs" value={ops.users.savedJobs} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Panel title="Jobs by service">
+          <BreakdownList rows={ops.jobs.topServices} emptyLabel="No jobs imported." />
+        </Panel>
+        <Panel title="Jobs by hub">
+          <BreakdownList rows={ops.jobs.topHubs} emptyLabel="No jobs imported." />
+        </Panel>
+        <Panel title="Quote funnel">
+          <BreakdownList rows={ops.quotes.byStatus} emptyLabel="No quotes yet." />
+        </Panel>
+      </div>
+
+      <Panel title="Recent quote requests">
+        {ops.quotes.recent.length === 0 ? (
+          <p className="text-sm text-slate-400">No quote requests yet.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {ops.quotes.recent.map((q) => (
+              <div key={q.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="mr-2 rounded bg-white/5 px-1.5 py-0.5 text-xs uppercase text-slate-300">{q.source}</span>
+                  <span className="text-slate-200">{q.itemTitle ?? "Untitled"}</span>
+                  <div className="text-xs text-slate-500">
+                    {q.pickupHub ?? "—"} → {q.deliveryPostcode} · {q.bidCount} bids · {q.status}
+                  </div>
+                </div>
+                <span className="shrink-0 text-xs text-slate-500">{fmtDate(q.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Link href="/admin/quotes" className="mt-3 inline-block text-xs text-brand-300 hover:underline">
+          View all quotes →
+        </Link>
+      </Panel>
+    </section>
+  );
+}
+
+function LegacyDashboard({ data }: { data: AdminData }) {
+  return (
+    <section className="space-y-6">
+      <h2 className="text-lg font-semibold text-white">Signals &amp; subscribers</h2>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Metric label="Total users" value={data.totalUsers} />
         <Metric label="New · 7 days" value={data.new7d} />
         <Metric label="New · 30 days" value={data.new30d} />
@@ -62,7 +150,7 @@ function Dashboard({ data }: { data: AdminData }) {
         <Metric label="Opportunities" value={data.opportunities} />
         <Metric label="Risks" value={data.risks} />
         <Metric label="Engagement events" value={data.events} />
-      </section>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Top interests">
@@ -89,6 +177,9 @@ function Dashboard({ data }: { data: AdminData }) {
               ))}
             </div>
           )}
+          <Link href="/admin/users" className="mt-3 inline-block text-xs text-brand-300 hover:underline">
+            View all users →
+          </Link>
         </Panel>
       </div>
 
@@ -100,9 +191,7 @@ function Dashboard({ data }: { data: AdminData }) {
             {data.recentEvents.map((e) => (
               <div key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span className="min-w-0 truncate text-slate-200">
-                  <span className="mr-2 rounded bg-white/5 px-1.5 py-0.5 text-xs uppercase text-slate-300">
-                    {e.kind}
-                  </span>
+                  <span className="mr-2 rounded bg-white/5 px-1.5 py-0.5 text-xs uppercase text-slate-300">{e.kind}</span>
                   {e.signalTitle}
                 </span>
                 <span className="shrink-0 text-xs text-slate-500">
@@ -113,14 +202,34 @@ function Dashboard({ data }: { data: AdminData }) {
           </div>
         )}
       </Panel>
-    </div>
+    </section>
   );
 }
 
-function Metric({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function QuickLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="rounded-lg bg-white/5 px-3 py-1.5 text-slate-300 hover:bg-white/10 hover:text-white">
+      {children}
+    </Link>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  hint,
+  isText,
+}: {
+  label: string;
+  value: number | string;
+  hint?: string;
+  isText?: boolean;
+}) {
   return (
     <div className="card p-4">
-      <div className="text-2xl font-bold text-white">{value.toLocaleString()}</div>
+      <div className={`font-bold text-white ${isText ? "text-sm" : "text-2xl"}`}>
+        {typeof value === "number" ? value.toLocaleString() : value}
+      </div>
       <div className="mt-1 text-xs text-slate-400">{label}</div>
       {hint && <div className="text-[11px] text-slate-600">{hint}</div>}
     </div>
@@ -130,7 +239,7 @@ function Metric({ label, value, hint }: { label: string; value: number; hint?: s
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="card p-5">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</h3>
       {children}
     </div>
   );
@@ -148,10 +257,7 @@ function BreakdownList({ rows, emptyLabel }: { rows: Row[]; emptyLabel: string }
             <span className="text-slate-400">{r.count.toLocaleString()}</span>
           </div>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-signal-hiring"
-              style={{ width: `${Math.round((r.count / max) * 100)}%` }}
-            />
+            <div className="h-full rounded-full bg-signal-hiring" style={{ width: `${Math.round((r.count / max) * 100)}%` }} />
           </div>
         </div>
       ))}
@@ -192,7 +298,7 @@ interface AdminData {
   }[];
 }
 
-async function loadData(d7: Date, d30: Date): Promise<AdminData> {
+async function loadLegacyData(d7: Date, d30: Date): Promise<AdminData> {
   const [
     totalUsers,
     new7d,

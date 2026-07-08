@@ -1,14 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
-import { isAdminEmail } from "@/lib/admin";
-import { importShiplyJobsFromXlsx } from "@/lib/shiply";
+import { requireAdminAction } from "@/lib/admin/requireAdmin";
+import { importShiplyJobsFromXlsx, refreshShiplyJobsFromXlsx } from "@/lib/shiply";
 
 export async function importShiplyXlsx(formData: FormData) {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email || !isAdminEmail(email)) return { error: "Unauthorized." };
+  const gate = await requireAdminAction();
+  if ("error" in gate) return gate;
 
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "Please upload a spreadsheet file." };
@@ -16,13 +14,19 @@ export async function importShiplyXlsx(formData: FormData) {
     return { error: "File must be a .xlsx, .xls or .csv spreadsheet." };
   }
 
+  const fullRefresh = formData.get("fullRefresh") === "on";
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
-    const result = await importShiplyJobsFromXlsx(buf, { filename: file.name });
+    const result = fullRefresh
+      ? await refreshShiplyJobsFromXlsx(buf, { filename: file.name })
+      : await importShiplyJobsFromXlsx(buf, { filename: file.name });
     revalidatePath("/");
     revalidatePath("/matrix");
-    return { ok: true, ...result };
+    revalidatePath("/admin");
+    revalidatePath("/admin/shiply");
+    revalidatePath("/admin/jobs");
+    return { ok: true, fullRefresh, ...result };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Import failed." };
   }
