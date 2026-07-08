@@ -8,6 +8,7 @@ import {
   PLANNER_PAGE_SIZE,
 } from "@/lib/shiply";
 import { buildPageMetadata } from "@/lib/seo";
+import { LISTING_SOURCE_FILTERS, parseListingSourceFilter } from "@/lib/shiply/listingSource";
 import { PlannerJobList } from "./PlannerJobList";
 import { PlannerPagination } from "./PlannerPagination";
 
@@ -24,10 +25,11 @@ export const dynamic = "force-dynamic";
 export default async function PlannerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; service?: string; mode?: string; page?: string }>;
+  searchParams: Promise<{ from?: string; service?: string; mode?: string; page?: string; source?: string }>;
 }) {
-  const { from, service, mode, page: pageRaw } = await searchParams;
+  const { from, service, mode, page: pageRaw, source: sourceRaw } = await searchParams;
   const hubs = await listPlannerHubs(120);
+  const source = parseListingSourceFilter(sourceRaw);
 
   const activeFrom = from || hubs[0]?.pickupHub || "";
   const activeMode = mode === "miles" ? "miles" : "route";
@@ -42,20 +44,25 @@ export default async function PlannerPage({
 
   if (activeFrom) {
     if (activeMode === "route") {
-      const routePage = await getPlannerRoutePage(activeFrom, service ?? null, requestedPage, pageSize);
+      const routePage = await getPlannerRoutePage(activeFrom, service ?? null, requestedPage, pageSize, source);
       ordered = routePage.jobs;
       legMiles = routePage.legMiles;
       total = routePage.total;
       geocodedCount = routePage.geocodedCount;
       page = routePage.page;
     } else {
-      total = await countPlannerJobs(activeFrom, service ?? null);
+      total = await countPlannerJobs(activeFrom, service ?? null, source);
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
       page = Math.min(requestedPage, totalPages);
-      ordered = await getPlannerJobsPage(activeFrom, service ?? null, {
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      });
+      ordered = await getPlannerJobsPage(
+        activeFrom,
+        service ?? null,
+        {
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        },
+        source,
+      );
       legMiles = ordered.map(() => null);
     }
   }
@@ -63,9 +70,10 @@ export default async function PlannerPage({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startIndex = (page - 1) * pageSize + 1;
 
-  const plannerQuery = (hub: string, nextMode: string) => {
+  const plannerQuery = (hub: string, nextMode: string, nextSource = source) => {
     const q = new URLSearchParams({ from: hub, mode: nextMode });
     if (service) q.set("service", service);
+    if (nextSource !== "all") q.set("source", nextSource);
     return `/planner?${q}`;
   };
 
@@ -87,14 +95,29 @@ export default async function PlannerPage({
 
       {hubs.length === 0 ? (
         <div className="card p-8 text-center text-sm text-slate-400">
-          No Shiply jobs imported yet. Go to{" "}
+          No jobs imported yet. Go to{" "}
           <Link href="/admin/shiply" className="text-brand-300 underline">
-            Admin → Shiply
+            Admin → Import
           </Link>{" "}
-          to upload your spreadsheet.
+          to upload a spreadsheet.
         </div>
       ) : (
         <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Source:</span>
+            {LISTING_SOURCE_FILTERS.map((f) => (
+              <Link
+                key={f.id}
+                href={plannerQuery(activeFrom, activeMode, f.id)}
+                className={`chip ${
+                  source === f.id ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+                }`}
+              >
+                {f.label}
+              </Link>
+            ))}
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {hubs.slice(0, 40).map((h) => (
               <Link
@@ -128,6 +151,11 @@ export default async function PlannerPage({
           <div>
             <h2 className="text-lg font-semibold text-white">
               Starting hub <span className="text-brand-300">{activeFrom}</span> · {total.toLocaleString("en-GB")} jobs
+              {source !== "all" && (
+                <span className="ml-2 text-sm font-normal text-slate-400">
+                  ({source === "shiply" ? "Shiply" : "DeliveryQuoteCompare"} only)
+                </span>
+              )}
             </h2>
             {activeMode === "route" && total > 0 && (
               <p className="mt-1 text-xs text-slate-500">
@@ -145,6 +173,7 @@ export default async function PlannerPage({
               from={activeFrom}
               mode={activeMode}
               service={service}
+              source={source}
             />
           </div>
         </>

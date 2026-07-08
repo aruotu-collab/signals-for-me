@@ -5,6 +5,11 @@ import { JobSheet, type SheetTarget } from "./JobSheet";
 import { analyzeJob, formatGbp, jobPassesWorthItFilter } from "@/lib/shiply/intelligence";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 import type { DriverSettings } from "@/lib/shiply/driverSettingsCore";
+import {
+  LISTING_SOURCE_FILTERS,
+  filterKeysBySource,
+  type ListingSourceFilter,
+} from "@/lib/shiply/listingSource";
 
 type Service = { service: string; serviceType: string };
 type Hub = { pickupHub: string; count: number };
@@ -29,6 +34,7 @@ export function MatrixGrid({
 }) {
   const [target, setTarget] = useState<SheetTarget>(null);
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<ListingSourceFilter>("all");
   const { settings } = useDriverSettings();
 
   const cellMap = useMemo(() => {
@@ -47,32 +53,60 @@ export function MatrixGrid({
     [services, serviceTypeFilter],
   );
 
+  const hubCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of cells) {
+      const n = filterKeysBySource(safeParse(c.jobKeys), sourceFilter).length;
+      if (n > 0) m.set(c.pickupHub, (m.get(c.pickupHub) ?? 0) + n);
+    }
+    return m;
+  }, [cells, sourceFilter]);
+
   if (services.length === 0) {
     return (
       <div className="card p-8 text-center text-sm text-slate-400">
-        No Shiply jobs imported yet. Go to{" "}
+        No jobs imported yet. Go to{" "}
         <a href="/admin/shiply" className="text-brand-300 underline">
-          Admin → Shiply
+          Admin → Import
         </a>{" "}
-        to upload your spreadsheet.
+        to upload a spreadsheet.
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {serviceTypes.map((t) => (
-          <button
-            key={t}
-            onClick={() => setServiceTypeFilter(t)}
-            className={`chip ${
-              serviceTypeFilter === t ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
-            }`}
-          >
-            {t === "all" ? "All service types" : t}
-          </button>
-        ))}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Source:</span>
+          {LISTING_SOURCE_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setSourceFilter(f.id)}
+              className={`chip ${
+                sourceFilter === f.id ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Service:</span>
+          {serviceTypes.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setServiceTypeFilter(t)}
+              className={`chip ${
+                serviceTypeFilter === t ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+              }`}
+            >
+              {t === "all" ? "All service types" : t}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="-mx-4 sm:mx-0">
@@ -87,18 +121,21 @@ export function MatrixGrid({
                   <div>Service ↓</div>
                   <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup from →</div>
                 </th>
-                {hubs.map((h) => (
-                  <th
-                    key={h.pickupHub}
-                    className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
-                  >
-                    <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
-                      📍 Pickup from
-                    </div>
-                    <div className="break-words leading-tight">{h.pickupHub}</div>
-                    <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{h.count} jobs</div>
-                  </th>
-                ))}
+                {hubs.map((h) => {
+                  const hubCount = sourceFilter === "all" ? h.count : (hubCounts.get(h.pickupHub) ?? 0);
+                  return (
+                    <th
+                      key={h.pickupHub}
+                      className="sticky top-0 z-20 min-w-[6.5rem] border-b border-r border-white/10 bg-ink-950 px-2 py-2 text-left align-bottom text-xs font-medium text-slate-200 sm:min-w-[9.5rem] sm:px-3 sm:py-3 sm:text-sm"
+                    >
+                      <div className="text-[9px] font-semibold uppercase tracking-wide text-brand-300/80 sm:text-[10px]">
+                        📍 Pickup from
+                      </div>
+                      <div className="break-words leading-tight">{h.pickupHub}</div>
+                      <div className="text-[10px] font-normal text-slate-500 sm:text-[11px]">{hubCount} jobs</div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -112,7 +149,10 @@ export function MatrixGrid({
                   </th>
                   {hubs.map((h) => {
                     const cell = cellMap.get(`${s.service}|||${h.pickupHub}`);
-                    if (!cell || cell.jobCount === 0) {
+                    const filteredKeys = cell
+                      ? filterKeysBySource(safeParse(cell.jobKeys), sourceFilter)
+                      : [];
+                    if (!cell || filteredKeys.length === 0) {
                       return (
                         <td
                           key={h.pickupHub}
@@ -142,11 +182,12 @@ export function MatrixGrid({
                         className="min-w-[6.5rem] border-b border-r border-white/5 px-1.5 py-1.5 sm:min-w-[9.5rem] sm:px-2 sm:py-2"
                       >
                         <button
+                          type="button"
                           onClick={() =>
                             setTarget({
                               service: s.service,
                               pickupHub: h.pickupHub,
-                              jobKeys: safeParse(cell.jobKeys),
+                              jobKeys: filteredKeys,
                             })
                           }
                           className={`w-full rounded-lg border px-2 py-1.5 text-left transition sm:px-3 sm:py-2 ${
@@ -155,8 +196,8 @@ export function MatrixGrid({
                               : "border-white/10 bg-white/[0.03] hover:border-brand-400/40 hover:bg-brand-500/10"
                           }`}
                         >
-                          <div className="text-xs font-semibold text-white sm:text-sm">{cell.jobCount} jobs</div>
-                          {cell.areaCount > 1 && (
+                          <div className="text-xs font-semibold text-white sm:text-sm">{filteredKeys.length} jobs</div>
+                          {cell.areaCount > 1 && sourceFilter === "all" && (
                             <div className="text-[10px] text-brand-300/80 sm:text-[11px]">{cell.areaCount} areas</div>
                           )}
                           {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
@@ -177,6 +218,13 @@ export function MatrixGrid({
       <p className="text-xs text-slate-500">
         <span className="text-brand-300">Columns = pickup from</span> · Rows = service type. Tap a cell for route
         intelligence — est. fuel, winning bid, and profit per job.
+        {sourceFilter !== "all" && (
+          <>
+            {" "}
+            Showing{" "}
+            {sourceFilter === "shiply" ? "Shiply" : "DeliveryQuoteCompare"} jobs only.
+          </>
+        )}
       </p>
 
       <JobSheet target={target} onClose={() => setTarget(null)} />

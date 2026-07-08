@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ListingSourceFilter } from "@/lib/shiply/listingSource";
 
 export function PlannerPagination({
   page,
@@ -8,6 +9,7 @@ export function PlannerPagination({
   from,
   mode,
   service,
+  source = "all",
 }: {
   page: number;
   totalPages: number;
@@ -16,11 +18,13 @@ export function PlannerPagination({
   from: string;
   mode: string;
   service?: string;
+  source?: ListingSourceFilter;
 }) {
   if (totalPages <= 1) return null;
 
   const base = new URLSearchParams({ from, mode });
   if (service) base.set("service", service);
+  if (source && source !== "all") base.set("source", source);
 
   const pageHref = (p: number) => {
     const q = new URLSearchParams(base);

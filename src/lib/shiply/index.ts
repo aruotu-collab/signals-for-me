@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hubToSlug, serviceToSlug } from "@/lib/seo";
 import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
+import { listingSourcePrismaWhere, type ListingSourceFilter } from "@/lib/shiply/listingSource";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
 import { assignPickupHub, hubRank, isKnownHub } from "@/lib/shiply/hubs";
 
@@ -389,11 +390,16 @@ export const listPlannerPickupKeys = listPlannerHubs;
 
 export const PLANNER_PAGE_SIZE = 40;
 
-export async function countPlannerJobs(pickupHub: string, service?: string | null): Promise<number> {
+export async function countPlannerJobs(
+  pickupHub: string,
+  service?: string | null,
+  source: ListingSourceFilter = "all",
+): Promise<number> {
   return prisma.shiplyJob.count({
     where: {
       pickupHub,
       ...(service ? { service } : {}),
+      ...listingSourcePrismaWhere(source),
     },
   });
 }
@@ -417,11 +423,16 @@ const plannerJobSelect = {
   deliveryLng: true,
 } as const;
 
-export async function getPlannerJobs(pickupHub: string, service?: string | null) {
+export async function getPlannerJobs(
+  pickupHub: string,
+  service?: string | null,
+  source: ListingSourceFilter = "all",
+) {
   return prisma.shiplyJob.findMany({
     where: {
       pickupHub,
       ...(service ? { service } : {}),
+      ...listingSourcePrismaWhere(source),
     },
     orderBy: [{ miles: "asc" }],
     select: plannerJobSelect,
@@ -432,11 +443,13 @@ export async function getPlannerJobsPage(
   pickupHub: string,
   service: string | null | undefined,
   opts: { skip: number; take: number },
+  source: ListingSourceFilter = "all",
 ) {
   return prisma.shiplyJob.findMany({
     where: {
       pickupHub,
       ...(service ? { service } : {}),
+      ...listingSourcePrismaWhere(source),
     },
     orderBy: [{ miles: "asc" }],
     skip: opts.skip,
@@ -456,11 +469,16 @@ export type RouteOptimizableJob = {
   deliveryLng?: number | null;
 };
 
-async function getPlannerRoutePoints(pickupHub: string, service?: string | null): Promise<RouteOptimizableJob[]> {
+async function getPlannerRoutePoints(
+  pickupHub: string,
+  service?: string | null,
+  source: ListingSourceFilter = "all",
+): Promise<RouteOptimizableJob[]> {
   return prisma.shiplyJob.findMany({
     where: {
       pickupHub,
       ...(service ? { service } : {}),
+      ...listingSourcePrismaWhere(source),
     },
     select: {
       shiplyKey: true,
@@ -479,8 +497,9 @@ export async function getPlannerRoutePage(
   service: string | null | undefined,
   page: number,
   pageSize: number,
+  source: ListingSourceFilter = "all",
 ): Promise<{ jobs: PlannerJob[]; legMiles: (number | null)[]; total: number; geocodedCount: number; page: number }> {
-  const points = await getPlannerRoutePoints(pickupHub, service);
+  const points = await getPlannerRoutePoints(pickupHub, service, source);
   const geocodedCount = points.filter((j) => j.deliveryLat != null && j.deliveryLng != null).length;
   const { ordered, legMiles } = buildOptimizedRoute(points);
   const total = ordered.length;
