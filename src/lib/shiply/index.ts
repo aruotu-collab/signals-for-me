@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { hubToSlug, serviceToSlug } from "@/lib/seo";
 import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
 import { assignPickupHub, hubRank, isKnownHub } from "@/lib/shiply/hubs";
@@ -300,6 +301,87 @@ export async function getJobsByKeys(keys: string[]) {
 
 export async function listPlannerHubs(limit = 120) {
   return listMatrixHubs(limit);
+}
+
+/** Resolve a URL slug back to a pickup hub name. */
+export async function resolveHubSlug(slug: string): Promise<string | null> {
+  const hubs = await listMatrixHubs(200);
+  return hubs.find((h) => hubToSlug(h.pickupHub) === slug)?.pickupHub ?? null;
+}
+
+/** Resolve a URL slug back to a service name. */
+export async function resolveServiceSlug(slug: string): Promise<string | null> {
+  const services = await listMatrixServices();
+  return services.find((s) => serviceToSlug(s.service) === slug)?.service ?? null;
+}
+
+export async function getHubLandingData(hub: string) {
+  const [total, byService, sample] = await Promise.all([
+    prisma.shiplyJob.count({ where: { pickupHub: hub } }),
+    prisma.shiplyJob.groupBy({
+      by: ["service"],
+      where: { pickupHub: hub },
+      _count: { _all: true },
+      orderBy: { _count: { service: "desc" } },
+    }),
+    prisma.shiplyJob.findMany({
+      where: { pickupHub: hub },
+      orderBy: [{ miles: "asc" }],
+      take: 20,
+      select: {
+        shiplyKey: true,
+        title: true,
+        service: true,
+        pickupTown: true,
+        deliveryTown: true,
+        miles: true,
+        quotes: true,
+        shiplyUrl: true,
+      },
+    }),
+  ]);
+
+  return {
+    hub,
+    total,
+    services: byService.map((r) => ({ service: r.service, count: r._count._all })),
+    sample,
+  };
+}
+
+export async function getServiceLandingData(service: string) {
+  const [total, byHub, sample] = await Promise.all([
+    prisma.shiplyJob.count({ where: { service } }),
+    prisma.shiplyJob.groupBy({
+      by: ["pickupHub"],
+      where: { service },
+      _count: { _all: true },
+      orderBy: { _count: { pickupHub: "desc" } },
+      take: 20,
+    }),
+    prisma.shiplyJob.findMany({
+      where: { service },
+      orderBy: [{ miles: "asc" }],
+      take: 20,
+      select: {
+        shiplyKey: true,
+        title: true,
+        pickupHub: true,
+        pickupTown: true,
+        deliveryTown: true,
+        miles: true,
+        quotes: true,
+        shiplyUrl: true,
+      },
+    }),
+  ]);
+
+  return {
+    service,
+    total,
+    hubs: byHub.map((r) => ({ hub: r.pickupHub, count: r._count._all })),
+    sample,
+  };
 }
 
 /** @deprecated use listPlannerHubs */

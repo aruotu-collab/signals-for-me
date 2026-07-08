@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
+import { buildPageMetadata } from "@/lib/seo";
 import { BuyerEstimateForm } from "../opportunities/ui/BuyerEstimateForm";
 import { EbayApiStatus } from "../opportunities/ui/DriverOpportunityBoard";
 
-export const metadata: Metadata = {
-  title: "Get a quote — know your total cost before you bid",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Get a delivery quote — know your total eBay cost before you bid",
   description:
-    "Paste a collection-only eBay link, get an instant delivery estimate, and request driver quotes so you know the full cost before bidding.",
-};
+    "Paste a collection-only eBay link, get an instant UK delivery estimate with journey time, and request driver quotes so you know the full cost before bidding.",
+  path: "/quotes",
+  keywords: ["eBay delivery quote", "collection only eBay delivery", "motorcycle delivery quote", "furniture delivery cost"],
+});
 
 export default function QuotesPage() {
   return (

@@ -1,8 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/db";
+import { buildPageMetadata, faqJsonLd, HOME_FAQ } from "@/lib/seo";
 import { listMatrixHubs } from "@/lib/shiply";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "UK delivery jobs by pickup location — Pickup Radar for drivers",
+  description:
+    "Find courier and van delivery jobs across the UK. Pickup Radar maps Shiply work by hub and service — profit estimates, route planner, and eBay delivery quotes. Free for drivers and buyers.",
+  path: "/",
+  keywords: [
+    "UK delivery jobs",
+    "courier jobs near me",
+    "Shiply jobs",
+    "delivery driver jobs UK",
+    "van courier work",
+    "eBay delivery quote",
+  ],
+});
 
 export default async function Home() {
   let jobCount = 0;
@@ -21,6 +39,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-16">
+      <JsonLd data={faqJsonLd(HOME_FAQ)} />
       <section className="pt-8">
         <div className="text-center">
           <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">Route Radar · Driver intelligence</span>
@@ -102,6 +121,33 @@ export default async function Home() {
           </Link>
         </section>
       )}
+
+      <section className="card p-6">
+        <h2 className="text-xl font-bold text-white">Frequently asked questions</h2>
+        <dl className="mt-6 space-y-5">
+          {HOME_FAQ.map((item) => (
+            <div key={item.question}>
+              <dt className="font-medium text-white">{item.question}</dt>
+              <dd className="mt-1 text-sm text-slate-400">{item.answer}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-bold text-white">Browse jobs by area or type</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Explore delivery work by UK pickup area or job type — each page lists live counts and sample listings.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/jobs" className="btn-ghost px-4 py-2 text-sm">
+            Jobs by area →
+          </Link>
+          <Link href="/delivery-jobs" className="btn-ghost px-4 py-2 text-sm">
+            Jobs by type →
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

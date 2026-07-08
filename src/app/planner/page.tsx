@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   listPlannerHubs,
@@ -6,8 +7,17 @@ import {
   getPlannerRoutePage,
   PLANNER_PAGE_SIZE,
 } from "@/lib/shiply";
+import { buildPageMetadata } from "@/lib/seo";
 import { PlannerJobList } from "./PlannerJobList";
 import { PlannerPagination } from "./PlannerPagination";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Driver route planner — multi-drop delivery jobs by hub",
+  description:
+    "Plan courier routes from your pickup hub. Sort by distance or nearest-next-stop optimization across UK delivery jobs — with fuel and profit estimates.",
+  path: "/planner",
+  keywords: ["delivery route planner", "courier route UK", "multi drop route", "van driver planner"],
+});
 
 export const dynamic = "force-dynamic";
 

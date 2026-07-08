@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { listMatrixHubs, listMatrixServices, getMatrixCells } from "@/lib/shiply";
+import { buildPageMetadata } from "@/lib/seo";
 import { MatrixGrid } from "./ui/MatrixGrid";
 
-export const metadata: Metadata = {
-  title: "Pickup Radar — delivery jobs by pickup location",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Pickup Radar — UK delivery jobs by pickup location",
   description:
-    "Scan delivery work by pickup hub and service type. Tap a cell to see jobs by sub-area — nearest drop-off first, with direct Shiply links.",
-};
+    "Scan live UK courier jobs by pickup hub and service type. Tap a cell for fuel cost, winning bid estimates, and profit — with direct Shiply links.",
+  path: "/matrix",
+  keywords: ["Pickup Radar", "Shiply jobs matrix", "delivery jobs by hub", "courier job map UK"],
+});
 
 export const dynamic = "force-dynamic";
 
