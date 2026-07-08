@@ -33,7 +33,7 @@ export function MatrixGrid({
   cells: Cell[];
 }) {
   const [target, setTarget] = useState<SheetTarget>(null);
-  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<ListingSourceFilter>("all");
   const { settings } = useDriverSettings();
 
@@ -43,14 +43,11 @@ export function MatrixGrid({
     return m;
   }, [cells]);
 
-  const serviceTypes = useMemo(() => {
-    const set = new Set(services.map((s) => s.serviceType));
-    return ["all", ...Array.from(set).sort()];
-  }, [services]);
+  const serviceOptions = useMemo(() => services.map((s) => s.service).sort((a, b) => a.localeCompare(b)), [services]);
 
   const visibleServices = useMemo(
-    () => (serviceTypeFilter === "all" ? services : services.filter((s) => s.serviceType === serviceTypeFilter)),
-    [services, serviceTypeFilter],
+    () => (serviceFilter === "all" ? services : services.filter((s) => s.service === serviceFilter)),
+    [services, serviceFilter],
   );
 
   const hubCounts = useMemo(() => {
@@ -94,16 +91,25 @@ export function MatrixGrid({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-slate-500">Service:</span>
-          {serviceTypes.map((t) => (
+          <button
+            type="button"
+            onClick={() => setServiceFilter("all")}
+            className={`chip ${
+              serviceFilter === "all" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+            }`}
+          >
+            All services
+          </button>
+          {serviceOptions.map((name) => (
             <button
-              key={t}
+              key={name}
               type="button"
-              onClick={() => setServiceTypeFilter(t)}
+              onClick={() => setServiceFilter(name)}
               className={`chip ${
-                serviceTypeFilter === t ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+                serviceFilter === name ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
               }`}
             >
-              {t === "all" ? "All service types" : t}
+              {name}
             </button>
           ))}
         </div>
