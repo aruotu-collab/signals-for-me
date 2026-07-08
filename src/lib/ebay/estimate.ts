@@ -5,6 +5,7 @@ import { getEbayItem } from "@/lib/ebay/search";
 import { parseEbayItemId } from "@/lib/ebay/types";
 import { countVansForHub } from "@/lib/ebay/emptyVans";
 import { deliveryGuideRange } from "@/lib/ebay/quoteIntel";
+import { estimateTravelHours, formatDriveTime } from "@/lib/shiply/intelligence";
 
 export type DeliveryEstimateInput = {
   ebayUrl: string;
@@ -27,6 +28,7 @@ export type DeliveryEstimateResult = {
   pickupArea: string | null;
   deliveryArea: string;
   distanceMiles: number | null;
+  driveTimeHours: number | null;
   estimateLow: number | null;
   estimateHigh: number | null;
   serviceCategory: string | null;
@@ -63,6 +65,7 @@ function emptyResult(
     pickupArea: null,
     deliveryArea,
     distanceMiles: null,
+    driveTimeHours: null,
     estimateLow: null,
     estimateHigh: null,
     serviceCategory: null,
@@ -127,6 +130,7 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
 
   if (from && to) {
     const distanceMiles = Math.round(haversineMiles(from, to));
+    const driveTimeHours = estimateTravelHours(distanceMiles);
     const range = deliveryGuideRange(distanceMiles, itemTitle);
     const hub = assignPickupHub({
       pickupTown: pickupTown ?? pickupPostcode ?? pickupOutcode ?? "Pickup",
@@ -158,15 +162,20 @@ export async function estimateDelivery(input: DeliveryEstimateInput): Promise<De
             : hub,
       deliveryArea: deliveryLabel,
       distanceMiles,
+      driveTimeHours,
       estimateLow: range.low,
       estimateHigh: range.high,
       serviceCategory: range.category,
       driversNearby,
       message: itemTitle
-        ? `Instant estimate for “${itemTitle}” — ${distanceMiles} mi · ${range.category} · guide £${range.low}–£${range.high}.${
+        ? `Instant estimate for “${itemTitle}” — ${distanceMiles} mi${
+            driveTimeHours ? ` · ~${formatDriveTime(driveTimeHours)} drive` : ""
+          } · ${range.category} · guide £${range.low}–£${range.high}.${
             pickupResolvedBy === "town" ? ` Pickup located from “${pickupTown}”.` : ""
           }`
-        : `Instant estimate — ${distanceMiles} miles from ${pickupLabel} to ${deliveryLabel}.`,
+        : `Instant estimate — ${distanceMiles} miles${
+            driveTimeHours ? ` (~${formatDriveTime(driveTimeHours)} drive)` : ""
+          } from ${pickupLabel} to ${deliveryLabel}.`,
     };
   }
 

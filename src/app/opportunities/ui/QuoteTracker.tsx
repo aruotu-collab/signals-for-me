@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { bidGuideChip, bidGuideLabel } from "@/lib/ebay/category";
 import { quoteCategory } from "@/lib/ebay/quoteIntel";
+import { estimateTravelHours, formatDriveTime } from "@/lib/shiply/intelligence";
 import { acceptBid, confirmPurchaseAction } from "../actions";
 import { BudgetBreakdown } from "./BudgetBreakdown";
 
@@ -70,6 +71,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
 
   const countdown = useAuctionCountdown(request.auctionEndsAt);
   const category = quoteCategory(request.itemTitle);
+  const driveTimeHours = estimateTravelHours(request.distanceMiles);
 
   return (
     <div className="space-y-6">
@@ -87,6 +89,7 @@ export function QuoteTracker({ request, nearbyVans = 0 }: { request: Request; ne
             <p className="mt-1 text-sm text-slate-400">
               {request.pickupHub ?? request.pickupPostcode} → {request.deliveryPostcode}
               {request.distanceMiles != null && ` · ${request.distanceMiles} mi`}
+              {driveTimeHours != null && ` · ~${formatDriveTime(driveTimeHours)} drive`}
               {` · ${category}`}
             </p>
             <a href={request.ebayUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-amber-300">

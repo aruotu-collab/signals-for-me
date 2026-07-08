@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { DeliveryEstimateResult } from "@/lib/ebay/estimate";
+import { formatDriveTime } from "@/lib/shiply/intelligence";
 import { requestDriverQuotes } from "../actions";
 import { BudgetBreakdown } from "./BudgetBreakdown";
 
@@ -218,6 +219,9 @@ function EstimateCard({ result }: { result: DeliveryEstimateResult }) {
           <Stat label="Pickup" value={result.pickupArea ?? "—"} />
           <Stat label="Delivery" value={result.deliveryArea} />
           <Stat label="Distance" value={`${result.distanceMiles} mi`} />
+          {result.driveTimeHours != null && (
+            <Stat label="Journey time" value={`~${formatDriveTime(result.driveTimeHours)}`} />
+          )}
           {result.itemPrice != null && (
             <Stat
               label={result.buyingType === "Auction" ? "Current bid" : "Item price"}

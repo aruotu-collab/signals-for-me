@@ -214,6 +214,16 @@ export function formatGbp(amount: number): string {
   return `£${amount.toLocaleString("en-GB")}`;
 }
 
+/**
+ * One-way driving time for a given distance, using the same average speed as the
+ * driver intelligence so buyer and driver figures stay consistent. Pure travel
+ * time — no load/unload overhead.
+ */
+export function estimateTravelHours(miles: number | null | undefined): number | null {
+  if (miles == null || !Number.isFinite(miles) || miles < 1) return null;
+  return Math.round((miles / AVG_SPEED_MPH) * 100) / 100;
+}
+
 /** Human-readable drive time, e.g. 3.6 → "3h 36m", 0.75 → "45m". */
 export function formatDriveTime(hours: number): string {
   if (!Number.isFinite(hours) || hours <= 0) return "—";
