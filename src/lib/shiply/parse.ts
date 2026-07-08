@@ -100,6 +100,43 @@ function isScrapedShiplyFormat(columns: string[]): boolean {
   return columns.some((c) => c === "anchor-visited-highlight href" || c === "search-cell-box-content-address");
 }
 
+// The "UK listings" export: one file, every category, columns:
+// Category, Item Name, Link, Collection Location, Delivery Location, Mileage, Number of Quotes
+function isListingsFormat(columns: string[]): boolean {
+  const set = new Set(columns.map((c) => c.trim().toLowerCase()));
+  return set.has("item name") && set.has("link") && set.has("collection location");
+}
+
+function parseListingsRows(rows: Record<string, unknown>[]): ShiplyJobRow[] {
+  return rows
+    .map((r) => {
+      const shiplyUrl = firstString(r, ["Link", "link"]);
+      const title = firstString(r, ["Item Name", "item name"]);
+      const collection = firstString(r, ["Collection Location", "collection location"]);
+      const delivery = firstString(r, ["Delivery Location", "delivery location"]);
+      if (!shiplyUrl || !title || !collection || !delivery) return null;
+
+      const category = firstString(r, ["Category", "category"]) || "Other";
+      const serviceType = SERVICE_TYPE_BY_CATEGORY[category] ?? "Deliveries";
+
+      return {
+        serviceType,
+        service: category,
+        pickupTown: townFromAddress(collection),
+        deliveryTown: townFromAddress(delivery),
+        // Keep the full "Town, County, Outcode" string so outcode extraction works.
+        pickupAddress: collection,
+        deliveryAddress: delivery,
+        miles: asInt(firstString(r, ["Mileage", "mileage"]) || null),
+        quotes: asInt(firstString(r, ["Number of Quotes", "number of quotes"]) || null),
+        title,
+        shiplyUrl,
+        imageUrl: null,
+      } satisfies ShiplyJobRow;
+    })
+    .filter(Boolean) as ShiplyJobRow[];
+}
+
 function parseScrapedRows(
   rows: Record<string, unknown>[],
   defaults: { service: string; serviceType: string },
@@ -180,6 +217,9 @@ export function parseShiplyXlsx(buf: Buffer, opts: ParseShiplyOptions = {}): Shi
   if (!rows.length) return [];
 
   const columns = Object.keys(rows[0] ?? {});
+  if (isListingsFormat(columns)) {
+    return parseListingsRows(rows);
+  }
   if (isScrapedShiplyFormat(columns)) {
     const defaults = {
       service: opts.service ?? (opts.filename ? categoryFromFilename(opts.filename).service : "Unknown"),
