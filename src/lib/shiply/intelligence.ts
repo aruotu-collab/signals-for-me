@@ -48,12 +48,46 @@ export type JobIntelligence = {
   verdictHint: string;
 };
 
-// UK LWB diesel van, partly loaded — conservative for profit estimates.
-const VAN_MPG = 28;
+// UK LWB diesel van, partly loaded — realistic for profit estimates (not best-case).
+const VAN_MPG = 24;
 const LITRES_PER_UK_GALLON = 4.54609;
-const DEFAULT_FUEL_PPL = 1.45; // £/litre diesel
+const DEFAULT_FUEL_PPL = 1.52; // £/litre diesel (UK pump average)
 const LOADING_OVERHEAD = 15; // £ time for load/unload (fixed estimate)
 const AVG_SPEED_MPH = 42;
+
+/**
+ * Loaded vans burn more diesel — reduce effective mpg by service type.
+ * 1 = empty-ish van; lower = heavier / less aerodynamic load.
+ */
+const LOADED_MPG_FACTOR: Record<string, number> = {
+  Cars: 0.82,
+  Motorcycles: 0.9,
+  "Other Vehicles": 0.85,
+  Boats: 0.75,
+  Haulage: 0.78,
+  "Moving Home": 0.85,
+  Pianos: 0.88,
+  "Vehicle Parts": 0.92,
+  "Pets & Livestock": 0.9,
+  Boxes: 0.95,
+  Other: 0.95,
+  "Furniture & General Items": 0.93,
+};
+
+function loadedMpgFactor(service: string): number {
+  if (LOADED_MPG_FACTOR[service]) return LOADED_MPG_FACTOR[service]!;
+  const s = service.toLowerCase();
+  if (s.includes("piano")) return 0.88;
+  if (s.includes("boat")) return 0.75;
+  if (s.includes("haul")) return 0.78;
+  if (s.includes("car") || s.includes("vehicle")) return 0.85;
+  if (s.includes("removal") || s.includes("moving")) return 0.85;
+  return 1;
+}
+
+function effectiveMpg(baseMpg: number, service: string): number {
+  return Math.max(8, baseMpg * loadedMpgFactor(service));
+}
 
 /** Per-category multiplier on the base £/mile curve. */
 const SERVICE_MULTIPLIER: Record<string, number> = {
@@ -157,14 +191,15 @@ export function analyzeJob(input: JobIntelInput, settings?: JobIntelSettings): J
 
   const mpg = settings?.mpg && settings.mpg > 0 ? settings.mpg : VAN_MPG;
   const ppl = settings?.fuelPpl && settings.fuelPpl > 0 ? settings.fuelPpl : fuelPricePerLitre();
-  const includeReturn = Boolean(settings?.includeReturnLeg);
+  const includeReturn = settings?.includeReturnLeg ?? true;
 
   // The paid job is one-way; if the driver runs back empty, double the miles
   // for fuel and time but keep bid/rate based on the loaded (billable) leg.
   const fuelMiles = includeReturn ? miles * 2 : miles;
   const timeMiles = includeReturn ? miles * 2 : miles;
 
-  const { litres, cost: fuelCost } = fuelFromMiles(fuelMiles, mpg, ppl);
+  const vanMpg = effectiveMpg(mpg, input.service);
+  const { litres, cost: fuelCost } = fuelFromMiles(fuelMiles, vanMpg, ppl);
   const { low: bidLow, high: bidHigh } = bidRange(miles, input.service);
   const mid = (bidLow + bidHigh) / 2;
 

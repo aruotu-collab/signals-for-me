@@ -29,7 +29,7 @@ export function DriverSettingsPanel({ standalone = false }: { standalone?: boole
       <div className="grid gap-4 sm:grid-cols-3">
         <Field
           label="Van economy (mpg)"
-          hint="Miles per gallon"
+          hint="Loaded LWB diesel — UK default 24"
           value={settings.mpg}
           min={8}
           max={80}
@@ -38,7 +38,7 @@ export function DriverSettingsPanel({ standalone = false }: { standalone?: boole
         />
         <Field
           label="Diesel price (£/L)"
-          hint="Your pump price"
+          hint="Pump price — UK default £1.52/L"
           value={settings.fuelPpl}
           min={0.5}
           max={4}

@@ -10,10 +10,10 @@ export type DriverSettings = {
 };
 
 export const DEFAULT_SETTINGS: DriverSettings = {
-  mpg: 28,
-  fuelPpl: 1.45,
+  mpg: 24,
+  fuelPpl: 1.52,
   minHourlyRate: 15,
-  includeReturnLeg: false,
+  includeReturnLeg: true,
   onlyWorthIt: false,
 };
 

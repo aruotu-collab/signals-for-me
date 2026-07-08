@@ -99,8 +99,8 @@ export function JobIntelligence({
       {rateBadge && <div className="mt-2">{rateBadge}</div>}
 
       <p className="mt-2 text-[10px] opacity-60">
-        Based on your van ({settings.mpg} mpg, £{settings.fuelPpl.toFixed(2)}/L){intel.returnLegIncluded ? ", return leg included" : ""} and
-        category pricing — estimates, not live Shiply quotes.
+        Based on your van ({settings.mpg} mpg, £{settings.fuelPpl.toFixed(2)}/L){intel.returnLegIncluded ? ", return leg included" : ", one-way only (no empty return)"} and
+        category load — estimates, not live quotes.
       </p>
     </div>
   );

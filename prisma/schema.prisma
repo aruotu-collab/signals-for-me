@@ -62,10 +62,10 @@ model DriverProfile {
   userId           String   @unique
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  mpg              Float    @default(28)
-  fuelPpl          Float    @default(1.45)
+  mpg              Float    @default(24)
+  fuelPpl          Float    @default(1.52)
   minHourlyRate    Float    @default(15)
-  includeReturnLeg Boolean  @default(false)
+  includeReturnLeg Boolean  @default(true)
   onlyWorthIt      Boolean  @default(false)
 
   updatedAt        DateTime @updatedAt
