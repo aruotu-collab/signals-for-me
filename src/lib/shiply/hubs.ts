@@ -161,6 +161,20 @@ function isNonUkAddress(...parts: (string | null | undefined)[]): boolean {
   return false;
 }
 
+export type PickupCountry = "uk" | "international";
+
+/** Classify pickup location as UK or international (for country filters). */
+export function classifyPickupCountry(input: {
+  pickupHub: string;
+  pickupTown?: string | null;
+  pickupKey?: string | null;
+  pickupAddress?: string | null;
+}): PickupCountry {
+  if (input.pickupHub === "International") return "international";
+  if (isNonUkAddress(input.pickupTown, input.pickupKey, input.pickupAddress)) return "international";
+  return "uk";
+}
+
 function isInUkBBox(lat: number, lng: number): boolean {
   return lat >= 49 && lat <= 61 && lng >= -8.5 && lng <= 2.5;
 }

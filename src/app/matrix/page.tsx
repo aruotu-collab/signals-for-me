@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { listMatrixHubs, listMatrixServices, getMatrixCells } from "@/lib/shiply";
+import { listMatrixHubs, listMatrixServices, getMatrixCells, getPickupCountriesForKeys } from "@/lib/shiply";
 import { buildPageMetadata } from "@/lib/seo";
 import { MatrixGrid } from "./ui/MatrixGrid";
 
@@ -13,6 +13,21 @@ export const metadata: Metadata = buildPageMetadata({
 
 export const dynamic = "force-dynamic";
 
+function keysFromCells(cells: { jobKeys: string }[]): string[] {
+  const set = new Set<string>();
+  for (const cell of cells) {
+    try {
+      const arr = JSON.parse(cell.jobKeys);
+      if (Array.isArray(arr)) {
+        for (const k of arr) set.add(String(k));
+      }
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+  return Array.from(set);
+}
+
 export default async function MatrixPage() {
   const [services, hubs] = await Promise.all([listMatrixServices(), listMatrixHubs()]);
 
@@ -20,6 +35,7 @@ export default async function MatrixPage() {
   const pickupHubs = hubs.map((h) => h.pickupHub);
 
   const cells = await getMatrixCells(serviceNames, pickupHubs);
+  const countryByKey = await getPickupCountriesForKeys(keysFromCells(cells));
 
   return (
     <div className="space-y-6">
@@ -33,7 +49,7 @@ export default async function MatrixPage() {
         </div>
       </header>
 
-      <MatrixGrid services={services} hubs={hubs} cells={cells} />
+      <MatrixGrid services={services} hubs={hubs} cells={cells} countryByKey={countryByKey} />
     </div>
   );
 }

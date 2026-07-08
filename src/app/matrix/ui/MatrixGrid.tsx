@@ -5,6 +5,13 @@ import { JobSheet, type SheetTarget } from "./JobSheet";
 import { analyzeJob, formatGbp, jobPassesWorthItFilter } from "@/lib/shiply/intelligence";
 import { useDriverSettings } from "@/lib/shiply/driverSettings";
 import type { DriverSettings } from "@/lib/shiply/driverSettingsCore";
+import type { PickupCountry } from "@/lib/shiply/hubs";
+import {
+  JOB_COUNTRY_FILTERS,
+  filterKeysByCountry,
+  hubMatchesCountryFilter,
+  type JobCountryFilter,
+} from "@/lib/shiply/jobCountry";
 import {
   LISTING_SOURCE_FILTERS,
   filterKeysBySource,
@@ -23,16 +30,28 @@ type Cell = {
   jobKeys: string;
 };
 
+function filterCellKeys(
+  keys: string[],
+  sourceFilter: ListingSourceFilter,
+  countryFilter: JobCountryFilter,
+  countryByKey: Record<string, PickupCountry>,
+): string[] {
+  return filterKeysByCountry(filterKeysBySource(keys, sourceFilter), countryFilter, countryByKey);
+}
+
 export function MatrixGrid({
   services,
   hubs,
   cells,
+  countryByKey,
 }: {
   services: Service[];
   hubs: Hub[];
   cells: Cell[];
+  countryByKey: Record<string, PickupCountry>;
 }) {
   const [target, setTarget] = useState<SheetTarget>(null);
+  const [countryFilter, setCountryFilter] = useState<JobCountryFilter>("all");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<ListingSourceFilter>("all");
   const { settings } = useDriverSettings();
@@ -50,14 +69,19 @@ export function MatrixGrid({
     [services, serviceFilter],
   );
 
+  const visibleHubs = useMemo(
+    () => hubs.filter((h) => hubMatchesCountryFilter(h.pickupHub, countryFilter)),
+    [hubs, countryFilter],
+  );
+
   const hubCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of cells) {
-      const n = filterKeysBySource(safeParse(c.jobKeys), sourceFilter).length;
+      const n = filterCellKeys(safeParse(c.jobKeys), sourceFilter, countryFilter, countryByKey).length;
       if (n > 0) m.set(c.pickupHub, (m.get(c.pickupHub) ?? 0) + n);
     }
     return m;
-  }, [cells, sourceFilter]);
+  }, [cells, sourceFilter, countryFilter, countryByKey]);
 
   if (services.length === 0) {
     return (
@@ -74,6 +98,21 @@ export function MatrixGrid({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Country:</span>
+          {JOB_COUNTRY_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setCountryFilter(f.id)}
+              className={`chip ${
+                countryFilter === f.id ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-slate-500">Source:</span>
           {LISTING_SOURCE_FILTERS.map((f) => (
@@ -127,8 +166,11 @@ export function MatrixGrid({
                   <div>Service ↓</div>
                   <div className="mt-0.5 text-[10px] font-normal text-brand-300 sm:text-[11px]">Pickup from →</div>
                 </th>
-                {hubs.map((h) => {
-                  const hubCount = sourceFilter === "all" ? h.count : (hubCounts.get(h.pickupHub) ?? 0);
+                {visibleHubs.map((h) => {
+                  const hubCount =
+                    sourceFilter === "all" && countryFilter === "all"
+                      ? h.count
+                      : (hubCounts.get(h.pickupHub) ?? 0);
                   return (
                     <th
                       key={h.pickupHub}
@@ -153,10 +195,10 @@ export function MatrixGrid({
                       {s.serviceType}
                     </div>
                   </th>
-                  {hubs.map((h) => {
+                  {visibleHubs.map((h) => {
                     const cell = cellMap.get(`${s.service}|||${h.pickupHub}`);
                     const filteredKeys = cell
-                      ? filterKeysBySource(safeParse(cell.jobKeys), sourceFilter)
+                      ? filterCellKeys(safeParse(cell.jobKeys), sourceFilter, countryFilter, countryByKey)
                       : [];
                     if (!cell || filteredKeys.length === 0) {
                       return (
@@ -203,7 +245,7 @@ export function MatrixGrid({
                           }`}
                         >
                           <div className="text-xs font-semibold text-white sm:text-sm">{filteredKeys.length} jobs</div>
-                          {cell.areaCount > 1 && sourceFilter === "all" && (
+                          {cell.areaCount > 1 && sourceFilter === "all" && countryFilter === "all" && (
                             <div className="text-[10px] text-brand-300/80 sm:text-[11px]">{cell.areaCount} areas</div>
                           )}
                           {range && <div className="text-[10px] text-slate-400 sm:text-[11px]">{range}</div>}
@@ -224,10 +266,16 @@ export function MatrixGrid({
       <p className="text-xs text-slate-500">
         <span className="text-brand-300">Columns = pickup from</span> · Rows = service type. Tap a cell for route
         intelligence — est. fuel, winning bid, and profit per job.
+        {countryFilter !== "all" && (
+          <>
+            {" "}
+            Showing {countryFilter === "uk" ? "UK pickup" : "international pickup"} jobs only.
+          </>
+        )}
         {sourceFilter !== "all" && (
           <>
             {" "}
-            Showing{" "}
+            {countryFilter !== "all" ? "·" : " Showing "}
             {sourceFilter === "shiply" ? "Shiply" : "DeliveryQuoteCompare"} jobs only.
           </>
         )}

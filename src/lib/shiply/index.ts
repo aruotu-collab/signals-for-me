@@ -4,7 +4,8 @@ import { hubToSlug, serviceToSlug } from "@/lib/seo";
 import { parseShiplyXlsx, pickupKeyFor, shiplyKeyFromUrl, type ParseShiplyOptions } from "@/lib/shiply/parse";
 import { listingSourcePrismaWhere, type ListingSourceFilter } from "@/lib/shiply/listingSource";
 import { extractOutcode, resolveOutcodes } from "@/lib/shiply/geo";
-import { assignPickupHub, hubRank, isKnownHub } from "@/lib/shiply/hubs";
+import { assignPickupHub, classifyPickupCountry, hubRank, isKnownHub } from "@/lib/shiply/hubs";
+import type { PickupCountry } from "@/lib/shiply/hubs";
 
 export async function backfillPickupHubs(): Promise<{ updated: number }> {
   const jobs = await prisma.shiplyJob.findMany({
@@ -292,12 +293,36 @@ export async function getJobsByKeys(keys: string[]) {
       pickupTown: true,
       pickupKey: true,
       pickupHub: true,
+      pickupAddress: true,
       deliveryTown: true,
       miles: true,
       quotes: true,
       service: true,
     },
   });
+}
+
+/** Pickup country per job key — used by matrix country filter. */
+export async function getPickupCountriesForKeys(keys: string[]): Promise<Record<string, PickupCountry>> {
+  const unique = Array.from(new Set(keys.filter(Boolean)));
+  if (!unique.length) return {};
+
+  const rows = await prisma.shiplyJob.findMany({
+    where: { shiplyKey: { in: unique } },
+    select: {
+      shiplyKey: true,
+      pickupHub: true,
+      pickupTown: true,
+      pickupKey: true,
+      pickupAddress: true,
+    },
+  });
+
+  const out: Record<string, PickupCountry> = {};
+  for (const row of rows) {
+    out[row.shiplyKey] = classifyPickupCountry(row);
+  }
+  return out;
 }
 
 export async function listPlannerHubs(limit = 120) {
