@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "UK delivery jobs by pickup location — Pickup Radar for drivers",
   description:
-    "Find courier and van delivery jobs across the UK. Pickup Radar maps Shiply work by hub and service — profit estimates, route planner, and eBay delivery quotes. Free for drivers and buyers.",
+    "Find courier and van delivery jobs across the UK. Pickup Radar maps delivery listings by hub and service — profit estimates, route planner, and eBay delivery quotes. Free for drivers and buyers.",
   path: "/",
   keywords: [
     "UK delivery jobs",
     "courier jobs near me",
-    "Shiply jobs",
+    "DeliveryQuoteCompare jobs",
     "delivery driver jobs UK",
     "van courier work",
     "eBay delivery quote",
@@ -49,7 +49,7 @@ export default async function Home() {
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
             Route Radar shows where jobs cluster across the UK. Open <strong className="font-medium text-slate-300">Pickup Radar</strong> to
             scan your patch — service types down the side, pickup locations across the top. Tap a cell for every job,
-            nearest drop-off first, with a direct Shiply link.
+            nearest drop-off first, with a direct link to quote on DeliveryQuoteCompare.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/matrix" className="btn-primary px-6 py-3 text-base">
@@ -99,7 +99,7 @@ export default async function Home() {
             { n: "01", t: "Open Pickup Radar", d: "Service rows stay frozen; swipe across pickup locations you cover." },
             { n: "02", t: "Swipe", d: "Slide across to the pickup area you cover. No search box needed." },
             { n: "03", t: "Tap a cell", d: "See every job for that service and area, nearest drop-off first." },
-            { n: "04", t: "Open listing", d: "Click through to the job — log in on the listing site to quote." },
+            { n: "04", t: "Open on DeliveryQuoteCompare", d: "Click through to the job — log in on DeliveryQuoteCompare to quote." },
           ].map((s) => (
             <div key={s.n} className="card p-5">
               <div className="text-sm font-bold text-brand-400">{s.n}</div>
@@ -114,7 +114,7 @@ export default async function Home() {
         <section className="card p-8 text-center">
           <h2 className="text-xl font-bold text-white">No jobs imported yet</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-slate-400">
-            Upload your Shiply spreadsheet to populate Pickup Radar.
+            Upload a Shiply or DeliveryQuoteCompare CSV to populate Pickup Radar.
           </p>
           <Link href="/admin/shiply" className="btn-primary mt-5 inline-flex px-6 py-3">
             Go to import

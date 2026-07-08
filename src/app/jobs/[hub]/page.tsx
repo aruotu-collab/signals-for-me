@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: [
       `delivery jobs ${hub}`,
       `courier jobs ${hub}`,
-      `Shiply jobs ${hub}`,
+      `DeliveryQuoteCompare jobs ${hub}`,
       `van driver jobs ${hub}`,
       "UK delivery jobs",
     ],
@@ -70,7 +70,7 @@ export default async function HubJobsPage({ params }: Props) {
         <p className="max-w-3xl text-sm text-slate-400">
           {data.total.toLocaleString("en-GB")} open UK delivery jobs with pickup in{" "}
           <strong className="font-medium text-slate-300">{hub}</strong>. Scan them on Pickup Radar, plan a route from
-          this hub, or open a job on Shiply to quote.
+          this hub, or open a job on DeliveryQuoteCompare to quote.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href="/matrix" className="btn-primary px-4 py-2 text-sm">
@@ -102,7 +102,7 @@ export default async function HubJobsPage({ params }: Props) {
       {data.sample.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-white">Latest jobs picking up in {hub}</h2>
-          <p className="mt-1 text-xs text-slate-500">Nearest drop-offs first — updated when Shiply data is refreshed.</p>
+          <p className="mt-1 text-xs text-slate-500">Nearest drop-offs first — updated when listings are refreshed.</p>
           <ul className="mt-4 space-y-2">
             {data.sample.map((job) => (
               <li key={job.shiplyKey}>

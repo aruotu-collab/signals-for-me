@@ -18,9 +18,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getServiceLandingData(service);
   return buildPageMetadata({
     title: `${service} delivery jobs UK — ${data.total.toLocaleString("en-GB")} listings`,
-    description: `Find ${data.total.toLocaleString("en-GB")} ${service.toLowerCase()} delivery jobs across the UK. See top pickup hubs, sample listings, and quote on Shiply.`,
+    description: `Find ${data.total.toLocaleString("en-GB")} ${service.toLowerCase()} delivery jobs across the UK. See top pickup hubs, sample listings, and quote on DeliveryQuoteCompare.`,
     path: `/delivery-jobs/${slug}`,
-    keywords: [`${service} delivery jobs`, `${service} courier jobs UK`, "Shiply jobs", "UK van delivery"],
+    keywords: [`${service} delivery jobs`, `${service} courier jobs UK`, "DeliveryQuoteCompare jobs", "UK van delivery"],
   });
 }
 

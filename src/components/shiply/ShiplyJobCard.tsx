@@ -5,6 +5,7 @@ import { FavouriteStar } from "@/components/FavouriteStar";
 import { MarkWonButton } from "@/components/my-jobs/MarkWonButton";
 import { JobIntelligence } from "@/components/shiply/JobIntelligence";
 import { shiplyFavourite, type FavouriteInput } from "@/lib/favourites";
+import { openOnListingLabel } from "@/lib/shiply/listingSource";
 
 export type ShiplyJobCardData = {
   shiplyKey: string;
@@ -70,7 +71,7 @@ export function ShiplyJobCard({
           rel="noreferrer"
           className="chip bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"
         >
-          Open on listing →
+          {openOnListingLabel(job.shiplyUrl, job.shiplyKey)} →
         </Link>
       </div>
     </div>

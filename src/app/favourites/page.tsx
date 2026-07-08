@@ -44,7 +44,7 @@ export default function FavouritesPage() {
           <h1 className="mt-2 text-2xl font-bold text-white">Your job board</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
             One place for every job — saved shortlist, work you&apos;ve won, and completed history.
-            Track profit across Shiply, eBay, and jobs won elsewhere.
+            Track profit across DeliveryQuoteCompare, eBay, and jobs won elsewhere.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

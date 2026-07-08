@@ -7,6 +7,7 @@ import type { ShiplyJobLookup } from "@/lib/jobProfit";
 import { formatGbp } from "@/lib/shiply/intelligence";
 import type { JobIntelSettings } from "@/lib/shiply/intelligence";
 import { useFavourites } from "@/components/FavouritesProvider";
+import { listingSourceForJob, listingSourceLabel } from "@/lib/shiply/listingSource";
 
 export function MyJobCard({
   job,
@@ -27,7 +28,11 @@ export function MyJobCard({
   const external = job.url && job.url !== "#";
 
   const sourceLabel =
-    job.source === "manual" ? "Manual" : job.source === "ebay" ? "eBay" : "Shiply";
+    job.source === "manual"
+      ? "Manual"
+      : job.source === "ebay"
+        ? "eBay"
+        : listingSourceLabel(listingSourceForJob(job.url ?? "", job.sourceId));
   const sourceClass =
     job.source === "manual"
       ? "bg-violet-500/15 text-violet-200"
