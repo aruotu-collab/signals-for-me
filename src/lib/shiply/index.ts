@@ -305,6 +305,36 @@ export async function listPlannerHubs(limit = 120) {
 /** @deprecated use listPlannerHubs */
 export const listPlannerPickupKeys = listPlannerHubs;
 
+export const PLANNER_PAGE_SIZE = 40;
+
+export async function countPlannerJobs(pickupHub: string, service?: string | null): Promise<number> {
+  return prisma.shiplyJob.count({
+    where: {
+      pickupHub,
+      ...(service ? { service } : {}),
+    },
+  });
+}
+
+const plannerJobSelect = {
+  shiplyKey: true,
+  shiplyUrl: true,
+  title: true,
+  imageUrl: true,
+  pickupTown: true,
+  pickupKey: true,
+  pickupHub: true,
+  deliveryTown: true,
+  deliveryAddress: true,
+  miles: true,
+  quotes: true,
+  service: true,
+  pickupLat: true,
+  pickupLng: true,
+  deliveryLat: true,
+  deliveryLng: true,
+} as const;
+
 export async function getPlannerJobs(pickupHub: string, service?: string | null) {
   return prisma.shiplyJob.findMany({
     where: {
@@ -312,19 +342,47 @@ export async function getPlannerJobs(pickupHub: string, service?: string | null)
       ...(service ? { service } : {}),
     },
     orderBy: [{ miles: "asc" }],
+    select: plannerJobSelect,
+  });
+}
+
+export async function getPlannerJobsPage(
+  pickupHub: string,
+  service: string | null | undefined,
+  opts: { skip: number; take: number },
+) {
+  return prisma.shiplyJob.findMany({
+    where: {
+      pickupHub,
+      ...(service ? { service } : {}),
+    },
+    orderBy: [{ miles: "asc" }],
+    skip: opts.skip,
+    take: opts.take,
+    select: plannerJobSelect,
+  });
+}
+
+export type PlannerJob = Awaited<ReturnType<typeof getPlannerJobs>>[number];
+
+export type RouteOptimizableJob = {
+  shiplyKey: string;
+  miles?: number | null;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+};
+
+async function getPlannerRoutePoints(pickupHub: string, service?: string | null): Promise<RouteOptimizableJob[]> {
+  return prisma.shiplyJob.findMany({
+    where: {
+      pickupHub,
+      ...(service ? { service } : {}),
+    },
     select: {
       shiplyKey: true,
-      shiplyUrl: true,
-      title: true,
-      imageUrl: true,
-      pickupTown: true,
-      pickupKey: true,
-      pickupHub: true,
-      deliveryTown: true,
-      deliveryAddress: true,
       miles: true,
-      quotes: true,
-      service: true,
       pickupLat: true,
       pickupLng: true,
       deliveryLat: true,
@@ -333,9 +391,40 @@ export async function getPlannerJobs(pickupHub: string, service?: string | null)
   });
 }
 
-export type PlannerJob = Awaited<ReturnType<typeof getPlannerJobs>>[number];
+/** Optimized route order, then fetch full job cards for one page only. */
+export async function getPlannerRoutePage(
+  pickupHub: string,
+  service: string | null | undefined,
+  page: number,
+  pageSize: number,
+): Promise<{ jobs: PlannerJob[]; legMiles: (number | null)[]; total: number; geocodedCount: number; page: number }> {
+  const points = await getPlannerRoutePoints(pickupHub, service);
+  const geocodedCount = points.filter((j) => j.deliveryLat != null && j.deliveryLng != null).length;
+  const { ordered, legMiles } = buildOptimizedRoute(points);
+  const total = ordered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const skip = (safePage - 1) * pageSize;
+  const pageKeys = ordered.slice(skip, skip + pageSize).map((j) => j.shiplyKey);
+  const pageLegs = legMiles.slice(skip, skip + pageSize);
 
-export function buildOptimizedRoute(jobs: PlannerJob[]): { ordered: PlannerJob[]; legMiles: (number | null)[] } {
+  if (!pageKeys.length) {
+    return { jobs: [], legMiles: [], total, geocodedCount, page: safePage };
+  }
+
+  const rows = await prisma.shiplyJob.findMany({
+    where: { shiplyKey: { in: pageKeys } },
+    select: plannerJobSelect,
+  });
+  const byKey = new Map(rows.map((j) => [j.shiplyKey, j]));
+  const jobs = pageKeys.map((k) => byKey.get(k)).filter((j): j is PlannerJob => Boolean(j));
+
+  return { jobs, legMiles: pageLegs, total, geocodedCount, page: safePage };
+}
+
+export function buildOptimizedRoute<T extends RouteOptimizableJob>(
+  jobs: T[],
+): { ordered: T[]; legMiles: (number | null)[] } {
   const geo = jobs.filter((j) => j.deliveryLat != null && j.deliveryLng != null);
   const noGeo = jobs
     .filter((j) => j.deliveryLat == null || j.deliveryLng == null)
@@ -343,7 +432,7 @@ export function buildOptimizedRoute(jobs: PlannerJob[]): { ordered: PlannerJob[]
 
   const start = pickStart(geo);
   const remaining = [...geo];
-  const ordered: PlannerJob[] = [];
+  const ordered: T[] = [];
   const legMiles: (number | null)[] = [];
 
   let current = start;
@@ -372,7 +461,7 @@ export function buildOptimizedRoute(jobs: PlannerJob[]): { ordered: PlannerJob[]
   return { ordered, legMiles };
 }
 
-function pickStart(geo: PlannerJob[]): { lat: number; lng: number } {
+function pickStart(geo: RouteOptimizableJob[]): { lat: number; lng: number } {
   const withPickup = geo.find((j) => j.pickupLat != null && j.pickupLng != null);
   if (withPickup) return { lat: withPickup.pickupLat as number, lng: withPickup.pickupLng as number };
   if (geo.length) return { lat: geo[0].deliveryLat as number, lng: geo[0].deliveryLng as number };

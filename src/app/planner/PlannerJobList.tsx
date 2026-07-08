@@ -22,10 +22,12 @@ export function PlannerJobList({
   jobs,
   legMiles,
   mode,
+  startIndex = 1,
 }: {
   jobs: Job[];
   legMiles: (number | null)[];
   mode: "route" | "miles";
+  startIndex?: number;
 }) {
   const { settings } = useDriverSettings();
 
@@ -61,7 +63,7 @@ export function PlannerJobList({
                 {mode === "route" && leg != null && (
                   <div className="mb-1 pl-1 text-[11px] font-medium text-brand-300">+{leg} mi leg</div>
                 )}
-                <ShiplyJobCard job={job} index={i + 1} compactIntel />
+                <ShiplyJobCard job={job} index={startIndex + i} compactIntel />
               </div>
             </li>
           ))}

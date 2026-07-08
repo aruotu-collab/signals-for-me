@@ -1,27 +1,63 @@
 import Link from "next/link";
-import { listPlannerHubs, getPlannerJobs, buildOptimizedRoute } from "@/lib/shiply";
+import {
+  listPlannerHubs,
+  countPlannerJobs,
+  getPlannerJobsPage,
+  getPlannerRoutePage,
+  PLANNER_PAGE_SIZE,
+} from "@/lib/shiply";
 import { PlannerJobList } from "./PlannerJobList";
+import { PlannerPagination } from "./PlannerPagination";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlannerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; service?: string; mode?: string }>;
+  searchParams: Promise<{ from?: string; service?: string; mode?: string; page?: string }>;
 }) {
-  const { from, service, mode } = await searchParams;
+  const { from, service, mode, page: pageRaw } = await searchParams;
   const hubs = await listPlannerHubs(120);
 
   const activeFrom = from || hubs[0]?.pickupHub || "";
   const activeMode = mode === "miles" ? "miles" : "route";
-  const rawJobs = activeFrom ? await getPlannerJobs(activeFrom, service ?? null) : [];
+  const requestedPage = Math.max(1, Number.parseInt(pageRaw ?? "1", 10) || 1);
+  const pageSize = PLANNER_PAGE_SIZE;
 
-  const { ordered, legMiles } =
-    activeMode === "route"
-      ? buildOptimizedRoute(rawJobs)
-      : { ordered: rawJobs, legMiles: rawJobs.map(() => null as number | null) };
+  let ordered: Awaited<ReturnType<typeof getPlannerJobsPage>> = [];
+  let legMiles: (number | null)[] = [];
+  let total = 0;
+  let geocodedCount = 0;
+  let page = requestedPage;
 
-  const geocodedCount = rawJobs.filter((j) => j.deliveryLat != null).length;
+  if (activeFrom) {
+    if (activeMode === "route") {
+      const routePage = await getPlannerRoutePage(activeFrom, service ?? null, requestedPage, pageSize);
+      ordered = routePage.jobs;
+      legMiles = routePage.legMiles;
+      total = routePage.total;
+      geocodedCount = routePage.geocodedCount;
+      page = routePage.page;
+    } else {
+      total = await countPlannerJobs(activeFrom, service ?? null);
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      page = Math.min(requestedPage, totalPages);
+      ordered = await getPlannerJobsPage(activeFrom, service ?? null, {
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+      legMiles = ordered.map(() => null);
+    }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize + 1;
+
+  const plannerQuery = (hub: string, nextMode: string) => {
+    const q = new URLSearchParams({ from: hub, mode: nextMode });
+    if (service) q.set("service", service);
+    return `/planner?${q}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -31,7 +67,7 @@ export default async function PlannerPage({
           <h1 className="mt-2 text-2xl font-bold text-white">Plan from a starting area</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
             Pick where you&apos;re starting. Choose an optimized nearest-next-stop route, or sort by distance from the
-            start.
+            start. Jobs load {pageSize} per page so large hubs stay fast.
           </p>
         </div>
         <Link href="/matrix" className="btn-ghost px-4 py-2 text-sm">
@@ -53,7 +89,7 @@ export default async function PlannerPage({
             {hubs.slice(0, 40).map((h) => (
               <Link
                 key={h.pickupHub}
-                href={`/planner?from=${encodeURIComponent(h.pickupHub)}&mode=${activeMode}`}
+                href={plannerQuery(h.pickupHub, activeMode)}
                 className={`chip ${
                   h.pickupHub === activeFrom ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"
                 }`}
@@ -66,13 +102,13 @@ export default async function PlannerPage({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-slate-500">Ordering:</span>
             <Link
-              href={`/planner?from=${encodeURIComponent(activeFrom)}&mode=route`}
+              href={plannerQuery(activeFrom, "route")}
               className={`chip ${activeMode === "route" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
             >
               🧭 Optimized route (nearest next stop)
             </Link>
             <Link
-              href={`/planner?from=${encodeURIComponent(activeFrom)}&mode=miles`}
+              href={plannerQuery(activeFrom, "miles")}
               className={`chip ${activeMode === "miles" ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:text-white"}`}
             >
               📏 Distance from start
@@ -81,15 +117,25 @@ export default async function PlannerPage({
 
           <div>
             <h2 className="text-lg font-semibold text-white">
-              Starting hub <span className="text-brand-300">{activeFrom}</span> · {ordered.length} jobs
+              Starting hub <span className="text-brand-300">{activeFrom}</span> · {total.toLocaleString("en-GB")} jobs
             </h2>
-            {activeMode === "route" && (
+            {activeMode === "route" && total > 0 && (
               <p className="mt-1 text-xs text-slate-500">
-                {geocodedCount} of {rawJobs.length} jobs have postcode coordinates. Chain uses real distances between
-                drop-offs; jobs without coordinates are listed last.
+                {geocodedCount.toLocaleString("en-GB")} of {total.toLocaleString("en-GB")} jobs have postcode coordinates.
+                Route order is computed across the full hub; this page shows stops{" "}
+                {startIndex}–{Math.min(page * pageSize, total)}.
               </p>
             )}
-            <PlannerJobList jobs={ordered} legMiles={legMiles} mode={activeMode} />
+            <PlannerJobList jobs={ordered} legMiles={legMiles} mode={activeMode} startIndex={startIndex} />
+            <PlannerPagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              from={activeFrom}
+              mode={activeMode}
+              service={service}
+            />
           </div>
         </>
       )}
