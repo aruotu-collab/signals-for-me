@@ -1,5 +1,6 @@
 import { assignPickupHub } from "@/lib/shiply/hubs";
 import { ebayBrowse } from "@/lib/ebay/client";
+import { toAffiliateEbayUrl } from "@/lib/ebay/affiliate";
 import type { BuyingType, EbayListing } from "@/lib/ebay/types";
 
 export type EbayItemSummary = {
@@ -132,7 +133,10 @@ function toListing(item: EbayItemSummary, hubOverride?: string, categoryOverride
     price: priceStr ? Number.parseFloat(priceStr) : null,
     currency,
     imageUrl: item.image?.imageUrl ?? null,
-    ebayUrl: item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`,
+    ebayUrl: toAffiliateEbayUrl(
+      item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`,
+      `jobs-${category}`,
+    ),
     collectionOnly: true,
   };
 }

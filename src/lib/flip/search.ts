@@ -1,4 +1,5 @@
 import { ebayBrowse } from "@/lib/ebay/client";
+import { toAffiliateEbayUrl } from "@/lib/ebay/affiliate";
 import type { EbayItemSummary } from "@/lib/ebay/search";
 import type { FlipCategory } from "@/lib/flip/types";
 import { compsQuery, WATCH_SEARCH_BRANDS } from "@/lib/flip/market";
@@ -55,12 +56,14 @@ function toItem(item: EbayItemSummary, category: Exclude<FlipCategory, "all">): 
   const postcode = item.itemLocation?.postalCode?.trim() || null;
   const location = [city, postcode].filter(Boolean).join(", ") || null;
 
+  const rawUrl = item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`;
+
   return {
     id: item.itemId,
     title: item.title,
     category,
     imageUrl: item.image?.imageUrl ?? null,
-    ebayUrl: item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`,
+    ebayUrl: toAffiliateEbayUrl(rawUrl, `flip-${category.toLowerCase()}`),
     location,
     buyingType: buyingTypeOf(item),
     currentPrice: price,

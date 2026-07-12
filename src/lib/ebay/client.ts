@@ -1,3 +1,5 @@
+import { ebayAffiliateEndUserCtx } from "@/lib/ebay/affiliate";
+
 const BROWSE_SCOPES = "https://api.ebay.com/oauth/api_scope";
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -55,12 +57,14 @@ export async function getEbayAccessToken(): Promise<string> {
 
 export async function ebayBrowse<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getEbayAccessToken();
+  const affiliateCtx = ebayAffiliateEndUserCtx();
   const res = await fetch(`${ebayApiBase()}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       "X-EBAY-C-MARKETPLACE-ID": "EBAY_GB",
+      ...(affiliateCtx ? { "X-EBAY-C-ENDUSERCTX": affiliateCtx } : {}),
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
