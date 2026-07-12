@@ -31,6 +31,10 @@ export type FindOpportunitiesInput = {
   /** Enrich top heuristic hits with live BIN comps (slower). Default true. */
   enrichComps?: boolean;
   limitPerCategory?: number;
+  page?: number;
+  pageSize?: number;
+  /** Max scored opportunities to keep before paging. */
+  maxResults?: number;
 };
 
 function endsInMinutes(endsAt: string | null): number | null {
@@ -143,16 +147,31 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
   scanned: number;
   source: "live" | "unconfigured";
   categories: Exclude<FlipCategory, "all">[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }> {
   if (!isEbayApiConfigured()) {
-    return { opportunities: [], scanned: 0, source: "unconfigured", categories: [] };
+    return {
+      opportunities: [],
+      scanned: 0,
+      source: "unconfigured",
+      categories: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 1,
+    };
   }
 
   const minProfit = Math.max(0, input.minProfit ?? 100);
   const maxEndsInHours = input.maxEndsInHours ?? 24;
   const fees: FlipFeeSettings = { ...DEFAULT_FLIP_FEES, ...input.fees };
   const enrichComps = input.enrichComps !== false;
-  const limitPerCategory = input.limitPerCategory ?? 30;
+  const limitPerCategory = input.limitPerCategory ?? 40;
+  const pageSize = Math.min(50, Math.max(5, input.pageSize ?? 10));
+  const maxResults = Math.min(200, Math.max(pageSize, input.maxResults ?? 100));
 
   const categories: Exclude<FlipCategory, "all">[] =
     input.category && input.category !== "all"
@@ -186,7 +205,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
 
   // Enrich the most promising with BIN comps (cap to keep latency sane)
   const toEnrich = enrichComps
-    ? [...prelim].sort((a, b) => b.opp.netProfit - a.opp.netProfit).slice(0, 12)
+    ? [...prelim].sort((a, b) => b.opp.netProfit - a.opp.netProfit).slice(0, 24)
     : [];
 
   const enrichMap = new Map<string, { marketValue: number; compCount: number; source: "comps" | "heuristic" }>();
@@ -212,10 +231,20 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     return scoreB - scoreA;
   });
 
+  const ranked = opportunities.slice(0, maxResults);
+  const total = ranked.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, input.page ?? 1), totalPages);
+  const start = (page - 1) * pageSize;
+
   return {
-    opportunities: opportunities.slice(0, 40),
+    opportunities: ranked.slice(start, start + pageSize),
     scanned: filtered.length,
     source: "live",
     categories,
+    page,
+    pageSize,
+    total,
+    totalPages,
   };
 }

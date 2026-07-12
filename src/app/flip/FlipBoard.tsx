@@ -10,10 +10,15 @@ type ApiResult = {
   scanned: number;
   source: string;
   categories: string[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
   error?: string;
 };
 
 const PROFIT_PRESETS = [75, 100, 150, 300] as const;
+const PAGE_SIZE = 10;
 
 function parseCategory(raw: string | null): string {
   if (!raw) return "Watches";
@@ -34,41 +39,51 @@ export function FlipBoard() {
     const n = Number(searchParams.get("maxEndsInHours") ?? "48");
     return Number.isFinite(n) && n > 0 ? n : 48;
   });
+  const [page, setPage] = useState(() => {
+    const n = Number(searchParams.get("page") ?? "1");
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+  });
   const [data, setData] = useState<ApiResult | null>(null);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  // Sync when nav links change the query string.
   useEffect(() => {
     setCategory(parseCategory(searchParams.get("category")));
     const profit = Number(searchParams.get("minProfit") ?? "");
     if (Number.isFinite(profit) && profit >= 0) setMinProfit(profit);
+    const p = Number(searchParams.get("page") ?? "");
+    if (Number.isFinite(p) && p >= 1) setPage(Math.floor(p));
   }, [searchParams]);
 
   const syncUrl = useCallback(
-    (next: { minProfit?: number; category?: string; maxEndsInHours?: number }) => {
+    (next: { minProfit?: number; category?: string; maxEndsInHours?: number; page?: number }) => {
       const params = new URLSearchParams();
       const cat = next.category ?? category;
       const profit = next.minProfit ?? minProfit;
       const hours = next.maxEndsInHours ?? maxEndsInHours;
+      const nextPage = next.page ?? page;
       if (cat !== "Watches") params.set("category", cat);
       if (profit !== 75) params.set("minProfit", String(profit));
       if (hours !== 48) params.set("maxEndsInHours", String(hours));
+      if (nextPage > 1) params.set("page", String(nextPage));
       const qs = params.toString();
       router.replace(qs ? `/flip?${qs}` : "/flip", { scroll: false });
     },
-    [category, minProfit, maxEndsInHours, router],
+    [category, minProfit, maxEndsInHours, page, router],
   );
 
   const scan = useCallback(() => {
     setError("");
+    setExpanded(null);
     startTransition(async () => {
       try {
         const params = new URLSearchParams({
           minProfit: String(minProfit),
           category,
           maxEndsInHours: String(maxEndsInHours),
+          page: String(page),
+          pageSize: String(PAGE_SIZE),
         });
         const res = await fetch(`/api/flip/opportunities?${params}`);
         const json = (await res.json()) as ApiResult;
@@ -78,16 +93,35 @@ export function FlipBoard() {
           return;
         }
         setData(json);
+        if (json.page !== page) setPage(json.page);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Scan failed");
         setData(null);
       }
     });
-  }, [minProfit, category, maxEndsInHours]);
+  }, [minProfit, category, maxEndsInHours, page]);
 
   useEffect(() => {
     scan();
   }, [scan]);
+
+  function goToPage(next: number) {
+    const safe = Math.max(1, next);
+    setPage(safe);
+    syncUrl({ page: safe });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function resetFilters(patch: { minProfit?: number; category?: string; maxEndsInHours?: number }) {
+    setPage(1);
+    if (patch.minProfit != null) setMinProfit(patch.minProfit);
+    if (patch.category != null) setCategory(patch.category);
+    if (patch.maxEndsInHours != null) setMaxEndsInHours(patch.maxEndsInHours);
+    syncUrl({ ...patch, page: 1 });
+  }
+
+  const from = data && data.total > 0 ? (data.page - 1) * data.pageSize + 1 : 0;
+  const to = data ? Math.min(data.page * data.pageSize, data.total) : 0;
 
   return (
     <div className="space-y-6">
@@ -99,10 +133,7 @@ export function FlipBoard() {
               <button
                 key={p}
                 type="button"
-                onClick={() => {
-                  setMinProfit(p);
-                  syncUrl({ minProfit: p });
-                }}
+                onClick={() => resetFilters({ minProfit: p })}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   minProfit === p
                     ? "bg-brand-500/20 text-brand-200"
@@ -119,11 +150,8 @@ export function FlipBoard() {
                 min={0}
                 step={25}
                 value={minProfit}
-                onChange={(e) => {
-                  const v = Math.max(0, Number(e.target.value) || 0);
-                  setMinProfit(v);
-                }}
-                onBlur={() => syncUrl({ minProfit })}
+                onChange={(e) => setMinProfit(Math.max(0, Number(e.target.value) || 0))}
+                onBlur={() => resetFilters({ minProfit })}
                 className="w-20 rounded border border-white/10 bg-ink-900 px-2 py-1 text-white"
               />
             </label>
@@ -135,10 +163,7 @@ export function FlipBoard() {
             Category
             <select
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                syncUrl({ category: e.target.value });
-              }}
+              onChange={(e) => resetFilters({ category: e.target.value })}
               className="ml-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-slate-200"
             >
               <option value="Watches">Watches</option>
@@ -151,11 +176,7 @@ export function FlipBoard() {
             Ending within
             <select
               value={maxEndsInHours}
-              onChange={(e) => {
-                const hours = Number(e.target.value);
-                setMaxEndsInHours(hours);
-                syncUrl({ maxEndsInHours: hours });
-              }}
+              onChange={(e) => resetFilters({ maxEndsInHours: Number(e.target.value) })}
               className="ml-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-slate-200"
             >
               <option value={3}>3 hours</option>
@@ -190,8 +211,9 @@ export function FlipBoard() {
       {data && data.source !== "unconfigured" && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
           <span>
-            {data.opportunities.length} opportunity{data.opportunities.length === 1 ? "" : "ies"} · scanned{" "}
-            {data.scanned} auctions
+            {data.total === 0
+              ? "No opportunities"
+              : `Showing ${from}–${to} of ${data.total} · scanned ${data.scanned} auctions`}
           </span>
           <span className="text-xs uppercase tracking-wide text-slate-500">{data.source}</span>
         </div>
@@ -199,6 +221,10 @@ export function FlipBoard() {
 
       {pending && !data && (
         <div className="card p-8 text-center text-sm text-slate-400">Scanning ending-soon auctions…</div>
+      )}
+
+      {pending && data && (
+        <div className="text-center text-xs text-slate-500">Updating results…</div>
       )}
 
       {data && data.opportunities.length === 0 && data.source === "live" && !pending && (
@@ -218,7 +244,109 @@ export function FlipBoard() {
           />
         ))}
       </div>
+
+      {data && data.totalPages > 1 && (
+        <Pagination
+          page={data.page}
+          totalPages={data.totalPages}
+          pending={pending}
+          onPrev={() => goToPage(data.page - 1)}
+          onNext={() => goToPage(data.page + 1)}
+          onGoto={goToPage}
+        />
+      )}
     </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  pending,
+  onPrev,
+  onNext,
+  onGoto,
+}: {
+  page: number;
+  totalPages: number;
+  pending: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onGoto: (p: number) => void;
+}) {
+  const windowSize = 5;
+  let start = Math.max(1, page - Math.floor(windowSize / 2));
+  const end = Math.min(totalPages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+  const pages: number[] = [];
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+      <button
+        type="button"
+        disabled={pending || page <= 1}
+        onClick={onPrev}
+        className="rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 disabled:opacity-40"
+      >
+        ← Prev
+      </button>
+      <div className="flex flex-wrap items-center gap-1">
+        {start > 1 && (
+          <>
+            <PageBtn n={1} active={page === 1} disabled={pending} onClick={() => onGoto(1)} />
+            {start > 2 && <span className="px-1 text-slate-600">…</span>}
+          </>
+        )}
+        {pages.map((n) => (
+          <PageBtn key={n} n={n} active={page === n} disabled={pending} onClick={() => onGoto(n)} />
+        ))}
+        {end < totalPages && (
+          <>
+            {end < totalPages - 1 && <span className="px-1 text-slate-600">…</span>}
+            <PageBtn
+              n={totalPages}
+              active={page === totalPages}
+              disabled={pending}
+              onClick={() => onGoto(totalPages)}
+            />
+          </>
+        )}
+      </div>
+      <button
+        type="button"
+        disabled={pending || page >= totalPages}
+        onClick={onNext}
+        className="rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 disabled:opacity-40"
+      >
+        Next →
+      </button>
+    </div>
+  );
+}
+
+function PageBtn({
+  n,
+  active,
+  disabled,
+  onClick,
+}: {
+  n: number;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`min-w-9 rounded-lg px-2.5 py-2 text-sm transition disabled:opacity-40 ${
+        active ? "bg-brand-500/20 text-brand-200" : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      {n}
+    </button>
   );
 }
 
@@ -275,12 +403,7 @@ function OpportunityCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
-        <a
-          href={opp.ebayUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-primary px-4 py-2 text-sm"
-        >
+        <a href={opp.ebayUrl} target="_blank" rel="noreferrer" className="btn-primary px-4 py-2 text-sm">
           Open on eBay
         </a>
         <span className="text-xs text-slate-400">

@@ -17,6 +17,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const minProfit = Number(url.searchParams.get("minProfit") ?? "100");
   const maxEndsInHours = Number(url.searchParams.get("maxEndsInHours") ?? "24");
+  const page = Number(url.searchParams.get("page") ?? "1");
+  const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
   const category = parseCategory(url.searchParams.get("category"));
   const includeRisky = url.searchParams.get("includeRisky") === "1";
 
@@ -27,6 +29,8 @@ export async function GET(req: Request) {
       category,
       includeRisky,
       enrichComps: true,
+      page: Number.isFinite(page) ? page : 1,
+      pageSize: Number.isFinite(pageSize) ? pageSize : 10,
     });
 
     return NextResponse.json(result);
@@ -37,6 +41,10 @@ export async function GET(req: Request) {
         scanned: 0,
         source: "error",
         categories: [],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 1,
         error: e instanceof Error ? e.message : "Flip scan failed",
       },
       { status: 500 },
