@@ -12,9 +12,9 @@ import { organizationJsonLd, SITE_KEYWORDS, websiteJsonLd } from "@/lib/seo";
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 const GOOGLE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION;
 
-const title = "SignalsForMe — UK delivery jobs & Route Radar for drivers";
+const title = "SignalsForMe — Flip Radar for UK eBay auction profits";
 const description =
-  "Find UK courier and delivery driver jobs by pickup location. Pickup Radar scans Shiply work across 60+ hubs — fuel, profit and route planning built in. eBay collection delivery quotes for buyers.";
+  "Scan UK eBay auctions ending soon. Set your profit target for watches, phones and laptops — see buy price, market value, fees, net profit and max bid.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -66,19 +66,19 @@ export default async function RootLayout({
           </DriverSettingsProvider>
         </FavouritesProvider>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
-          <div>SignalsForMe — UK delivery jobs &amp; Route Radar for drivers</div>
+          <div>SignalsForMe — Flip Radar for UK eBay auction profits</div>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
-            <a href="/jobs" className="text-slate-400 underline hover:text-slate-200">
-              Jobs by area
+            <a href="/flip" className="text-slate-400 underline hover:text-slate-200">
+              Flip Radar
             </a>
-            <a href="/delivery-jobs" className="text-slate-400 underline hover:text-slate-200">
-              Jobs by type
+            <a href="/flip?category=Watches" className="text-slate-400 underline hover:text-slate-200">
+              Watches
             </a>
-            <a href="/matrix" className="text-slate-400 underline hover:text-slate-200">
-              Pickup Radar
+            <a href="/flip?category=Phones" className="text-slate-400 underline hover:text-slate-200">
+              Phones
             </a>
-            <a href="/quotes" className="text-slate-400 underline hover:text-slate-200">
-              eBay delivery quotes
+            <a href="/flip?category=Laptops" className="text-slate-400 underline hover:text-slate-200">
+              Laptops
             </a>
           </div>
           <div className="mt-2 flex items-center justify-center gap-3">
@@ -86,7 +86,7 @@ export default async function RootLayout({
               Privacy Policy
             </a>
             <a href="/legacy" className="text-slate-400 underline hover:text-slate-200">
-              Legacy
+              Legacy tools
             </a>
           </div>
         </footer>

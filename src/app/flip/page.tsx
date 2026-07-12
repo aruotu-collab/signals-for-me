@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { FlipBoard } from "./FlipBoard";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,9 @@ export default function FlipPage() {
           watches — set how much you want to make, then bid only on what you&apos;d still buy without the app.
         </p>
       </header>
-      <FlipBoard />
+      <Suspense fallback={<div className="card p-8 text-center text-sm text-slate-400">Loading Flip Radar…</div>}>
+        <FlipBoard />
+      </Suspense>
     </div>
   );
 }

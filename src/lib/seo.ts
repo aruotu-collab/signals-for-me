@@ -48,43 +48,41 @@ export function buildPageMetadata(opts: {
 }
 
 export const SITE_KEYWORDS = [
-  "UK delivery jobs",
-  "courier jobs UK",
-  "Shiply jobs",
-  "delivery driver jobs",
-  "van driver jobs",
-  "pickup and delivery jobs",
-  "eBay collection delivery",
-  "eBay delivery quote",
-  "route planner courier",
-  "delivery jobs by location",
+  "eBay auction profit",
+  "flip watches UK",
+  "undervalued eBay auctions",
+  "auction intelligence",
+  "eBay resale calculator",
+  "Flip Radar",
+  "watch flipping UK",
+  "phone auction flips",
+  "MacBook auction profit",
 ];
 
 export const HOME_FAQ = [
   {
     question: "What is SignalsForMe?",
     answer:
-      "SignalsForMe is a Route Radar for UK delivery drivers and buyers. Drivers use Pickup Radar to find Shiply jobs by pickup location, plan routes, and estimate profit. Buyers can get eBay collection-only delivery quotes before they bid.",
+      "SignalsForMe is Flip Radar — auction intelligence for UK eBay. It finds ending-soon auctions in watches, phones and laptops and estimates net profit after fees so you can bid with a clear max.",
   },
   {
-    question: "How does Pickup Radar work?",
+    question: "How does Flip Radar work?",
     answer:
-      "Pickup Radar shows live delivery jobs in a matrix — service types down the side and UK pickup hubs across the top. Tap a cell to see every job in that area, sorted nearest drop-off first, with fuel and profit estimates.",
+      "Set how much profit you want. We scan UK eBay auctions ending soon, estimate market value from brand heuristics and live Buy-it-now comps, then subtract typical selling fees and postage to show net profit, ROI and confidence.",
   },
   {
     question: "Is SignalsForMe free to use?",
-    answer:
-      "Yes. Pickup Radar, the driver planner, and eBay delivery quotes are free to browse. Create an account to save jobs and sync your van settings.",
+    answer: "Yes. Flip Radar is free to browse. Always verify sold comps and condition on eBay before you bid.",
   },
   {
-    question: "Can I get a delivery quote before bidding on eBay?",
+    question: "Why start with watches?",
     answer:
-      "Yes. Paste a collection-only eBay item link on Get a quote, enter your delivery postcode, and request driver quotes so you know the full cost before you bid.",
+      "Watches are a strong flip niche when you know brands and models. Phones and laptops are included for extra volume. Set a profit target and scan across categories when you want more leads.",
   },
   {
-    question: "Which areas does SignalsForMe cover?",
+    question: "Are the profit numbers guaranteed?",
     answer:
-      "SignalsForMe indexes delivery jobs across the UK — London, Manchester, Birmingham, Leeds, Glasgow, Bristol, and dozens more pickup hubs.",
+      "No. Estimates can be wrong — especially on rare models, parts listings, or thin comps. Treat every row as a lead, open the listing, and confirm recent sold prices yourself.",
   },
 ] as const;
 
@@ -95,7 +93,7 @@ export function websiteJsonLd() {
     name: "SignalsForMe",
     url: SITE_URL,
     description:
-      "UK delivery job intelligence for drivers — find Shiply work by pickup location, plan routes, and estimate profit. eBay collection delivery quotes for buyers.",
+      "Flip Radar — UK eBay auction intelligence. Find undervalued watches, phones and laptops with estimated net profit after fees.",
   };
 }
 
@@ -105,7 +103,7 @@ export function organizationJsonLd() {
     "@type": "Organization",
     name: "SignalsForMe",
     url: SITE_URL,
-    description: "Route Radar and delivery intelligence for UK drivers and eBay buyers.",
+    description: "Auction profit intelligence for UK eBay flippers.",
   };
 }
 

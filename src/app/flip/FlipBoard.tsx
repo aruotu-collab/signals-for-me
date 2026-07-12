@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { FlipOpportunity } from "@/lib/flip/types";
 import { FLIP_CATEGORIES } from "@/lib/flip/types";
 
@@ -14,14 +15,51 @@ type ApiResult = {
 
 const PROFIT_PRESETS = [75, 100, 150, 300] as const;
 
+function parseCategory(raw: string | null): string {
+  if (!raw) return "Watches";
+  if (raw === "all") return "all";
+  if ((FLIP_CATEGORIES as readonly string[]).includes(raw)) return raw;
+  return "Watches";
+}
+
 export function FlipBoard() {
-  const [minProfit, setMinProfit] = useState(75);
-  const [category, setCategory] = useState<string>("Watches");
-  const [maxEndsInHours, setMaxEndsInHours] = useState(48);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [minProfit, setMinProfit] = useState(() => {
+    const n = Number(searchParams.get("minProfit") ?? "75");
+    return Number.isFinite(n) && n >= 0 ? n : 75;
+  });
+  const [category, setCategory] = useState(() => parseCategory(searchParams.get("category")));
+  const [maxEndsInHours, setMaxEndsInHours] = useState(() => {
+    const n = Number(searchParams.get("maxEndsInHours") ?? "48");
+    return Number.isFinite(n) && n > 0 ? n : 48;
+  });
   const [data, setData] = useState<ApiResult | null>(null);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Sync when nav links change the query string.
+  useEffect(() => {
+    setCategory(parseCategory(searchParams.get("category")));
+    const profit = Number(searchParams.get("minProfit") ?? "");
+    if (Number.isFinite(profit) && profit >= 0) setMinProfit(profit);
+  }, [searchParams]);
+
+  const syncUrl = useCallback(
+    (next: { minProfit?: number; category?: string; maxEndsInHours?: number }) => {
+      const params = new URLSearchParams();
+      const cat = next.category ?? category;
+      const profit = next.minProfit ?? minProfit;
+      const hours = next.maxEndsInHours ?? maxEndsInHours;
+      if (cat !== "Watches") params.set("category", cat);
+      if (profit !== 75) params.set("minProfit", String(profit));
+      if (hours !== 48) params.set("maxEndsInHours", String(hours));
+      const qs = params.toString();
+      router.replace(qs ? `/flip?${qs}` : "/flip", { scroll: false });
+    },
+    [category, minProfit, maxEndsInHours, router],
+  );
 
   const scan = useCallback(() => {
     setError("");
@@ -61,7 +99,10 @@ export function FlipBoard() {
               <button
                 key={p}
                 type="button"
-                onClick={() => setMinProfit(p)}
+                onClick={() => {
+                  setMinProfit(p);
+                  syncUrl({ minProfit: p });
+                }}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   minProfit === p
                     ? "bg-brand-500/20 text-brand-200"
@@ -78,7 +119,11 @@ export function FlipBoard() {
                 min={0}
                 step={25}
                 value={minProfit}
-                onChange={(e) => setMinProfit(Math.max(0, Number(e.target.value) || 0))}
+                onChange={(e) => {
+                  const v = Math.max(0, Number(e.target.value) || 0);
+                  setMinProfit(v);
+                }}
+                onBlur={() => syncUrl({ minProfit })}
                 className="w-20 rounded border border-white/10 bg-ink-900 px-2 py-1 text-white"
               />
             </label>
@@ -90,7 +135,10 @@ export function FlipBoard() {
             Category
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                syncUrl({ category: e.target.value });
+              }}
               className="ml-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-slate-200"
             >
               <option value="Watches">Watches</option>
@@ -103,7 +151,11 @@ export function FlipBoard() {
             Ending within
             <select
               value={maxEndsInHours}
-              onChange={(e) => setMaxEndsInHours(Number(e.target.value))}
+              onChange={(e) => {
+                const hours = Number(e.target.value);
+                setMaxEndsInHours(hours);
+                syncUrl({ maxEndsInHours: hours });
+              }}
               className="ml-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-slate-200"
             >
               <option value={3}>3 hours</option>
