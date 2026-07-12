@@ -42,21 +42,20 @@ export default async function Home() {
       <JsonLd data={faqJsonLd(HOME_FAQ)} />
       <section className="pt-8">
         <div className="text-center">
-          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">Route Radar · Driver intelligence</span>
+          <span className="chip mx-auto border border-white/10 bg-white/5 text-slate-300">Opportunity intelligence</span>
           <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-tight text-white sm:text-6xl">
-            Find delivery work <span className="text-brand-400">by pickup location</span>.
+            Find <span className="text-brand-400">profit opportunities</span> before others do.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            Route Radar shows where jobs cluster across the UK. Open <strong className="font-medium text-slate-300">Pickup Radar</strong> to
-            scan your patch — service types down the side, pickup locations across the top. Tap a cell for every job,
-            nearest drop-off first, with a direct link to quote on DeliveryQuoteCompare.
+            Flip Radar scans UK eBay auctions ending soon — watches first — and estimates net profit after fees. Set how
+            much you want to make, then bid with a clear max. Driver tools (Pickup Radar, quotes) stay available below.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/matrix" className="btn-primary px-6 py-3 text-base">
-              Open Pickup Radar
+            <Link href="/flip" className="btn-primary px-6 py-3 text-base">
+              Open Flip Radar
             </Link>
-            <Link href="/planner" className="btn-ghost px-6 py-3 text-base">
-              Driver planner
+            <Link href="/matrix" className="btn-ghost px-6 py-3 text-base">
+              Pickup Radar
             </Link>
             <Link href="/quotes" className="btn-ghost px-6 py-3 text-base">
               Get a quote

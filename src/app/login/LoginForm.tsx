@@ -21,7 +21,7 @@ export function LoginForm() {
   const params = useSearchParams();
   // After sign-in, land on Pickup Radar (delivery product). Legacy demand pages
   // live under /legacy and /ideas for old bookmarks only.
-  const callbackUrl = params.get("callbackUrl") || "/matrix";
+  const callbackUrl = params.get("callbackUrl") || "/flip";
   const authError = authErrorMessage(params.get("error"));
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
