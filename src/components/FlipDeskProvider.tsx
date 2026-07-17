@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import {
   FLIP_DESK_EVENT,
   computeDeskStats,
+  itemCost,
   opportunityToDeskItem,
   readFlipDesk,
   sortDesk,
@@ -24,7 +25,8 @@ type FlipDeskContextValue = {
   watch: (opp: FlipOpportunity) => void;
   unwatch: (id: string) => void;
   setStatus: (id: string, status: FlipDeskStatus, patch?: Partial<FlipDeskItem>) => void;
-  markWon: (id: string, buyPrice: number) => void;
+  markWon: (id: string, buyPrice: number, inboundPostage?: number) => void;
+  markReceived: (id: string, inboundPostage?: number) => void;
   markLost: (id: string) => void;
   markSelling: (id: string) => void;
   markSold: (id: string, sellPrice: number, actualProfit?: number) => void;
@@ -90,8 +92,29 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
   );
 
   const markWon = useCallback(
-    (id: string, buyPrice: number) => {
-      setStatus(id, "won", { buyPrice, wonAt: Date.now(), currentPrice: buyPrice });
+    (id: string, buyPrice: number, inboundPostage?: number) => {
+      setStatus(id, "incoming", {
+        buyPrice,
+        inboundPostage: inboundPostage != null && inboundPostage >= 0 ? inboundPostage : null,
+        wonAt: Date.now(),
+        receivedAt: null,
+        currentPrice: buyPrice,
+      });
+    },
+    [setStatus],
+  );
+
+  const markReceived = useCallback(
+    (id: string, inboundPostage?: number) => {
+      const item = readFlipDesk().find((x) => x.id === id);
+      const postage =
+        inboundPostage != null && Number.isFinite(inboundPostage)
+          ? inboundPostage
+          : (item?.inboundPostage ?? null);
+      setStatus(id, "stock", {
+        receivedAt: Date.now(),
+        inboundPostage: postage,
+      });
     },
     [setStatus],
   );
@@ -113,12 +136,12 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
   const markSold = useCallback(
     (id: string, sellPrice: number, actualProfit?: number) => {
       const item = readFlipDesk().find((x) => x.id === id);
-      const buy = item?.buyPrice ?? item?.currentPrice ?? 0;
+      const cost = item ? itemCost(item) : 0;
       const feesGuess = sellPrice * 0.129 + 8;
       const profit =
         actualProfit != null && Number.isFinite(actualProfit)
           ? actualProfit
-          : Math.round((sellPrice - buy - feesGuess) * 100) / 100;
+          : Math.round((sellPrice - cost - feesGuess) * 100) / 100;
       setStatus(id, "sold", { sellPrice, actualProfit: profit, soldAt: Date.now() });
     },
     [setStatus],
@@ -138,7 +161,8 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const stats = useMemo(() => computeDeskStats(items), [items]);
-  const activeCount = stats.watching + stats.bidding + stats.won + stats.selling;
+  const activeCount =
+    stats.watching + stats.bidding + stats.incoming + stats.stock + stats.selling;
 
   const value: FlipDeskContextValue = {
     items,
@@ -151,6 +175,7 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
     unwatch,
     setStatus,
     markWon,
+    markReceived,
     markLost,
     markSelling,
     markSold,
