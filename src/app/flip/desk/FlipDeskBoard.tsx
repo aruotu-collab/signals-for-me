@@ -11,6 +11,7 @@ import {
   type FlipDeskItem,
   type FlipDeskStatus,
 } from "@/lib/flip/desk";
+import { buildRelistKit } from "@/lib/flip/relist";
 
 export function FlipDeskBoard() {
   const {
@@ -98,7 +99,8 @@ export function FlipDeskBoard() {
           Clear lost ({stats.lost})
         </button>
         <p className="w-full text-xs text-slate-500 sm:ml-auto sm:w-auto">
-          Won → awaiting delivery → received → sell. Profit is not real until the item is in hand and sold.
+          While a parcel is incoming, open Relist kit and prep the BIN. Receiving day should be photos + paste +
+          publish — bidding stays your main job.
         </p>
       </div>
 
@@ -269,7 +271,12 @@ function DeskCard({
   onSold: () => void;
   onRemove: () => void;
 }) {
+  const [showKit, setShowKit] = useState(false);
+  const [copied, setCopied] = useState("");
   const waiting = daysWaiting(item);
+  const canRelist = item.status === "incoming" || item.status === "stock" || item.status === "selling";
+  const kit = canRelist ? buildRelistKit(item) : null;
+
   const ends =
     item.endsAt == null
       ? null
@@ -286,6 +293,16 @@ function DeskCard({
         ? "bg-orange-500/20 text-orange-200"
         : "bg-amber-500/15 text-amber-200"
       : "bg-white/5 text-slate-300";
+
+  async function copyText(label: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(""), 1500);
+    } catch {
+      setCopied("failed");
+    }
+  }
 
   return (
     <article className={`card overflow-hidden ${item.status === "incoming" ? "ring-1 ring-amber-500/30" : ""}`}>
@@ -322,6 +339,11 @@ function DeskCard({
             <span>
               Est. profit <span className="text-emerald-300">£{item.estimatedProfit.toLocaleString("en-GB")}</span>
             </span>
+            {kit && (
+              <span>
+                Relist BIN <span className="text-brand-200">£{kit.binPrice.toLocaleString("en-GB")}</span>
+              </span>
+            )}
             {item.status === "watching" || item.status === "bidding" ? (
               <span>
                 Max bid <span className="text-slate-200">£{item.maxBid.toLocaleString("en-GB")}</span>
@@ -335,7 +357,7 @@ function DeskCard({
           </div>
           {item.status === "incoming" && (
             <p className="mt-2 text-xs text-amber-200/90">
-              Paid but not received — capital is tied up and profit is not bankable yet.
+              Paid but not received — prep the Relist kit now so listing takes minutes when it arrives.
             </p>
           )}
         </div>
@@ -355,11 +377,98 @@ function DeskCard({
         {item.status === "incoming" && <Action onClick={onReceived}>Received</Action>}
         {item.status === "stock" && <Action onClick={onSelling}>List for sale</Action>}
         {(item.status === "stock" || item.status === "selling") && <Action onClick={onSold}>Sold</Action>}
+        {canRelist && (
+          <Action onClick={() => setShowKit((v) => !v)}>{showKit ? "Hide relist kit" : "Relist kit"}</Action>
+        )}
         <button type="button" onClick={onRemove} className="ml-auto text-xs text-slate-500 hover:text-red-300">
           Remove
         </button>
       </div>
+
+      {showKit && kit && (
+        <div className="space-y-3 border-t border-white/5 bg-white/[0.02] px-4 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-brand-300">Relist kit</span>
+            {copied && <span className="text-xs text-emerald-300">Copied {copied}</span>}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <KitField label="Title" value={kit.title} onCopy={() => copyText("title", kit.title)} />
+            <KitField
+              label="BIN price"
+              value={`£${kit.binPrice.toLocaleString("en-GB")} · fast sale £${kit.fastSalePrice.toLocaleString("en-GB")}`}
+              onCopy={() => copyText("price", String(kit.binPrice))}
+            />
+            <KitField label="Category" value={kit.categoryHint} onCopy={() => copyText("category", kit.categoryHint)} />
+            <KitField
+              label="Condition"
+              value={kit.conditionLine}
+              onCopy={() => copyText("condition", kit.conditionLine)}
+            />
+          </div>
+          <KitField
+            label="Description"
+            value={kit.description}
+            multiline
+            onCopy={() => copyText("description", kit.description)}
+          />
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Photo checklist (do on unbox)</div>
+            <ul className="space-y-1 text-xs text-slate-400">
+              {kit.photoChecklist.map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="text-brand-400">·</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => copyText("full pack", kit.copyPack)}
+              className="btn-primary px-3 py-2 text-xs"
+            >
+              Copy full pack
+            </button>
+            <a
+              href={kit.ebayStartUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg bg-white/5 px-3 py-2 text-xs text-slate-200 hover:bg-white/10"
+            >
+              Start eBay listing →
+            </a>
+            {item.status === "stock" && (
+              <Action onClick={onSelling}>Mark as selling</Action>
+            )}
+          </div>
+        </div>
+      )}
     </article>
+  );
+}
+
+function KitField({
+  label,
+  value,
+  multiline,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-white/5 bg-ink-950/40 p-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-slate-500">{label}</span>
+        <button type="button" onClick={onCopy} className="text-[10px] text-brand-300 hover:underline">
+          Copy
+        </button>
+      </div>
+      <p className={`text-sm text-slate-200 ${multiline ? "whitespace-pre-wrap" : "line-clamp-3"}`}>{value}</p>
+    </div>
   );
 }
 
