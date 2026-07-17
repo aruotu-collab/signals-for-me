@@ -3,6 +3,7 @@ import { toAffiliateEbayUrl } from "@/lib/ebay/affiliate";
 import type { EbayItemSummary } from "@/lib/ebay/search";
 import type { FlipCategoryName } from "@/lib/flip/types";
 import { CATEGORY_SEARCH_QUERIES, compsQuery } from "@/lib/flip/market";
+import { isPartsOrNotWorkingCondition } from "@/lib/flip/risk";
 
 type EbaySearchResponse = {
   itemSummaries?: EbayItemSummary[];
@@ -38,6 +39,8 @@ export type FlipAuctionItem = {
   currentPrice: number;
   currency: string;
   endsAt: string | null;
+  conditionId: string | null;
+  condition: string | null;
 };
 
 function buyingTypeOf(item: EbayItemSummary): FlipAuctionItem["buyingType"] {
@@ -70,6 +73,8 @@ function toItem(item: EbayItemSummary, category: FlipCategoryName): FlipAuctionI
     currentPrice: price,
     currency: item.currentBidPrice?.currency ?? item.price?.currency ?? "GBP",
     endsAt: item.itemEndDate ?? null,
+    conditionId: item.conditionId ?? null,
+    condition: item.condition ?? null,
   };
 }
 
@@ -80,7 +85,13 @@ async function searchAuctions(opts: {
 }): Promise<FlipAuctionItem[]> {
   const limit = Math.min(opts.limit ?? 20, 50);
   const categoryId = FLIP_CATEGORY_IDS[opts.category];
-  const filters = ["buyingOptions:{AUCTION}", "itemLocationCountry:GB", "price:[5..20000]"].join(",");
+  // Exclude condition 7000 (For parts or not working) at the API level.
+  const filters = [
+    "buyingOptions:{AUCTION}",
+    "itemLocationCountry:GB",
+    "price:[5..20000]",
+    "conditions:{1000|1500|2000|2500|3000|4000|5000|6000}",
+  ].join(",");
 
   const params = new URLSearchParams({
     limit: String(limit),
@@ -93,7 +104,8 @@ async function searchAuctions(opts: {
   const data = await ebayBrowse<EbaySearchResponse>(`/buy/browse/v1/item_summary/search?${params}`);
   return (data.itemSummaries ?? [])
     .map((item) => toItem(item, opts.category))
-    .filter((x): x is FlipAuctionItem => Boolean(x));
+    .filter((x): x is FlipAuctionItem => Boolean(x))
+    .filter((x) => !isPartsOrNotWorkingCondition(x.conditionId));
 }
 
 /**

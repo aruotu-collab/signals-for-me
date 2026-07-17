@@ -13,6 +13,12 @@ function parseCategory(raw: string | null): FlipCategory {
   return "all";
 }
 
+function positiveNumber(raw: string | null): number | undefined {
+  if (raw == null || raw === "") return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const minProfit = Number(url.searchParams.get("minProfit") ?? "100");
@@ -21,6 +27,9 @@ export async function GET(req: Request) {
   const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
   const category = parseCategory(url.searchParams.get("category"));
   const includeRisky = url.searchParams.get("includeRisky") === "1";
+  const maxBudget = positiveNumber(url.searchParams.get("maxBudget"));
+  const monthlyGoal = positiveNumber(url.searchParams.get("monthlyGoal"));
+  const startingCapital = positiveNumber(url.searchParams.get("startingCapital"));
 
   try {
     const result = await findFlipOpportunities({
@@ -31,6 +40,9 @@ export async function GET(req: Request) {
       enrichComps: true,
       page: Number.isFinite(page) ? page : 1,
       pageSize: Number.isFinite(pageSize) ? pageSize : 10,
+      maxBudget,
+      monthlyGoal,
+      startingCapital,
     });
 
     return NextResponse.json(result);
@@ -45,6 +57,8 @@ export async function GET(req: Request) {
         pageSize: 10,
         total: 0,
         totalPages: 1,
+        skippedRisky: 0,
+        plan: null,
         error: e instanceof Error ? e.message : "Flip scan failed",
       },
       { status: 500 },

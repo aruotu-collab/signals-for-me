@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DealScoreBand, FlipOpportunity } from "@/lib/flip/types";
 import { FLIP_CATEGORIES } from "@/lib/flip/types";
+import type { CapitalPlan } from "@/lib/flip/plan";
+
+type Mode = "scan" | "budget" | "monthly";
 
 type ApiResult = {
   opportunities: FlipOpportunity[];
@@ -14,6 +17,8 @@ type ApiResult = {
   pageSize: number;
   total: number;
   totalPages: number;
+  skippedRisky?: number;
+  plan?: CapitalPlan | null;
   error?: string;
 };
 
@@ -27,9 +32,15 @@ function parseCategory(raw: string | null): string {
   return "Watches";
 }
 
+function parseMode(raw: string | null): Mode {
+  if (raw === "budget" || raw === "monthly") return raw;
+  return "scan";
+}
+
 export function FlipBoard() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>(() => parseMode(searchParams.get("mode")));
   const [minProfit, setMinProfit] = useState(() => {
     const n = Number(searchParams.get("minProfit") ?? "75");
     return Number.isFinite(n) && n >= 0 ? n : 75;
@@ -38,6 +49,18 @@ export function FlipBoard() {
   const [maxEndsInHours, setMaxEndsInHours] = useState(() => {
     const n = Number(searchParams.get("maxEndsInHours") ?? "48");
     return Number.isFinite(n) && n > 0 ? n : 48;
+  });
+  const [maxBudget, setMaxBudget] = useState(() => {
+    const n = Number(searchParams.get("maxBudget") ?? "500");
+    return Number.isFinite(n) && n > 0 ? n : 500;
+  });
+  const [monthlyGoal, setMonthlyGoal] = useState(() => {
+    const n = Number(searchParams.get("monthlyGoal") ?? "2000");
+    return Number.isFinite(n) && n > 0 ? n : 2000;
+  });
+  const [startingCapital, setStartingCapital] = useState(() => {
+    const n = Number(searchParams.get("startingCapital") ?? "300");
+    return Number.isFinite(n) && n > 0 ? n : 300;
   });
   const [page, setPage] = useState(() => {
     const n = Number(searchParams.get("page") ?? "1");
@@ -49,28 +72,55 @@ export function FlipBoard() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
+    setMode(parseMode(searchParams.get("mode")));
     setCategory(parseCategory(searchParams.get("category")));
     const profit = Number(searchParams.get("minProfit") ?? "");
     if (Number.isFinite(profit) && profit >= 0) setMinProfit(profit);
     const p = Number(searchParams.get("page") ?? "");
     if (Number.isFinite(p) && p >= 1) setPage(Math.floor(p));
+    const budget = Number(searchParams.get("maxBudget") ?? "");
+    if (Number.isFinite(budget) && budget > 0) setMaxBudget(budget);
+    const goal = Number(searchParams.get("monthlyGoal") ?? "");
+    if (Number.isFinite(goal) && goal > 0) setMonthlyGoal(goal);
+    const capital = Number(searchParams.get("startingCapital") ?? "");
+    if (Number.isFinite(capital) && capital > 0) setStartingCapital(capital);
   }, [searchParams]);
 
   const syncUrl = useCallback(
-    (next: { minProfit?: number; category?: string; maxEndsInHours?: number; page?: number }) => {
+    (next: {
+      mode?: Mode;
+      minProfit?: number;
+      category?: string;
+      maxEndsInHours?: number;
+      page?: number;
+      maxBudget?: number;
+      monthlyGoal?: number;
+      startingCapital?: number;
+    }) => {
       const params = new URLSearchParams();
+      const nextMode = next.mode ?? mode;
       const cat = next.category ?? category;
       const profit = next.minProfit ?? minProfit;
       const hours = next.maxEndsInHours ?? maxEndsInHours;
       const nextPage = next.page ?? page;
+      const budget = next.maxBudget ?? maxBudget;
+      const goal = next.monthlyGoal ?? monthlyGoal;
+      const capital = next.startingCapital ?? startingCapital;
+
+      if (nextMode !== "scan") params.set("mode", nextMode);
       if (cat !== "Watches") params.set("category", cat);
       if (profit !== 75) params.set("minProfit", String(profit));
       if (hours !== 48) params.set("maxEndsInHours", String(hours));
       if (nextPage > 1) params.set("page", String(nextPage));
+      if (nextMode === "budget") params.set("maxBudget", String(budget));
+      if (nextMode === "monthly") {
+        params.set("monthlyGoal", String(goal));
+        params.set("startingCapital", String(capital));
+      }
       const qs = params.toString();
       router.replace(qs ? `/flip?${qs}` : "/flip", { scroll: false });
     },
-    [category, minProfit, maxEndsInHours, page, router],
+    [mode, category, minProfit, maxEndsInHours, page, maxBudget, monthlyGoal, startingCapital, router],
   );
 
   const scan = useCallback(() => {
@@ -85,6 +135,11 @@ export function FlipBoard() {
           page: String(page),
           pageSize: String(PAGE_SIZE),
         });
+        if (mode === "budget") params.set("maxBudget", String(maxBudget));
+        if (mode === "monthly") {
+          params.set("monthlyGoal", String(monthlyGoal));
+          params.set("startingCapital", String(startingCapital));
+        }
         const res = await fetch(`/api/flip/opportunities?${params}`);
         const json = (await res.json()) as ApiResult;
         if (!res.ok) {
@@ -99,7 +154,7 @@ export function FlipBoard() {
         setData(null);
       }
     });
-  }, [minProfit, category, maxEndsInHours, page]);
+  }, [minProfit, category, maxEndsInHours, page, mode, maxBudget, monthlyGoal, startingCapital]);
 
   useEffect(() => {
     scan();
@@ -112,22 +167,110 @@ export function FlipBoard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function resetFilters(patch: { minProfit?: number; category?: string; maxEndsInHours?: number }) {
+  function resetFilters(patch: {
+    mode?: Mode;
+    minProfit?: number;
+    category?: string;
+    maxEndsInHours?: number;
+    maxBudget?: number;
+    monthlyGoal?: number;
+    startingCapital?: number;
+  }) {
     setPage(1);
+    if (patch.mode != null) setMode(patch.mode);
     if (patch.minProfit != null) setMinProfit(patch.minProfit);
     if (patch.category != null) setCategory(patch.category);
     if (patch.maxEndsInHours != null) setMaxEndsInHours(patch.maxEndsInHours);
+    if (patch.maxBudget != null) setMaxBudget(patch.maxBudget);
+    if (patch.monthlyGoal != null) setMonthlyGoal(patch.monthlyGoal);
+    if (patch.startingCapital != null) setStartingCapital(patch.startingCapital);
     syncUrl({ ...patch, page: 1 });
   }
 
   const from = data && data.total > 0 ? (data.page - 1) * data.pageSize + 1 : 0;
   const to = data ? Math.min(data.page * data.pageSize, data.total) : 0;
+  const planIds = new Set(data?.plan?.selected.map((o) => o.id) ?? []);
 
   return (
     <div className="space-y-6">
       <div className="card space-y-4 p-5">
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["scan", "Find deals"],
+              ["budget", "My budget"],
+              ["monthly", "Monthly target"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => resetFilters({ mode: id })}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                mode === id
+                  ? "bg-brand-500/20 text-brand-200"
+                  : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === "budget" && (
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              How much can you invest right now?
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-300">
+              £
+              <input
+                type="number"
+                min={50}
+                step={50}
+                value={maxBudget}
+                onChange={(e) => setMaxBudget(Math.max(50, Number(e.target.value) || 50))}
+                onBlur={() => resetFilters({ maxBudget })}
+                className="w-28 rounded border border-white/10 bg-ink-900 px-2 py-1.5 text-white"
+              />
+              <span className="text-slate-500">max per scan pack</span>
+            </label>
+          </div>
+        )}
+
+        {mode === "monthly" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm text-slate-400">
+              I want to make (£ / month)
+              <input
+                type="number"
+                min={100}
+                step={100}
+                value={monthlyGoal}
+                onChange={(e) => setMonthlyGoal(Math.max(100, Number(e.target.value) || 100))}
+                onBlur={() => resetFilters({ monthlyGoal })}
+                className="mt-1 block w-full rounded border border-white/10 bg-ink-900 px-3 py-2 text-white"
+              />
+            </label>
+            <label className="text-sm text-slate-400">
+              I can start with (£)
+              <input
+                type="number"
+                min={50}
+                step={50}
+                value={startingCapital}
+                onChange={(e) => setStartingCapital(Math.max(50, Number(e.target.value) || 50))}
+                onBlur={() => resetFilters({ startingCapital })}
+                className="mt-1 block w-full rounded border border-white/10 bg-ink-900 px-3 py-2 text-white"
+              />
+            </label>
+          </div>
+        )}
+
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">I want to make at least</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Minimum net profit per deal
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {PROFIT_PRESETS.map((p) => (
               <button
@@ -209,10 +352,29 @@ export function FlipBoard() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Auction → BIN arbitrage across {FLIP_CATEGORIES.length} categories. Ranked by Deal Score (profit, ROI,
-          confidence, urgency). Always verify sold prices before bidding.
+          Parts / not working / replicas are auto-hidden from titles and eBay condition. Always open the listing and
+          check photos before you bid.
         </p>
       </div>
+
+      {data?.plan && (
+        <div className="card space-y-3 border border-brand-500/20 bg-brand-500/5 p-5">
+          <div className="text-xs font-medium uppercase tracking-wide text-brand-300">
+            {data.plan.mode === "monthly" ? "Monthly path" : "Budget pack"}
+          </div>
+          <p className="text-sm text-slate-200">{data.plan.summary}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Stat label="Spend now" value={`£${data.plan.totalSpend.toLocaleString("en-GB")}`} />
+            <Stat label="Est. profit" value={`£${data.plan.totalProfit.toLocaleString("en-GB")}`} accent />
+            <Stat label="Leftover" value={`£${data.plan.leftover.toLocaleString("en-GB")}`} />
+            {data.plan.flipsNeeded != null ? (
+              <Stat label="Flips to goal" value={String(data.plan.flipsNeeded)} />
+            ) : (
+              <Stat label="Deals in pack" value={String(data.plan.selected.length)} />
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">{error}</div>
@@ -231,6 +393,7 @@ export function FlipBoard() {
             {data.total === 0
               ? "No opportunities"
               : `Showing ${from}–${to} of ${data.total} · scanned ${data.scanned} auctions`}
+            {data.skippedRisky ? ` · skipped ${data.skippedRisky} parts/risky` : ""}
           </span>
           <span className="text-xs uppercase tracking-wide text-slate-500">{data.source}</span>
         </div>
@@ -244,7 +407,9 @@ export function FlipBoard() {
 
       {data && data.opportunities.length === 0 && data.source === "live" && !pending && (
         <div className="card p-8 text-center text-sm text-slate-400">
-          No auctions currently clear £{minProfit}+ estimated net profit in this window. Try a lower target or wider
+          No auctions currently clear £{minProfit}+ estimated net profit in this window
+          {mode === "budget" ? ` under your £${maxBudget} budget` : ""}
+          {mode === "monthly" ? ` under your £${startingCapital} starting capital` : ""}. Try a lower target or wider
           time range.
         </div>
       )}
@@ -254,6 +419,7 @@ export function FlipBoard() {
           <OpportunityCard
             key={opp.id}
             opp={opp}
+            inPack={planIds.has(opp.id)}
             expanded={expanded === opp.id}
             onToggle={() => setExpanded(expanded === opp.id ? null : opp.id)}
           />
@@ -289,10 +455,12 @@ function dealTone(band: DealScoreBand): string {
 
 function OpportunityCard({
   opp,
+  inPack,
   expanded,
   onToggle,
 }: {
   opp: FlipOpportunity;
+  inPack: boolean;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -306,7 +474,7 @@ function OpportunityCard({
           : `${Math.round(opp.endsInMinutes / 60)}h`;
 
   return (
-    <article className="card overflow-hidden">
+    <article className={`card overflow-hidden ${inPack ? "ring-1 ring-brand-500/40" : ""}`}>
       <div className="flex gap-4 p-4">
         {opp.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -322,6 +490,9 @@ function OpportunityCard({
             <span className={`rounded px-2 py-0.5 text-xs font-medium ${dealTone(opp.dealBand)}`}>
               Deal {opp.dealScore}/100
             </span>
+            {inPack && (
+              <span className="rounded bg-brand-500/20 px-2 py-0.5 text-xs font-medium text-brand-200">In your pack</span>
+            )}
             <span className="rounded bg-white/5 px-2 py-0.5 text-xs text-slate-300">{opp.category}</span>
             {opp.brand && <span className="rounded bg-brand-500/15 px-2 py-0.5 text-xs text-brand-200">{opp.brand}</span>}
             <span className="text-xs text-slate-500">Ends {endsLabel}</span>

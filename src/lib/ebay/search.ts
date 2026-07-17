@@ -14,6 +14,8 @@ export type EbayItemSummary = {
   currentBidPrice?: { value?: string; currency?: string };
   itemEndDate?: string;
   buyingOptions?: string[];
+  condition?: string;
+  conditionId?: string;
   categories?: { categoryName?: string }[];
   localizedAspects?: { name?: string; value?: string }[];
 };

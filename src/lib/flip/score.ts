@@ -16,7 +16,13 @@ import {
 import { computeDealScore, sortByDealScore } from "@/lib/flip/dealScore";
 import { estimateSellMarkets } from "@/lib/flip/marketplaces";
 import { heuristicMarketValue } from "@/lib/flip/market";
-import { riskFlagsFromTitle, riskMarketMultiplier, shouldHideByDefault } from "@/lib/flip/risk";
+import {
+  isPartsOrNotWorkingCondition,
+  riskFlagsFromTitle,
+  riskMarketMultiplier,
+  shouldHideByDefault,
+} from "@/lib/flip/risk";
+import { buildBudgetPlan, buildMonthlyPlan, type CapitalPlan } from "@/lib/flip/plan";
 import {
   median,
   searchBinComps,
@@ -36,6 +42,25 @@ export type FindOpportunitiesInput = {
   page?: number;
   pageSize?: number;
   maxResults?: number;
+  /** Only show auctions at or below this current bid */
+  maxBudget?: number;
+  /** Monthly net profit target (£) */
+  monthlyGoal?: number;
+  /** Capital available to start buying (£) */
+  startingCapital?: number;
+};
+
+export type FindOpportunitiesResult = {
+  opportunities: FlipOpportunity[];
+  scanned: number;
+  source: "live" | "unconfigured";
+  categories: FlipCategoryName[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  skippedRisky: number;
+  plan: CapitalPlan | null;
 };
 
 function endsInMinutes(endsAt: string | null): number | null {
@@ -51,6 +76,8 @@ function scoreItem(
   minProfit: number,
   marketOverride?: { marketValue: number; compCount: number; source: "comps" | "heuristic" },
 ): FlipOpportunity | null {
+  if (isPartsOrNotWorkingCondition(item.conditionId)) return null;
+
   const flags = riskFlagsFromTitle(item.title);
   if (shouldHideByDefault(flags)) return null;
 
@@ -173,16 +200,9 @@ async function enrichWithComps(
   return { marketValue: Math.round(med), compCount: prices.length, source: "comps" };
 }
 
-export async function findFlipOpportunities(input: FindOpportunitiesInput = {}): Promise<{
-  opportunities: FlipOpportunity[];
-  scanned: number;
-  source: "live" | "unconfigured";
-  categories: FlipCategoryName[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}> {
+export async function findFlipOpportunities(
+  input: FindOpportunitiesInput = {},
+): Promise<FindOpportunitiesResult> {
   if (!isEbayApiConfigured()) {
     return {
       opportunities: [],
@@ -193,6 +213,8 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
       pageSize: 10,
       total: 0,
       totalPages: 1,
+      skippedRisky: 0,
+      plan: null,
     };
   }
 
@@ -202,6 +224,18 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
   const enrichComps = input.enrichComps !== false;
   const pageSize = Math.min(50, Math.max(5, input.pageSize ?? 10));
   const maxResults = Math.min(200, Math.max(pageSize, input.maxResults ?? 100));
+  const maxBudget =
+    input.maxBudget != null && Number.isFinite(input.maxBudget) && input.maxBudget > 0
+      ? input.maxBudget
+      : null;
+  const monthlyGoal =
+    input.monthlyGoal != null && Number.isFinite(input.monthlyGoal) && input.monthlyGoal > 0
+      ? input.monthlyGoal
+      : null;
+  const startingCapital =
+    input.startingCapital != null && Number.isFinite(input.startingCapital) && input.startingCapital > 0
+      ? input.startingCapital
+      : null;
 
   // "all" scans priority categories only to stay within serverless time limits.
   const categories: FlipCategoryName[] =
@@ -230,6 +264,13 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     return mins <= maxMins;
   });
 
+  let skippedRisky = 0;
+  for (const item of filtered) {
+    if (isPartsOrNotWorkingCondition(item.conditionId) || shouldHideByDefault(riskFlagsFromTitle(item.title))) {
+      skippedRisky += 1;
+    }
+  }
+
   const prelim: { item: FlipAuctionItem; opp: FlipOpportunity }[] = [];
   for (const item of filtered) {
     const opp = scoreItem(item, fees, Math.max(0, minProfit * 0.5));
@@ -248,7 +289,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     }),
   );
 
-  const opportunities: FlipOpportunity[] = [];
+  let opportunities: FlipOpportunity[] = [];
   for (const { item } of prelim) {
     const override = enrichMap.get(item.id);
     const opp = scoreItem(item, fees, minProfit, override);
@@ -258,6 +299,20 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
   }
 
   opportunities.sort(sortByDealScore);
+
+  // Affordability filters for budget / monthly modes.
+  if (maxBudget != null) {
+    opportunities = opportunities.filter((o) => o.currentPrice <= maxBudget);
+  } else if (monthlyGoal != null && startingCapital != null) {
+    opportunities = opportunities.filter((o) => o.currentPrice <= startingCapital);
+  }
+
+  let plan: CapitalPlan | null = null;
+  if (monthlyGoal != null && startingCapital != null) {
+    plan = buildMonthlyPlan(opportunities, { monthlyGoal, startingCapital });
+  } else if (maxBudget != null) {
+    plan = buildBudgetPlan(opportunities, maxBudget);
+  }
 
   const ranked = opportunities.slice(0, maxResults);
   const total = ranked.length;
@@ -274,5 +329,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     pageSize,
     total,
     totalPages,
+    skippedRisky,
+    plan,
   };
 }
