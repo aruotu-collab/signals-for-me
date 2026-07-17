@@ -35,9 +35,6 @@ export async function Nav() {
           {PUBLIC_PRODUCT.name}
         </Link>
         <nav className="order-3 flex w-full min-w-0 touch-pan-x items-center gap-0.5 overflow-x-auto overscroll-x-contain whitespace-nowrap text-sm sm:order-2 sm:ml-auto sm:w-auto sm:gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Link href="/flip" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
-            Flip Radar
-          </Link>
           {NAV_CATS.map((c) => (
             <Link
               key={c.href}
