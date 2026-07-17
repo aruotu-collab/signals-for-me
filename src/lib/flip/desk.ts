@@ -61,6 +61,12 @@ export type FlipDeskItem = {
   wonAt: number | null;
   receivedAt: number | null;
   soldAt: number | null;
+  /** Unpublished eBay offer id from one-click draft */
+  ebayOfferId: string | null;
+  /** Seller Hub / draft deep link */
+  ebayDraftUrl: string | null;
+  /** Cached auction photo URLs for private reference only */
+  referenceImageUrls: string[] | null;
 };
 
 export type FlipDeskStats = {
@@ -97,6 +103,9 @@ function normalizeItem(raw: FlipDeskItem & { status: LegacyStatus }): FlipDeskIt
     status: normalizeStatus(raw.status),
     inboundPostage: raw.inboundPostage ?? null,
     receivedAt: raw.receivedAt ?? null,
+    ebayOfferId: raw.ebayOfferId ?? null,
+    ebayDraftUrl: raw.ebayDraftUrl ?? null,
+    referenceImageUrls: raw.referenceImageUrls ?? null,
   };
 }
 
@@ -126,6 +135,9 @@ export function opportunityToDeskItem(opp: FlipOpportunity): FlipDeskItem {
     wonAt: null,
     receivedAt: null,
     soldAt: null,
+    ebayOfferId: null,
+    ebayDraftUrl: null,
+    referenceImageUrls: null,
   };
 }
 

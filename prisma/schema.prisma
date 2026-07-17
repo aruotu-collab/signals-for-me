@@ -54,6 +54,7 @@ model User {
   sessions      Session[]
   savedJobs     SavedJob[]
   driverProfile DriverProfile?
+  ebaySeller    EbaySellerConnection?
 }
 
 // Per-driver van & rate preferences — synced to account when signed in.
@@ -105,6 +106,23 @@ model SavedJob {
   @@index([userId])
   @@index([userId, status])
   @@index([source])
+}
+
+// eBay seller OAuth (authorization code) for one-click listing drafts.
+model EbaySellerConnection {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ebayUserId   String?
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scopes       String
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([ebayUserId])
 }
 
 // ---- Auth.js (NextAuth) adapter models ----

@@ -31,6 +31,7 @@ type FlipDeskContextValue = {
   markSelling: (id: string) => void;
   markSold: (id: string, sellPrice: number, actualProfit?: number) => void;
   updateNotes: (id: string, notes: string) => void;
+  patchItem: (id: string, patch: Partial<FlipDeskItem>) => void;
   clearLost: () => void;
   byStatus: (status: FlipDeskStatus) => FlipDeskItem[];
 };
@@ -156,6 +157,15 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const patchItem = useCallback(
+    (id: string, patch: Partial<FlipDeskItem>) => {
+      persist(
+        readFlipDesk().map((x) => (x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x)),
+      );
+    },
+    [persist],
+  );
+
   const clearLost = useCallback(() => {
     persist(readFlipDesk().filter((x) => x.status !== "lost"));
   }, [persist]);
@@ -180,6 +190,7 @@ export function FlipDeskProvider({ children }: { children: React.ReactNode }) {
     markSelling,
     markSold,
     updateNotes,
+    patchItem,
     clearLost,
     byStatus: (status) => items.filter((x) => x.status === status),
   };

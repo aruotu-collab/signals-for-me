@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useFlipDesk } from "@/components/FlipDeskProvider";
 import {
   FLIP_DESK_STATUS_LABEL,
@@ -12,6 +13,12 @@ import {
   type FlipDeskStatus,
 } from "@/lib/flip/desk";
 import { buildRelistKit } from "@/lib/flip/relist";
+
+type SellerStatus = {
+  connected: boolean;
+  signedIn: boolean;
+  connectedAt?: string;
+};
 
 export function FlipDeskBoard() {
   const {
@@ -26,12 +33,30 @@ export function FlipDeskBoard() {
     markSold,
     unwatch,
     clearLost,
+    patchItem,
   } = useFlipDesk();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<FlipDeskStatus | "all">("all");
   const [moneyId, setMoneyId] = useState<string | null>(null);
   const [moneyValue, setMoneyValue] = useState("");
   const [postageValue, setPostageValue] = useState("");
   const [moneyMode, setMoneyMode] = useState<"won" | "sold" | "received">("won");
+  const [seller, setSeller] = useState<SellerStatus | null>(null);
+  const [sellerBusy, setSellerBusy] = useState(false);
+
+  const refreshSeller = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ebay/seller/status");
+      const json = (await res.json()) as SellerStatus;
+      setSeller(json);
+    } catch {
+      setSeller({ connected: false, signedIn: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSeller();
+  }, [refreshSeller, searchParams]);
 
   if (!ready) {
     return <div className="card p-8 text-center text-sm text-slate-400">Loading your desk…</div>;
@@ -72,6 +97,18 @@ export function FlipDeskBoard() {
     setPostageValue("");
   }
 
+  async function disconnectSeller() {
+    setSellerBusy(true);
+    try {
+      await fetch("/api/ebay/oauth/disconnect", { method: "POST" });
+      await refreshSeller();
+    } finally {
+      setSellerBusy(false);
+    }
+  }
+
+  const ebayFlash = searchParams.get("ebay");
+
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -87,6 +124,13 @@ export function FlipDeskBoard() {
         <MoneyCard label="Full picture" value={stats.totalPicture} tone="brand" hint="Banked + planned" />
       </div>
 
+      <EbaySellerBanner
+        seller={seller}
+        busy={sellerBusy}
+        flash={ebayFlash}
+        onDisconnect={disconnectSeller}
+      />
+
       <div className="card flex flex-wrap items-center gap-2 p-4">
         <Link href="/flip" className="btn-primary px-3 py-2 text-sm">
           Find new deals
@@ -99,8 +143,7 @@ export function FlipDeskBoard() {
           Clear lost ({stats.lost})
         </button>
         <p className="w-full text-xs text-slate-500 sm:ml-auto sm:w-auto">
-          While a parcel is incoming, open Relist kit and prep the BIN. Receiving day should be photos + paste +
-          publish — bidding stays your main job.
+          While a parcel is incoming, open Relist kit — create an eBay draft, then add your own photos when it arrives.
         </p>
       </div>
 
@@ -131,6 +174,8 @@ export function FlipDeskBoard() {
           <DeskCard
             key={item.id}
             item={item}
+            sellerConnected={Boolean(seller?.connected)}
+            signedIn={Boolean(seller?.signedIn)}
             onWatching={() => setStatus(item.id, "watching")}
             onBidding={() => setStatus(item.id, "bidding")}
             onWon={() => openMoney(item.id, "won", item.currentPrice, item.inboundPostage ?? undefined)}
@@ -141,6 +186,7 @@ export function FlipDeskBoard() {
             onSelling={() => markSelling(item.id)}
             onSold={() => openMoney(item.id, "sold", item.marketValue)}
             onRemove={() => unwatch(item.id)}
+            onPatch={(patch) => patchItem(item.id, patch)}
           />
         ))}
       </div>
@@ -182,9 +228,6 @@ export function FlipDeskBoard() {
                   placeholder="0"
                   className="ml-2 w-24 rounded border border-white/10 bg-ink-900 px-2 py-1.5 text-white"
                 />
-                <span className="mt-1 block text-xs text-slate-500">
-                  Counts against profit — money spent before the item is in hand.
-                </span>
               </label>
             )}
             <div className="flex gap-2">
@@ -200,6 +243,59 @@ export function FlipDeskBoard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EbaySellerBanner({
+  seller,
+  busy,
+  flash,
+  onDisconnect,
+}: {
+  seller: SellerStatus | null;
+  busy: boolean;
+  flash: string | null;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div className="card space-y-2 border border-brand-500/20 bg-brand-500/5 p-4">
+      <div className="text-xs font-medium uppercase tracking-wide text-brand-300">eBay seller</div>
+      {flash === "connected" && (
+        <p className="text-sm text-emerald-300">Seller account connected. You can create unpublished drafts from Relist kit.</p>
+      )}
+      {flash === "error" && (
+        <p className="text-sm text-red-200">Could not connect eBay. Check RuName / redirect URI on your developer app, then try again.</p>
+      )}
+      {seller?.connected ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-slate-200">Connected for one-click drafts.</p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onDisconnect}
+            className="rounded-lg bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-50"
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : seller?.signedIn === false ? (
+        <p className="text-sm text-slate-300">
+          <Link href="/login?next=/flip/desk" className="text-brand-300 hover:underline">
+            Sign in
+          </Link>{" "}
+          to connect your eBay seller account for one-click drafts.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <a href="/api/ebay/oauth/start" className="btn-primary px-3 py-2 text-sm">
+            Connect eBay seller
+          </a>
+          <p className="text-xs text-slate-500">
+            Creates unpublished inventory/offers. Auction photos stay reference-only — you add your own before publish.
+          </p>
         </div>
       )}
     </div>
@@ -252,6 +348,8 @@ function TabChip({ active, onClick, label }: { active: boolean; onClick: () => v
 
 function DeskCard({
   item,
+  sellerConnected,
+  signedIn,
   onWatching,
   onBidding,
   onWon,
@@ -260,8 +358,11 @@ function DeskCard({
   onSelling,
   onSold,
   onRemove,
+  onPatch,
 }: {
   item: FlipDeskItem;
+  sellerConnected: boolean;
+  signedIn: boolean;
   onWatching: () => void;
   onBidding: () => void;
   onWon: () => void;
@@ -270,9 +371,13 @@ function DeskCard({
   onSelling: () => void;
   onSold: () => void;
   onRemove: () => void;
+  onPatch: (patch: Partial<FlipDeskItem>) => void;
 }) {
   const [showKit, setShowKit] = useState(false);
   const [copied, setCopied] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftMsg, setDraftMsg] = useState("");
+  const [refBusy, setRefBusy] = useState(false);
   const waiting = daysWaiting(item);
   const canRelist = item.status === "incoming" || item.status === "stock" || item.status === "selling";
   const kit = canRelist ? buildRelistKit(item) : null;
@@ -304,6 +409,65 @@ function DeskCard({
     }
   }
 
+  async function loadReference() {
+    setRefBusy(true);
+    setDraftMsg("");
+    try {
+      const res = await fetch(`/api/ebay/item/${encodeURIComponent(item.id)}`);
+      const json = (await res.json()) as { imageUrls?: string[]; error?: string };
+      if (!res.ok) {
+        setDraftMsg(json.error ?? "Could not load auction details");
+        return;
+      }
+      onPatch({ referenceImageUrls: json.imageUrls ?? [] });
+    } catch (e) {
+      setDraftMsg(e instanceof Error ? e.message : "Could not load auction details");
+    } finally {
+      setRefBusy(false);
+    }
+  }
+
+  async function createDraft() {
+    if (!kit) return;
+    setDraftBusy(true);
+    setDraftMsg("");
+    try {
+      const res = await fetch("/api/ebay/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceItemId: item.id,
+          title: kit.title,
+          description: kit.description,
+          binPrice: kit.binPrice,
+          category: item.category,
+          brand: item.brand,
+        }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        listingDraftUrl?: string;
+        offerId?: string | null;
+        message?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        setDraftMsg(json.error ?? "Draft failed");
+        return;
+      }
+      onPatch({
+        ebayDraftUrl: json.listingDraftUrl ?? null,
+        ebayOfferId: json.offerId ?? null,
+        status: "selling",
+      });
+      setDraftMsg(json.message ?? "Draft created");
+    } catch (e) {
+      setDraftMsg(e instanceof Error ? e.message : "Draft failed");
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
   return (
     <article className={`card overflow-hidden ${item.status === "incoming" ? "ring-1 ring-amber-500/30" : ""}`}>
       <div className="flex gap-4 p-4">
@@ -329,12 +493,16 @@ function DeskCard({
                 Waiting {waiting} day{waiting === 1 ? "" : "s"}
               </span>
             )}
+            {item.ebayDraftUrl && (
+              <a href={item.ebayDraftUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-300 hover:underline">
+                eBay draft
+              </a>
+            )}
           </div>
           <h2 className="mt-1 line-clamp-2 text-sm font-medium text-white">{item.title}</h2>
           <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
             <span>
               Cost in <span className="text-slate-200">£{itemCost(item).toLocaleString("en-GB")}</span>
-              {item.inboundPostage ? ` (incl. £${item.inboundPostage} postage)` : ""}
             </span>
             <span>
               Est. profit <span className="text-emerald-300">£{item.estimatedProfit.toLocaleString("en-GB")}</span>
@@ -344,22 +512,7 @@ function DeskCard({
                 Relist BIN <span className="text-brand-200">£{kit.binPrice.toLocaleString("en-GB")}</span>
               </span>
             )}
-            {item.status === "watching" || item.status === "bidding" ? (
-              <span>
-                Max bid <span className="text-slate-200">£{item.maxBid.toLocaleString("en-GB")}</span>
-              </span>
-            ) : null}
-            {item.actualProfit != null && (
-              <span>
-                Banked <span className="text-emerald-300">£{item.actualProfit.toLocaleString("en-GB")}</span>
-              </span>
-            )}
           </div>
-          {item.status === "incoming" && (
-            <p className="mt-2 text-xs text-amber-200/90">
-              Paid but not received — prep the Relist kit now so listing takes minutes when it arrives.
-            </p>
-          )}
         </div>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-white/5 px-4 py-3">
@@ -411,6 +564,38 @@ function DeskCard({
             multiline
             onCopy={() => copyText("description", kit.description)}
           />
+
+          <div>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                Auction photo reference (private — do not publish as your listing images)
+              </span>
+              <button
+                type="button"
+                disabled={refBusy}
+                onClick={loadReference}
+                className="text-[10px] text-brand-300 hover:underline disabled:opacity-50"
+              >
+                {refBusy ? "Loading…" : item.referenceImageUrls?.length ? "Refresh" : "Load from auction"}
+              </button>
+            </div>
+            {item.referenceImageUrls && item.referenceImageUrls.length > 0 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {item.referenceImageUrls.slice(0, 8).map((src) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src}
+                    src={src}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-md object-cover bg-white/5 ring-1 ring-white/10"
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">Load auction photos to plan your own shots.</p>
+            )}
+          </div>
+
           <div>
             <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Photo checklist (do on unbox)</div>
             <ul className="space-y-1 text-xs text-slate-400">
@@ -422,26 +607,49 @@ function DeskCard({
               ))}
             </ul>
           </div>
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => copyText("full pack", kit.copyPack)}
-              className="btn-primary px-3 py-2 text-xs"
+              className="rounded-lg bg-white/5 px-3 py-2 text-xs text-slate-200 hover:bg-white/10"
             >
               Copy full pack
             </button>
+            {sellerConnected ? (
+              <button
+                type="button"
+                disabled={draftBusy}
+                onClick={createDraft}
+                className="btn-primary px-3 py-2 text-xs disabled:opacity-50"
+              >
+                {draftBusy ? "Creating draft…" : "Create eBay draft"}
+              </button>
+            ) : (
+              <span className="self-center text-xs text-slate-500">
+                {signedIn ? (
+                  <a href="/api/ebay/oauth/start" className="text-brand-300 hover:underline">
+                    Connect eBay
+                  </a>
+                ) : (
+                  <Link href="/login?next=/flip/desk" className="text-brand-300 hover:underline">
+                    Sign in
+                  </Link>
+                )}{" "}
+                for one-click draft
+              </span>
+            )}
             <a
-              href={kit.ebayStartUrl}
+              href={item.ebayDraftUrl || kit.ebayStartUrl}
               target="_blank"
               rel="noreferrer"
               className="rounded-lg bg-white/5 px-3 py-2 text-xs text-slate-200 hover:bg-white/10"
             >
-              Start eBay listing →
+              {item.ebayDraftUrl ? "Open eBay draft →" : "Start eBay listing →"}
             </a>
-            {item.status === "stock" && (
-              <Action onClick={onSelling}>Mark as selling</Action>
-            )}
+            {item.status === "stock" && <Action onClick={onSelling}>Mark as selling</Action>}
           </div>
+          {draftMsg && <p className="text-xs text-slate-400">{draftMsg}</p>}
         </div>
       )}
     </article>
