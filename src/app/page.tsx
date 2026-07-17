@@ -79,9 +79,12 @@ export default function Home() {
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
-            { href: "/flip?category=Watches", title: "Watches", desc: "Rolex, Omega, Seiko, Tag and more — your edge category." },
-            { href: "/flip?category=Phones", title: "Phones", desc: "iPhone and Samsung auctions ending soon." },
-            { href: "/flip?category=Laptops", title: "Laptops", desc: "MacBooks and popular Windows machines." },
+            { href: "/flip?category=Watches", title: "Watches", desc: "Your edge niche — Rolex, Omega, Seiko and more." },
+            { href: "/flip?category=Power%20Tools", title: "Power Tools", desc: "Milwaukee, Makita, DeWalt — high volume flips." },
+            { href: "/flip?category=Cameras", title: "Cameras & lenses", desc: "Sony, Canon, Nikon — often poorly listed." },
+            { href: "/flip?category=Graphics%20Cards", title: "Graphics cards", desc: "RTX / RX auction swings." },
+            { href: "/flip?category=Gaming%20Consoles", title: "Consoles", desc: "PS5, Switch, Steam Deck." },
+            { href: "/flip", title: "All Flip Radar", desc: "14 categories with Deal Score ranking." },
           ].map((c) => (
             <Link key={c.href} href={c.href} className="card block p-5 transition hover:border-brand-400/30">
               <div className="font-semibold text-white">{c.title}</div>

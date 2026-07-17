@@ -1,5 +1,40 @@
-export const FLIP_CATEGORIES = ["Watches", "Phones", "Laptops"] as const;
-export type FlipCategory = (typeof FLIP_CATEGORIES)[number] | "all";
+export const FLIP_CATEGORIES = [
+  "Watches",
+  "Phones",
+  "Laptops",
+  "Power Tools",
+  "Cameras",
+  "Camera Lenses",
+  "Graphics Cards",
+  "Gaming Consoles",
+  "iPads",
+  "Apple Watches",
+  "Drones",
+  "LEGO",
+  "Musical Gear",
+  "Sneakers",
+] as const;
+
+export type FlipCategoryName = (typeof FLIP_CATEGORIES)[number];
+export type FlipCategory = FlipCategoryName | "all";
+
+/** Priority order from the opportunity brief — used when scanning "all". */
+export const FLIP_SCAN_PRIORITY: FlipCategoryName[] = [
+  "Power Tools",
+  "Cameras",
+  "Camera Lenses",
+  "Graphics Cards",
+  "Gaming Consoles",
+  "iPads",
+  "Apple Watches",
+  "Drones",
+  "LEGO",
+  "Musical Gear",
+  "Watches",
+  "Phones",
+  "Laptops",
+  "Sneakers",
+];
 
 export type FlipFeeSettings = {
   /** eBay + managed payments final value fee as a fraction of sale price */
@@ -16,10 +51,21 @@ export const DEFAULT_FLIP_FEES: FlipFeeSettings = {
   outboundShipping: 8,
 };
 
+export type DealScoreBand = "buy" | "good" | "watch" | "low";
+
+export type MarketplaceEstimate = {
+  id: string;
+  name: string;
+  salePrice: number;
+  netProfit: number;
+  feeNote: string;
+  speed: "fast" | "medium" | "slow";
+};
+
 export type FlipOpportunity = {
   id: string;
   title: string;
-  category: Exclude<FlipCategory, "all">;
+  category: FlipCategoryName;
   brand: string | null;
   imageUrl: string | null;
   ebayUrl: string;
@@ -37,8 +83,15 @@ export type FlipOpportunity = {
   netProfit: number;
   roiPct: number;
   confidence: number;
+  /** 0–100 composite deal quality */
+  dealScore: number;
+  dealBand: DealScoreBand;
+  dealLabel: string;
   riskFlags: string[];
   why: string[];
   /** Suggested max bid to still hit the user's min profit */
   maxBid: number;
+  /** Where to sell for best net (eBay + alternatives) */
+  sellMarkets: MarketplaceEstimate[];
+  bestSellMarket: string;
 };

@@ -1,8 +1,8 @@
 import { ebayBrowse } from "@/lib/ebay/client";
 import { toAffiliateEbayUrl } from "@/lib/ebay/affiliate";
 import type { EbayItemSummary } from "@/lib/ebay/search";
-import type { FlipCategory } from "@/lib/flip/types";
-import { compsQuery, WATCH_SEARCH_BRANDS } from "@/lib/flip/market";
+import type { FlipCategoryName } from "@/lib/flip/types";
+import { CATEGORY_SEARCH_QUERIES, compsQuery } from "@/lib/flip/market";
 
 type EbaySearchResponse = {
   itemSummaries?: EbayItemSummary[];
@@ -10,26 +10,27 @@ type EbaySearchResponse = {
 };
 
 /** eBay UK category IDs for flip verticals. */
-export const FLIP_CATEGORY_IDS: Record<Exclude<FlipCategory, "all">, string> = {
-  Watches: "31387", // Jewellery & Watches > Watches
-  Phones: "9355", // Mobile Phones & Communication > Mobile & Smart Phones
-  Laptops: "175672", // Computers/Tablets & Networking > Laptops & Netbooks
+export const FLIP_CATEGORY_IDS: Record<FlipCategoryName, string> = {
+  Watches: "31387",
+  Phones: "9355",
+  Laptops: "175672",
+  "Power Tools": "3240",
+  Cameras: "31388",
+  "Camera Lenses": "3323",
+  "Graphics Cards": "27386",
+  "Gaming Consoles": "139971",
+  iPads: "171485",
+  "Apple Watches": "178893",
+  Drones: "179697",
+  LEGO: "19006",
+  "Musical Gear": "619",
+  Sneakers: "15709",
 };
-
-const PHONE_SEARCH_QUERIES = [
-  "iPhone 15",
-  "iPhone 14",
-  "iPhone 13",
-  "Samsung Galaxy S24",
-  "Samsung Galaxy S23",
-  "Google Pixel",
-];
-const LAPTOP_SEARCH_QUERIES = ["MacBook Pro", "MacBook Air", "ThinkPad", "Dell XPS", "Surface Laptop"];
 
 export type FlipAuctionItem = {
   id: string;
   title: string;
-  category: Exclude<FlipCategory, "all">;
+  category: FlipCategoryName;
   imageUrl: string | null;
   ebayUrl: string;
   location: string | null;
@@ -46,7 +47,7 @@ function buyingTypeOf(item: EbayItemSummary): FlipAuctionItem["buyingType"] {
   return "Buy it now";
 }
 
-function toItem(item: EbayItemSummary, category: Exclude<FlipCategory, "all">): FlipAuctionItem | null {
+function toItem(item: EbayItemSummary, category: FlipCategoryName): FlipAuctionItem | null {
   if (!item.itemId || !item.title) return null;
   const priceStr = item.currentBidPrice?.value ?? item.price?.value;
   const price = priceStr ? Number.parseFloat(priceStr) : NaN;
@@ -55,15 +56,15 @@ function toItem(item: EbayItemSummary, category: Exclude<FlipCategory, "all">): 
   const city = item.itemLocation?.city?.trim() || null;
   const postcode = item.itemLocation?.postalCode?.trim() || null;
   const location = [city, postcode].filter(Boolean).join(", ") || null;
-
   const rawUrl = item.itemAffiliateWebUrl ?? item.itemWebUrl ?? `https://www.ebay.co.uk/itm/${item.itemId}`;
+  const slug = category.toLowerCase().replace(/\s+/g, "-");
 
   return {
     id: item.itemId,
     title: item.title,
     category,
     imageUrl: item.image?.imageUrl ?? null,
-    ebayUrl: toAffiliateEbayUrl(rawUrl, `flip-${category.toLowerCase()}`),
+    ebayUrl: toAffiliateEbayUrl(rawUrl, `flip-${slug}`),
     location,
     buyingType: buyingTypeOf(item),
     currentPrice: price,
@@ -73,13 +74,12 @@ function toItem(item: EbayItemSummary, category: Exclude<FlipCategory, "all">): 
 }
 
 async function searchAuctions(opts: {
-  category: Exclude<FlipCategory, "all">;
+  category: FlipCategoryName;
   q?: string;
   limit?: number;
 }): Promise<FlipAuctionItem[]> {
   const limit = Math.min(opts.limit ?? 20, 50);
   const categoryId = FLIP_CATEGORY_IDS[opts.category];
-
   const filters = ["buyingOptions:{AUCTION}", "itemLocationCountry:GB", "price:[5..20000]"].join(",");
 
   const params = new URLSearchParams({
@@ -96,22 +96,16 @@ async function searchAuctions(opts: {
     .filter((x): x is FlipAuctionItem => Boolean(x));
 }
 
-function queriesFor(category: Exclude<FlipCategory, "all">): string[] {
-  if (category === "Watches") return [...WATCH_SEARCH_BRANDS];
-  if (category === "Phones") return PHONE_SEARCH_QUERIES;
-  return LAPTOP_SEARCH_QUERIES;
-}
-
 /**
  * Prefer brand/model queries over a raw ending-soon dump — otherwise the feed
- * fills with job lots and "spares or repair" junk that ends in the next minute.
+ * fills with junk lots that end in the next minute.
  */
 export async function searchEndingAuctions(opts: {
-  category: Exclude<FlipCategory, "all">;
+  category: FlipCategoryName;
   limit?: number;
 }): Promise<FlipAuctionItem[]> {
-  const queries = queriesFor(opts.category);
-  const perQuery = opts.category === "Watches" ? 8 : 10;
+  const queries = CATEGORY_SEARCH_QUERIES[opts.category] ?? [opts.category];
+  const perQuery = Math.min(8, Math.max(4, Math.ceil((opts.limit ?? 30) / Math.max(queries.length, 1))));
   const seen = new Set<string>();
   const out: FlipAuctionItem[] = [];
 
@@ -130,7 +124,7 @@ export async function searchEndingAuctions(opts: {
   }
 
   try {
-    const general = await searchAuctions({ category: opts.category, limit: opts.limit ?? 15 });
+    const general = await searchAuctions({ category: opts.category, limit: Math.min(12, opts.limit ?? 15) });
     for (const item of general) {
       if (seen.has(item.id)) continue;
       seen.add(item.id);
@@ -143,9 +137,8 @@ export async function searchEndingAuctions(opts: {
   return out;
 }
 
-/** Active Buy-It-Now comps — used as a soft market-value signal. */
 export async function searchBinComps(opts: {
-  category: Exclude<FlipCategory, "all">;
+  category: FlipCategoryName;
   title: string;
   brand: string | null;
   limit?: number;

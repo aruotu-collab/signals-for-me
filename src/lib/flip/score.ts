@@ -7,11 +7,14 @@ import {
 } from "@/lib/flip/fees";
 import {
   DEFAULT_FLIP_FEES,
-  FLIP_CATEGORIES,
+  FLIP_SCAN_PRIORITY,
   type FlipCategory,
+  type FlipCategoryName,
   type FlipFeeSettings,
   type FlipOpportunity,
 } from "@/lib/flip/types";
+import { computeDealScore, sortByDealScore } from "@/lib/flip/dealScore";
+import { estimateSellMarkets } from "@/lib/flip/marketplaces";
 import { heuristicMarketValue } from "@/lib/flip/market";
 import { riskFlagsFromTitle, riskMarketMultiplier, shouldHideByDefault } from "@/lib/flip/risk";
 import {
@@ -28,12 +31,10 @@ export type FindOpportunitiesInput = {
   maxEndsInHours?: number;
   includeRisky?: boolean;
   fees?: Partial<FlipFeeSettings>;
-  /** Enrich top heuristic hits with live BIN comps (slower). Default true. */
   enrichComps?: boolean;
   limitPerCategory?: number;
   page?: number;
   pageSize?: number;
-  /** Max scored opportunities to keep before paging. */
   maxResults?: number;
 };
 
@@ -55,8 +56,8 @@ function scoreItem(
 
   const heuristic = heuristicMarketValue(item.title, item.category, item.currentPrice);
   let marketValue = marketOverride?.marketValue ?? heuristic.marketValue;
-  let marketSource: "comps" | "heuristic" = marketOverride?.source ?? "heuristic";
-  let compCount = marketOverride?.compCount ?? 0;
+  const marketSource: "comps" | "heuristic" = marketOverride?.source ?? "heuristic";
+  const compCount = marketOverride?.compCount ?? 0;
 
   marketValue = Math.round(marketValue * riskMarketMultiplier(flags));
 
@@ -68,6 +69,7 @@ function scoreItem(
   const totalCost = totalAcquisitionCost(buyPrice, fees);
   const maxBid = maxBidForProfit(marketValue, minProfit, fees);
   const endsMins = endsInMinutes(item.endsAt);
+  const roi = roiPct(netProfit, buyPrice, fees);
 
   let confidence = heuristic.confidence;
   if (marketSource === "comps" && compCount >= 3) confidence = Math.min(92, confidence + 20);
@@ -75,30 +77,54 @@ function scoreItem(
   if (flags.length) confidence = Math.max(15, confidence - flags.length * 12);
   if (endsMins != null && endsMins < 60) confidence = Math.min(95, confidence + 5);
   if (!heuristic.brand) confidence = Math.max(15, confidence - 15);
-
-  // Suspiciously large gap vs current bid → lower confidence
   if (marketValue > buyPrice * 3 && marketSource === "heuristic") {
     confidence = Math.max(20, confidence - 20);
   }
 
+  const deal = computeDealScore({
+    netProfit,
+    roiPct: roi,
+    confidence,
+    compCount,
+    marketSource,
+    endsInMinutes: endsMins,
+    riskFlags: flags,
+    currentPrice: buyPrice,
+    marketValue,
+  });
+
+  const sell = estimateSellMarkets({
+    category: item.category,
+    ebayMarketValue: marketValue,
+    totalCost,
+    outboundShipping: fees.outboundShipping,
+  });
+
   const why: string[] = [];
-  if (heuristic.brand) why.push(`${heuristic.brand} typically resells around £${heuristic.marketValue.toLocaleString("en-GB")}`);
+  why.push(`Deal Score ${deal.score}/100 — ${deal.label}`);
+  if (heuristic.brand) {
+    why.push(`${heuristic.brand} typically resells around £${heuristic.marketValue.toLocaleString("en-GB")}`);
+  }
   if (marketSource === "comps" && compCount > 0) {
     why.push(`Live Buy-it-now comps median £${marketValue.toLocaleString("en-GB")} (${compCount} listings)`);
   } else {
     why.push("Market value from brand/model heuristic — treat as a lead, verify sold prices");
   }
   why.push(
-    `Current bid £${buyPrice.toLocaleString("en-GB")} → est. net £${netProfit.toLocaleString("en-GB")} after ~${Math.round(fees.feeRate * 100)}% fees + postage`,
+    `Current bid £${buyPrice.toLocaleString("en-GB")} → eBay net ~£${netProfit.toLocaleString("en-GB")} after fees`,
   );
+  if (sell.bestSellMarket !== "eBay BIN" && sell.markets[0]) {
+    why.push(
+      `Best sell channel: ${sell.bestSellMarket} (~£${sell.markets[0].netProfit.toLocaleString("en-GB")} net)`,
+    );
+  }
   if (maxBid > buyPrice) {
-    why.push(`You can bid up to ~£${maxBid.toLocaleString("en-GB")} and still clear £${minProfit}+ profit`);
-  } else {
-    why.push(`Already near your max bid (£${maxBid.toLocaleString("en-GB")}) for £${minProfit}+ profit`);
+    why.push(`You can bid up to ~£${maxBid.toLocaleString("en-GB")} and still clear £${minProfit}+ on eBay`);
   }
   if (endsMins != null && endsMins >= 0) {
     why.push(endsMins < 60 ? `Ends in ${endsMins} minutes` : `Ends in ~${Math.round(endsMins / 60)} hours`);
   }
+  for (const r of deal.reasons.slice(0, 2)) why.push(r);
 
   return {
     id: item.id,
@@ -119,11 +145,16 @@ function scoreItem(
     fees: Math.round((feesOnSale + fees.outboundShipping) * 100) / 100,
     totalCost,
     netProfit,
-    roiPct: roiPct(netProfit, buyPrice, fees),
+    roiPct: roi,
     confidence,
+    dealScore: deal.score,
+    dealBand: deal.band,
+    dealLabel: deal.label,
     riskFlags: flags,
     why,
     maxBid,
+    sellMarkets: sell.markets,
+    bestSellMarket: sell.bestSellMarket,
   };
 }
 
@@ -146,7 +177,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
   opportunities: FlipOpportunity[];
   scanned: number;
   source: "live" | "unconfigured";
-  categories: Exclude<FlipCategory, "all">[];
+  categories: FlipCategoryName[];
   page: number;
   pageSize: number;
   total: number;
@@ -169,14 +200,17 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
   const maxEndsInHours = input.maxEndsInHours ?? 24;
   const fees: FlipFeeSettings = { ...DEFAULT_FLIP_FEES, ...input.fees };
   const enrichComps = input.enrichComps !== false;
-  const limitPerCategory = input.limitPerCategory ?? 40;
   const pageSize = Math.min(50, Math.max(5, input.pageSize ?? 10));
   const maxResults = Math.min(200, Math.max(pageSize, input.maxResults ?? 100));
 
-  const categories: Exclude<FlipCategory, "all">[] =
+  // "all" scans priority categories only to stay within serverless time limits.
+  const categories: FlipCategoryName[] =
     input.category && input.category !== "all"
       ? [input.category]
-      : [...FLIP_CATEGORIES];
+      : FLIP_SCAN_PRIORITY.slice(0, 8);
+
+  const limitPerCategory =
+    input.limitPerCategory ?? (categories.length > 1 ? 22 : 40);
 
   const items: FlipAuctionItem[] = [];
   for (const cat of categories) {
@@ -184,7 +218,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
       const batch = await searchEndingAuctions({ category: cat, limit: limitPerCategory });
       items.push(...batch);
     } catch {
-      // continue other categories
+      // continue
     }
   }
 
@@ -196,16 +230,14 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     return mins <= maxMins;
   });
 
-  // First pass: heuristic scoring
   const prelim: { item: FlipAuctionItem; opp: FlipOpportunity }[] = [];
   for (const item of filtered) {
-    const opp = scoreItem(item, fees, Math.max(0, minProfit * 0.5)); // soft gate before comps
+    const opp = scoreItem(item, fees, Math.max(0, minProfit * 0.5));
     if (opp) prelim.push({ item, opp });
   }
 
-  // Enrich the most promising with BIN comps (cap to keep latency sane)
   const toEnrich = enrichComps
-    ? [...prelim].sort((a, b) => b.opp.netProfit - a.opp.netProfit).slice(0, 24)
+    ? [...prelim].sort((a, b) => b.opp.dealScore - a.opp.dealScore || b.opp.netProfit - a.opp.netProfit).slice(0, 24)
     : [];
 
   const enrichMap = new Map<string, { marketValue: number; compCount: number; source: "comps" | "heuristic" }>();
@@ -225,11 +257,7 @@ export async function findFlipOpportunities(input: FindOpportunitiesInput = {}):
     opportunities.push(opp);
   }
 
-  opportunities.sort((a, b) => {
-    const scoreA = a.netProfit * (a.confidence / 100);
-    const scoreB = b.netProfit * (b.confidence / 100);
-    return scoreB - scoreA;
-  });
+  opportunities.sort(sortByDealScore);
 
   const ranked = opportunities.slice(0, maxResults);
   const total = ranked.length;

@@ -18,8 +18,8 @@ export default function FlipPage() {
         <span className="chip border border-white/10 bg-white/5 text-slate-300">Auction intelligence</span>
         <h1 className="text-2xl font-bold text-white sm:text-3xl">Flip Radar</h1>
         <p className="max-w-2xl text-sm text-slate-400">
-          Every row is a money-making lead: current bid vs estimated resale, fees, net profit and confidence. Start with
-          watches — set how much you want to make, then bid only on what you&apos;d still buy without the app.
+          Every row is scored: auction bid vs resale, Deal Score, fees, and where to sell (eBay, Amazon, Chrono24,
+          Reverb, and more). Start with watches or power tools — bid only on what you&apos;d still buy without the app.
         </p>
       </header>
       <Suspense fallback={<div className="card p-8 text-center text-sm text-slate-400">Loading Flip Radar…</div>}>

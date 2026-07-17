@@ -4,6 +4,14 @@ import { AuthButtons } from "./AuthButtons";
 import { isAdminEmail } from "@/lib/admin";
 import { PUBLIC_PRODUCT } from "@/lib/product";
 
+const NAV_CATS = [
+  { href: "/flip?category=Watches", label: "Watches" },
+  { href: "/flip?category=Power%20Tools", label: "Tools" },
+  { href: "/flip?category=Cameras", label: "Cameras" },
+  { href: "/flip?category=Graphics%20Cards", label: "GPUs" },
+  { href: "/flip?category=Gaming%20Consoles", label: "Consoles" },
+];
+
 export async function Nav() {
   const session = await auth();
   const email = session?.user?.email ?? null;
@@ -27,30 +35,18 @@ export async function Nav() {
           {PUBLIC_PRODUCT.name}
         </Link>
         <nav className="order-3 flex w-full min-w-0 touch-pan-x items-center gap-0.5 overflow-x-auto overscroll-x-contain whitespace-nowrap text-sm sm:order-2 sm:ml-auto sm:w-auto sm:gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Link
-            href="/flip"
-            className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
-          >
+          <Link href="/flip" className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3">
             Flip Radar
           </Link>
-          <Link
-            href="/flip?category=Watches"
-            className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
-          >
-            Watches
-          </Link>
-          <Link
-            href="/flip?category=Phones"
-            className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
-          >
-            Phones
-          </Link>
-          <Link
-            href="/flip?category=Laptops"
-            className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
-          >
-            Laptops
-          </Link>
+          {NAV_CATS.map((c) => (
+            <Link
+              key={c.href}
+              href={c.href}
+              className="shrink-0 rounded-lg px-2 py-2 text-slate-300 hover:bg-white/5 hover:text-white sm:px-3"
+            >
+              {c.label}
+            </Link>
+          ))}
           {showAdmin && (
             <Link
               href="/admin"
