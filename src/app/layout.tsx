@@ -3,6 +3,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { CookieConsent } from "@/components/CookieConsent";
 import { FavouritesProvider } from "@/components/FavouritesProvider";
+import { FlipDeskProvider } from "@/components/FlipDeskProvider";
 import { DriverSettingsProvider } from "@/components/DriverSettingsProvider";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { auth } from "@/auth";
@@ -60,14 +61,19 @@ export default async function RootLayout({
       <body>
         <JsonLd data={[websiteJsonLd(), organizationJsonLd()]} />
         <FavouritesProvider signedIn={signedIn}>
-          <DriverSettingsProvider signedIn={signedIn}>
-            <Nav />
-            <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
-          </DriverSettingsProvider>
+          <FlipDeskProvider>
+            <DriverSettingsProvider signedIn={signedIn}>
+              <Nav />
+              <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6">{children}</main>
+            </DriverSettingsProvider>
+          </FlipDeskProvider>
         </FavouritesProvider>
         <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
           <div>SignalsForMe — Flip Radar for UK eBay auction profits</div>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
+            <a href="/flip/desk" className="text-slate-400 underline hover:text-slate-200">
+              My Desk
+            </a>
             <a href="/flip" className="text-slate-400 underline hover:text-slate-200">
               Flip Radar
             </a>

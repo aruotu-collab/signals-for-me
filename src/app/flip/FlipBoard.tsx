@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DealScoreBand, FlipOpportunity } from "@/lib/flip/types";
 import { FLIP_CATEGORIES } from "@/lib/flip/types";
 import type { CapitalPlan } from "@/lib/flip/plan";
+import { rememberScanIds } from "@/lib/flip/desk";
+import { useFlipDesk } from "@/components/FlipDeskProvider";
 
 type Mode = "scan" | "budget" | "monthly";
 
@@ -70,6 +73,8 @@ export function FlipBoard() {
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
+  const { isWatching, watch, unwatch, activeCount } = useFlipDesk();
 
   useEffect(() => {
     setMode(parseMode(searchParams.get("mode")));
@@ -149,6 +154,14 @@ export function FlipBoard() {
         }
         setData(json);
         if (json.page !== page) setPage(json.page);
+        if (json.opportunities?.length) {
+          const fresh = rememberScanIds(json.opportunities.map((o) => o.id));
+          setFreshIds((prev) => {
+            const next = new Set(prev);
+            for (const id of fresh) next.add(id);
+            return next;
+          });
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Scan failed");
         setData(null);
@@ -353,7 +366,11 @@ export function FlipBoard() {
 
         <p className="text-xs text-slate-500">
           Parts / not working / replicas are auto-hidden from titles and eBay condition. Always open the listing and
-          check photos before you bid.
+          check photos before you bid. Tap <span className="text-slate-300">Watch</span> to park deals on{" "}
+          <Link href="/flip/desk" className="text-brand-300 hover:underline">
+            My Desk
+          </Link>
+          {activeCount > 0 ? ` (${activeCount} active)` : ""}.
         </p>
       </div>
 
@@ -419,9 +436,13 @@ export function FlipBoard() {
           <OpportunityCard
             key={opp.id}
             opp={opp}
+            isNew={freshIds.has(opp.id)}
+            watching={isWatching(opp.id)}
             inPack={planIds.has(opp.id)}
             expanded={expanded === opp.id}
             onToggle={() => setExpanded(expanded === opp.id ? null : opp.id)}
+            onWatch={() => watch(opp)}
+            onUnwatch={() => unwatch(opp.id)}
           />
         ))}
       </div>
@@ -455,14 +476,22 @@ function dealTone(band: DealScoreBand): string {
 
 function OpportunityCard({
   opp,
+  isNew,
+  watching,
   inPack,
   expanded,
   onToggle,
+  onWatch,
+  onUnwatch,
 }: {
   opp: FlipOpportunity;
+  isNew: boolean;
+  watching: boolean;
   inPack: boolean;
   expanded: boolean;
   onToggle: () => void;
+  onWatch: () => void;
+  onUnwatch: () => void;
 }) {
   const endsLabel =
     opp.endsInMinutes == null
@@ -487,6 +516,9 @@ function OpportunityCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            {isNew && (
+              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-200">New</span>
+            )}
             <span className={`rounded px-2 py-0.5 text-xs font-medium ${dealTone(opp.dealBand)}`}>
               Deal {opp.dealScore}/100
             </span>
@@ -518,6 +550,23 @@ function OpportunityCard({
         <a href={opp.ebayUrl} target="_blank" rel="noreferrer" className="btn-primary px-4 py-2 text-sm">
           Open on eBay
         </a>
+        {watching ? (
+          <button
+            type="button"
+            onClick={onUnwatch}
+            className="rounded-lg bg-brand-500/20 px-3 py-2 text-sm text-brand-200 hover:bg-brand-500/30"
+          >
+            Watching ✓
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onWatch}
+            className="rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+          >
+            Watch
+          </button>
+        )}
         <span className="text-xs text-slate-400">
           Max bid ≈ <span className="text-slate-200">£{opp.maxBid.toLocaleString("en-GB")}</span>
         </span>
