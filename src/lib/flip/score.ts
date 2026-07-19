@@ -37,6 +37,8 @@ export type FindOpportunitiesInput = {
   maxEndsInHours?: number;
   /** Only include deals estimated to sell within this many days. */
   maxDaysToSell?: number;
+  /** Minimum percentage of comparable live auctions that currently have bids. */
+  minAuctionDemandPct?: number;
   includeRisky?: boolean;
   fees?: Partial<FlipFeeSettings>;
   enrichComps?: boolean;
@@ -387,6 +389,21 @@ export async function findFlipOpportunities(
   if (maxDaysToSell != null) {
     opportunities = opportunities.filter(
       (opportunity) => opportunity.estimatedDaysToSell <= maxDaysToSell,
+    );
+  }
+
+  const minAuctionDemandPct =
+    input.minAuctionDemandPct != null &&
+    Number.isFinite(input.minAuctionDemandPct) &&
+    input.minAuctionDemandPct > 0
+      ? Math.min(100, input.minAuctionDemandPct)
+      : null;
+  if (minAuctionDemandPct != null) {
+    opportunities = opportunities.filter(
+      (opportunity) =>
+        opportunity.auctionSampleCount >= 3 &&
+        opportunity.auctionBidRatePct != null &&
+        opportunity.auctionBidRatePct >= minAuctionDemandPct,
     );
   }
 

@@ -58,6 +58,10 @@ export function FlipBoard() {
     const n = Number(searchParams.get("maxDaysToSell") ?? "0");
     return Number.isFinite(n) && n > 0 ? n : 0;
   });
+  const [minAuctionDemandPct, setMinAuctionDemandPct] = useState(() => {
+    const n = Number(searchParams.get("minAuctionDemandPct") ?? "0");
+    return Number.isFinite(n) && n > 0 ? Math.min(100, n) : 0;
+  });
   const [maxBudget, setMaxBudget] = useState(() => {
     const n = Number(searchParams.get("maxBudget") ?? "500");
     return Number.isFinite(n) && n > 0 ? n : 500;
@@ -96,6 +100,8 @@ export function FlipBoard() {
     if (Number.isFinite(capital) && capital > 0) setStartingCapital(capital);
     const sellDays = Number(searchParams.get("maxDaysToSell") ?? "0");
     setMaxDaysToSell(Number.isFinite(sellDays) && sellDays > 0 ? sellDays : 0);
+    const demand = Number(searchParams.get("minAuctionDemandPct") ?? "0");
+    setMinAuctionDemandPct(Number.isFinite(demand) && demand > 0 ? Math.min(100, demand) : 0);
   }, [searchParams]);
 
   const syncUrl = useCallback(
@@ -105,6 +111,7 @@ export function FlipBoard() {
       category?: string;
       maxEndsInHours?: number;
       maxDaysToSell?: number;
+      minAuctionDemandPct?: number;
       page?: number;
       maxBudget?: number;
       monthlyGoal?: number;
@@ -116,6 +123,7 @@ export function FlipBoard() {
       const profit = next.minProfit ?? minProfit;
       const hours = next.maxEndsInHours ?? maxEndsInHours;
       const sellDays = next.maxDaysToSell ?? maxDaysToSell;
+      const demand = next.minAuctionDemandPct ?? minAuctionDemandPct;
       const nextPage = next.page ?? page;
       const budget = next.maxBudget ?? maxBudget;
       const goal = next.monthlyGoal ?? monthlyGoal;
@@ -126,6 +134,7 @@ export function FlipBoard() {
       if (profit !== 75) params.set("minProfit", String(profit));
       if (hours !== 48) params.set("maxEndsInHours", String(hours));
       if (sellDays > 0) params.set("maxDaysToSell", String(sellDays));
+      if (demand > 0) params.set("minAuctionDemandPct", String(demand));
       if (nextPage > 1) params.set("page", String(nextPage));
       if (nextMode === "budget") params.set("maxBudget", String(budget));
       if (nextMode === "monthly") {
@@ -135,7 +144,7 @@ export function FlipBoard() {
       const qs = params.toString();
       router.replace(qs ? `/flip?${qs}` : "/flip", { scroll: false });
     },
-    [mode, category, minProfit, maxEndsInHours, maxDaysToSell, page, maxBudget, monthlyGoal, startingCapital, router],
+    [mode, category, minProfit, maxEndsInHours, maxDaysToSell, minAuctionDemandPct, page, maxBudget, monthlyGoal, startingCapital, router],
   );
 
   const scan = useCallback(() => {
@@ -151,6 +160,9 @@ export function FlipBoard() {
           pageSize: String(PAGE_SIZE),
         });
         if (maxDaysToSell > 0) params.set("maxDaysToSell", String(maxDaysToSell));
+        if (minAuctionDemandPct > 0) {
+          params.set("minAuctionDemandPct", String(minAuctionDemandPct));
+        }
         if (mode === "budget") params.set("maxBudget", String(maxBudget));
         if (mode === "monthly") {
           params.set("monthlyGoal", String(monthlyGoal));
@@ -178,7 +190,7 @@ export function FlipBoard() {
         setData(null);
       }
     });
-  }, [minProfit, category, maxEndsInHours, maxDaysToSell, page, mode, maxBudget, monthlyGoal, startingCapital]);
+  }, [minProfit, category, maxEndsInHours, maxDaysToSell, minAuctionDemandPct, page, mode, maxBudget, monthlyGoal, startingCapital]);
 
   useEffect(() => {
     scan();
@@ -197,6 +209,7 @@ export function FlipBoard() {
     category?: string;
     maxEndsInHours?: number;
     maxDaysToSell?: number;
+    minAuctionDemandPct?: number;
     maxBudget?: number;
     monthlyGoal?: number;
     startingCapital?: number;
@@ -207,6 +220,7 @@ export function FlipBoard() {
     if (patch.category != null) setCategory(patch.category);
     if (patch.maxEndsInHours != null) setMaxEndsInHours(patch.maxEndsInHours);
     if (patch.maxDaysToSell != null) setMaxDaysToSell(patch.maxDaysToSell);
+    if (patch.minAuctionDemandPct != null) setMinAuctionDemandPct(patch.minAuctionDemandPct);
     if (patch.maxBudget != null) setMaxBudget(patch.maxBudget);
     if (patch.monthlyGoal != null) setMonthlyGoal(patch.monthlyGoal);
     if (patch.startingCapital != null) setStartingCapital(patch.startingCapital);
@@ -370,6 +384,21 @@ export function FlipBoard() {
               <option value={14}>Within 14 days</option>
               <option value={30}>Within 30 days</option>
               <option value={60}>Within 60 days</option>
+            </select>
+          </label>
+          <label className="text-sm text-slate-400">
+            Auction demand
+            <select
+              value={minAuctionDemandPct}
+              onChange={(e) =>
+                resetFilters({ minAuctionDemandPct: Number(e.target.value) })
+              }
+              className="ml-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-slate-200"
+            >
+              <option value={0}>Any demand</option>
+              <option value={20}>20%+ bid rate</option>
+              <option value={45}>45%+ solid</option>
+              <option value={70}>70%+ strong</option>
             </select>
           </label>
           <button type="button" onClick={scan} disabled={pending} className="btn-primary px-4 py-2 text-sm disabled:opacity-50">
