@@ -157,13 +157,15 @@ function toNumber(v: string | number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** CJ catalog pages use `{slug}-p-{numericId}.html`; API IDs are often UUIDs — SKU search is the reliable open link. */
+/** CJ catalog pages use `{slug}-p-{id}.html` (id may be numeric or UUID). */
 function slugifyCjName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "product";
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 120) || "product"
+  );
 }
 
 export function buildCjProductUrl(input: {
@@ -173,22 +175,17 @@ export function buildCjProductUrl(input: {
   name: string;
 }): string {
   const fromApi = input.productUrl?.trim();
-  if (fromApi && /cjdropshipping\.com/i.test(fromApi) && !/\/product\/\d+$/i.test(fromApi)) {
+  if (fromApi && /cjdropshipping\.com\/product\/.+-p-.+\.html/i.test(fromApi)) {
     return fromApi;
   }
 
-  const sku = input.sku.trim();
-  if (sku && !/^https?:/i.test(sku)) {
-    return `https://cjdropshipping.com/search.html?from=all&keyWord=${encodeURIComponent(sku)}`;
+  const id = input.id.trim();
+  if (id) {
+    return `https://cjdropshipping.com/product/${slugifyCjName(input.name)}-p-${id}.html`;
   }
 
-  // Numeric snowflake IDs can use the public catalog path.
-  if (/^\d{12,}$/.test(input.id)) {
-    return `https://cjdropshipping.com/product/${slugifyCjName(input.name)}-p-${input.id}.html`;
-  }
-
-  const q = input.name.trim().slice(0, 60);
-  return `https://cjdropshipping.com/search.html?from=all&keyWord=${encodeURIComponent(q || input.id)}`;
+  const term = (input.sku.trim() || input.name.trim().slice(0, 60) || "product").trim();
+  return `https://cjdropshipping.com/search/${encodeURIComponent(term)}.html`;
 }
 
 function extractListItems(data: CjListData): CjListItem[] {
