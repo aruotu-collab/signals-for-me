@@ -122,22 +122,31 @@ type CjListItem = {
   productName?: string;
   sku?: string;
   productSku?: string;
+  spu?: string;
   bigImage?: string;
   productImage?: string;
   sellPrice?: string | number;
   nowPrice?: string | number;
   listedNum?: number;
   categoryName?: string;
+  threeCategoryName?: string;
   defaultArea?: string;
   weight?: string | number;
   productWeight?: string | number;
   productUrl?: string;
   trialFreight?: string | number;
+  saleStatus?: string | number;
+  warehouseInventoryNum?: number;
+  totalVerifiedInventory?: number;
+};
+
+type CjListBlock = CjListItem & {
+  productList?: CjListItem[];
 };
 
 type CjListData = {
   list?: CjListItem[];
-  content?: CjListItem[];
+  content?: CjListBlock[];
   totalRecords?: number;
   total?: number;
 };
@@ -148,23 +157,89 @@ function toNumber(v: string | number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** CJ catalog pages use `{slug}-p-{numericId}.html`; API IDs are often UUIDs — SKU search is the reliable open link. */
+function slugifyCjName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "product";
+}
+
+export function buildCjProductUrl(input: {
+  productUrl?: string | null;
+  id: string;
+  sku: string;
+  name: string;
+}): string {
+  const fromApi = input.productUrl?.trim();
+  if (fromApi && /cjdropshipping\.com/i.test(fromApi) && !/\/product\/\d+$/i.test(fromApi)) {
+    return fromApi;
+  }
+
+  const sku = input.sku.trim();
+  if (sku && !/^https?:/i.test(sku)) {
+    return `https://cjdropshipping.com/search.html?from=all&keyWord=${encodeURIComponent(sku)}`;
+  }
+
+  // Numeric snowflake IDs can use the public catalog path.
+  if (/^\d{12,}$/.test(input.id)) {
+    return `https://cjdropshipping.com/product/${slugifyCjName(input.name)}-p-${input.id}.html`;
+  }
+
+  const q = input.name.trim().slice(0, 60);
+  return `https://cjdropshipping.com/search.html?from=all&keyWord=${encodeURIComponent(q || input.id)}`;
+}
+
+function extractListItems(data: CjListData): CjListItem[] {
+  if (Array.isArray(data.list) && data.list.length > 0) return data.list;
+
+  const out: CjListItem[] = [];
+  for (const block of data.content ?? []) {
+    if (Array.isArray(block.productList) && block.productList.length > 0) {
+      out.push(...block.productList);
+      continue;
+    }
+    if (block.nameEn || block.productNameEn || block.productName || block.pid || block.id) {
+      out.push(block);
+    }
+  }
+  return out;
+}
+
 function normalizeProduct(raw: CjListItem): CjProduct | null {
   const id = raw.pid ?? raw.id ?? raw.productId ?? raw.sku ?? raw.productSku;
-  const name = (raw.nameEn ?? raw.productNameEn ?? raw.productName ?? "").trim();
+  const nameRaw = (raw.nameEn ?? raw.productNameEn ?? raw.productName ?? "").trim();
+  // Classic list sometimes returns Chinese name as a JSON array string — skip those.
+  const name = nameRaw.startsWith("[") ? (raw.productNameEn ?? "").trim() : nameRaw;
   if (!id || !name) return null;
+
+  // When present, only keep products marked on-sale.
+  if (raw.saleStatus != null && String(raw.saleStatus) !== "3") return null;
+
+  const inv = raw.warehouseInventoryNum ?? raw.totalVerifiedInventory;
+  if (inv != null && inv <= 0) return null;
+
   const price = toNumber(raw.nowPrice) ?? toNumber(raw.sellPrice);
   if (price == null || price <= 0) return null;
+
+  const sku = String(raw.sku ?? raw.productSku ?? raw.spu ?? id);
   return {
     id: String(id),
     name,
-    sku: String(raw.sku ?? raw.productSku ?? id),
+    sku,
     imageUrl: raw.bigImage ?? raw.productImage ?? null,
     sellPriceUsd: price,
     listedNum: raw.listedNum ?? null,
-    categoryName: raw.categoryName ?? null,
+    categoryName: raw.threeCategoryName ?? raw.categoryName ?? null,
     warehouse: raw.defaultArea ?? null,
     weightGrams: toNumber(raw.weight) ?? toNumber(raw.productWeight),
-    productUrl: raw.productUrl ?? `https://cjdropshipping.com/product/${encodeURIComponent(String(id))}`,
+    productUrl: buildCjProductUrl({
+      productUrl: raw.productUrl,
+      id: String(id),
+      sku,
+      name,
+    }),
   };
 }
 
@@ -190,21 +265,25 @@ export async function searchCjProducts(opts: {
       orderBy: 1, // listing count
       sort: "desc",
     });
-    const rows = data.list ?? data.content ?? [];
-    return rows.map(normalizeProduct).filter((p): p is CjProduct => Boolean(p));
+    const rows = extractListItems(data);
+    const products = rows.map(normalizeProduct).filter((p): p is CjProduct => Boolean(p));
+    if (products.length > 0) return products;
   } catch {
-    const data = await cjGet<CjListData>("/product/list", {
-      pageNum: page,
-      pageSize: size,
-      keyWord: opts.keyWord,
-      countryCode: "GB",
-      searchType: opts.trending ? 2 : 0,
-      orderBy: "listedNum",
-      sort: "desc",
-    });
-    const rows = data.list ?? data.content ?? [];
-    return rows.map(normalizeProduct).filter((p): p is CjProduct => Boolean(p));
+    // fall through to classic list
   }
+
+  const data = await cjGet<CjListData>("/product/list", {
+    pageNum: page,
+    pageSize: size,
+    keyWord: opts.keyWord,
+    countryCode: "GB",
+    searchType: opts.trending ? 2 : 0,
+    orderBy: "listedNum",
+    sort: "desc",
+  });
+  return extractListItems(data)
+    .map(normalizeProduct)
+    .filter((p): p is CjProduct => Boolean(p));
 }
 
 /** Rough China→UK postage estimate when CJ freight is missing (£). */

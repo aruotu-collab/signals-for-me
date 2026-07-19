@@ -176,7 +176,7 @@ export function SourceBoard() {
             <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
               {opp.supplierUrl && (
                 <a href={opp.supplierUrl} target="_blank" rel="noreferrer" className="btn-primary px-4 py-2 text-sm">
-                  Open on CJ
+                  Find on CJ
                 </a>
               )}
               <a
