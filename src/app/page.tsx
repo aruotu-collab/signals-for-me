@@ -38,11 +38,11 @@ export default function Home() {
             <Link href="/flip" className="btn-primary px-6 py-3 text-base">
               Open Flip Radar
             </Link>
+            <Link href="/source" className="btn-ghost px-6 py-3 text-base">
+              List Today · CJ
+            </Link>
             <Link href="/flip?category=Watches&minProfit=100" className="btn-ghost px-6 py-3 text-base">
               Watches · £100+
-            </Link>
-            <Link href="/flip?category=Phones&minProfit=75" className="btn-ghost px-6 py-3 text-base">
-              Phones · £75+
             </Link>
           </div>
         </div>
@@ -69,6 +69,27 @@ export default function Home() {
               <p className="mt-1 text-sm text-slate-400">{s.d}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-bold text-white">Two ways to find stock</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Flip Radar for auction bargains. List Today for CJ Dropshipping products that already show UK eBay demand.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Link href="/flip" className="card block p-5 transition hover:border-brand-400/30">
+            <div className="font-semibold text-white">Flip Radar</div>
+            <p className="mt-1 text-sm text-slate-400">
+              Ending-soon UK auctions with Deal Score, liquidity filters and My Desk.
+            </p>
+          </Link>
+          <Link href="/source" className="card block p-5 transition hover:border-brand-400/30">
+            <div className="font-semibold text-white">List Today · CJ</div>
+            <p className="mt-1 text-sm text-slate-400">
+              Scan CJ products, match live eBay Buy-it-now demand, rank by profit per day.
+            </p>
+          </Link>
         </div>
       </section>
 

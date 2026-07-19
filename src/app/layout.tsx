@@ -74,6 +74,9 @@ export default async function RootLayout({
             <a href="/flip/desk" className="text-slate-400 underline hover:text-slate-200">
               My Desk
             </a>
+            <a href="/source" className="text-slate-400 underline hover:text-slate-200">
+              List Today
+            </a>
             <a href="/flip" className="text-slate-400 underline hover:text-slate-200">
               Flip Radar
             </a>
