@@ -30,11 +30,13 @@ export async function GET(req: Request) {
   const maxBudget = positiveNumber(url.searchParams.get("maxBudget"));
   const monthlyGoal = positiveNumber(url.searchParams.get("monthlyGoal"));
   const startingCapital = positiveNumber(url.searchParams.get("startingCapital"));
+  const maxDaysToSell = positiveNumber(url.searchParams.get("maxDaysToSell"));
 
   try {
     const result = await findFlipOpportunities({
       minProfit: Number.isFinite(minProfit) ? minProfit : 100,
       maxEndsInHours: Number.isFinite(maxEndsInHours) ? maxEndsInHours : 24,
+      maxDaysToSell,
       category,
       includeRisky,
       enrichComps: true,

@@ -35,6 +35,8 @@ export type FindOpportunitiesInput = {
   minProfit?: number;
   category?: FlipCategory;
   maxEndsInHours?: number;
+  /** Only include deals estimated to sell within this many days. */
+  maxDaysToSell?: number;
   includeRisky?: boolean;
   fees?: Partial<FlipFeeSettings>;
   enrichComps?: boolean;
@@ -375,6 +377,18 @@ export async function findFlipOpportunities(
   }
 
   opportunities.sort(sortByDealScore);
+
+  const maxDaysToSell =
+    input.maxDaysToSell != null &&
+    Number.isFinite(input.maxDaysToSell) &&
+    input.maxDaysToSell > 0
+      ? input.maxDaysToSell
+      : null;
+  if (maxDaysToSell != null) {
+    opportunities = opportunities.filter(
+      (opportunity) => opportunity.estimatedDaysToSell <= maxDaysToSell,
+    );
+  }
 
   // Affordability filters for budget / monthly modes.
   if (maxBudget != null) {
