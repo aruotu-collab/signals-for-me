@@ -21,7 +21,53 @@ const SEED_QUERIES = [
   "phone holder car",
   "magnetic cable",
   "kitchen gadget",
+  "massage gun",
+  "led strip light",
+  "wireless earbuds",
+  "camping lantern",
 ];
+
+const STOP_WORDS = new Set([
+  "new",
+  "hot",
+  "sale",
+  "wholesale",
+  "dropshipping",
+  "free",
+  "shipping",
+  "uk",
+  "eu",
+  "us",
+  "for",
+  "with",
+  "and",
+  "the",
+  "a",
+  "an",
+  "of",
+  "to",
+  "in",
+  "on",
+  "by",
+  "from",
+  "set",
+  "pack",
+  "pcs",
+  "piece",
+  "pieces",
+  "type",
+  "style",
+  "fashion",
+  "women",
+  "men",
+  "unisex",
+  "high",
+  "quality",
+  "portable",
+  "wireless",
+  "intelligent",
+  "electric",
+]);
 
 type EbaySearchResponse = {
   itemSummaries?: EbayItemSummary[];
@@ -29,17 +75,15 @@ type EbaySearchResponse = {
 };
 
 function cleanSearchQuery(title: string): string {
-  return title
+  const words = title
     .replace(/[^\w\s+-]/g, " ")
-    .replace(
-      /\b(new|hot|sale|wholesale|dropshipping|free shipping|uk|eu|us|for|with|and|the|a|an)\b/gi,
-      " ",
-    )
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")
-    .slice(0, 8)
-    .join(" ");
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w.toLowerCase()));
+
+  // Prefer distinctive mid-title terms over long marketing fluff.
+  return words.slice(0, 6).join(" ");
 }
 
 function median(nums: number[]): number | null {
@@ -57,10 +101,11 @@ async function ebayDemandFor(title: string): Promise<{
   const q = cleanSearchQuery(title);
   if (q.length < 3) return { medianAsk: null, sampleCount: 0, activeCount: 0 };
 
+  // Ship-to GB, not "located in GB" — dropship comps are often listed from CN/EU.
   const params = new URLSearchParams({
     q,
-    limit: "12",
-    filter: "buyingOptions:{FIXED_PRICE},itemLocationCountry:GB,price:[5..500],conditions:{1000|1500|2000|2500|3000|4000|5000}",
+    limit: "20",
+    filter: "buyingOptions:{FIXED_PRICE},deliveryCountry:GB,price:[3..400],conditions:{1000|1500|2000|2500|3000|4000|5000}",
     sort: "price",
   });
 
@@ -103,7 +148,6 @@ function scoreOpportunity(input: {
   const reasons: string[] = [];
   let score = 35;
 
-  // Profit
   if (input.netProfit >= 20) {
     score += 25;
     reasons.push(`Strong net ~£${Math.round(input.netProfit)}`);
@@ -121,7 +165,6 @@ function scoreOpportunity(input: {
   else if (input.roiPct >= 35) score += 8;
   else if (input.roiPct >= 20) score += 4;
 
-  // Competition (lower is better for listing today)
   if (input.activeCount <= 15) {
     score += 18;
     reasons.push("Low eBay competition");
@@ -137,7 +180,6 @@ function scoreOpportunity(input: {
     reasons.push("Very crowded eBay niche");
   }
 
-  // CJ listing popularity as a weak demand proxy until sold-data exists
   if (input.cjListedNum != null) {
     if (input.cjListedNum >= 500) {
       score += 10;
@@ -161,7 +203,11 @@ function scoreOpportunity(input: {
   const competitionFactor =
     input.activeCount >= 250 ? 2.4 : input.activeCount >= 100 ? 1.8 : input.activeCount >= 40 ? 1.3 : 0.85;
   const popularityFactor =
-    input.cjListedNum != null && input.cjListedNum >= 200 ? 0.75 : input.cjListedNum != null && input.cjListedNum < 20 ? 1.35 : 1;
+    input.cjListedNum != null && input.cjListedNum >= 200
+      ? 0.75
+      : input.cjListedNum != null && input.cjListedNum < 20
+        ? 1.35
+        : 1;
   const estimatedDaysToSell = Math.max(1, Math.min(60, Math.round(8 * competitionFactor * popularityFactor)));
   const profitPerDay = Math.round((input.netProfit / estimatedDaysToSell) * 100) / 100;
 
@@ -172,19 +218,18 @@ function scoreProduct(
   product: CjProduct,
   demand: { medianAsk: number | null; sampleCount: number; activeCount: number },
 ): SourceOpportunity | null {
-  if (demand.medianAsk == null || demand.sampleCount < 2) return null;
+  if (demand.medianAsk == null || demand.sampleCount < 1) return null;
 
   const productCostGbp = usdToGbp(product.sellPriceUsd);
   const freightGbp = estimateInboundFreightGbp(product.weightGrams, product.sellPriceUsd);
   const supplierCostGbp = Math.round((productCostGbp + freightGbp) * 100) / 100;
 
-  // Active asks are optimistic — discount when crowded.
   const askMult =
     demand.activeCount >= 200 ? 0.72 : demand.activeCount >= 80 ? 0.8 : demand.activeCount >= 30 ? 0.88 : 0.94;
   const ebayMarketGbp = Math.round(demand.medianAsk * askMult * 100) / 100;
   const feesGbp = Math.round((ebayMarketGbp * EBAY_FEE_RATE + OUTBOUND_POSTAGE) * 100) / 100;
   const netProfitGbp = Math.round((ebayMarketGbp - supplierCostGbp - feesGbp) * 100) / 100;
-  if (netProfitGbp < 4) return null;
+  if (netProfitGbp < 3) return null;
 
   const roiPct = Math.round((netProfitGbp / supplierCostGbp) * 1000) / 10;
   const scored = scoreOpportunity({
@@ -194,7 +239,7 @@ function scoreProduct(
     cjListedNum: product.listedNum,
     sampleCount: demand.sampleCount,
   });
-  if (scored.band === "skip" && scored.score < 40) return null;
+  if (scored.band === "skip" && scored.score < 35) return null;
 
   const q = cleanSearchQuery(product.name);
   const why = [
@@ -230,8 +275,21 @@ function scoreProduct(
     profitPerDay: scored.profitPerDay,
     competitionLabel: competitionLabel(demand.activeCount),
     why,
-    ebaySearchUrl: `https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(q)}&_sacat=0&LH_BIN=1&rt=nc&LH_PrefLoc=1`,
+    ebaySearchUrl: `https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(q)}&_sacat=0&LH_BIN=1&rt=nc`,
   };
+}
+
+async function mapPool<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return out;
 }
 
 export async function findSourceOpportunities(opts?: {
@@ -240,7 +298,7 @@ export async function findSourceOpportunities(opts?: {
   limit?: number;
 }): Promise<SourceScanResult> {
   if (!isCjConfigured()) {
-    return { opportunities: [], scanned: 0, source: "unconfigured", supplier: "cj" };
+    return { opportunities: [], scanned: 0, matched: 0, filteredOut: 0, source: "unconfigured", supplier: "cj" };
   }
 
   const minProfit = opts?.minProfit ?? 7;
@@ -251,12 +309,9 @@ export async function findSourceOpportunities(opts?: {
     const seen = new Set<string>();
     const products: CjProduct[] = [];
 
-    // Trending sweep + a few seed niches for UK-friendly gadgets.
     const batches = await Promise.all([
-      searchCjProducts({ trending: true, size: 24 }).catch(() => [] as CjProduct[]),
-      ...SEED_QUERIES.slice(0, 4).map((q) =>
-        searchCjProducts({ keyWord: q, size: 8 }).catch(() => [] as CjProduct[]),
-      ),
+      searchCjProducts({ trending: true, size: 40 }).catch(() => [] as CjProduct[]),
+      ...SEED_QUERIES.map((q) => searchCjProducts({ keyWord: q, size: 10 }).catch(() => [] as CjProduct[])),
     ]);
 
     for (const batch of batches) {
@@ -267,16 +322,18 @@ export async function findSourceOpportunities(opts?: {
       }
     }
 
-    // Cap eBay enrich calls for serverless time limits.
     const toCheck = products
       .sort((a, b) => (b.listedNum ?? 0) - (a.listedNum ?? 0))
-      .slice(0, 28);
+      .slice(0, 48);
 
-    const opportunities: SourceOpportunity[] = [];
-    for (const product of toCheck) {
+    const scored = await mapPool(toCheck, 6, async (product) => {
       const demand = await ebayDemandFor(product.name);
-      const opp = scoreProduct(product, demand);
-      if (!opp) continue;
+      return scoreProduct(product, demand);
+    });
+
+    const matchedList = scored.filter((o): o is SourceOpportunity => Boolean(o));
+    const opportunities: SourceOpportunity[] = [];
+    for (const opp of matchedList) {
       if (opp.netProfitGbp < minProfit) continue;
       if (maxDays != null && opp.estimatedDaysToSell > maxDays) continue;
       opportunities.push(opp);
@@ -292,6 +349,8 @@ export async function findSourceOpportunities(opts?: {
     return {
       opportunities: opportunities.slice(0, limit),
       scanned: toCheck.length,
+      matched: matchedList.length,
+      filteredOut: matchedList.length - opportunities.length,
       source: "live",
       supplier: "cj",
     };
@@ -299,6 +358,8 @@ export async function findSourceOpportunities(opts?: {
     return {
       opportunities: [],
       scanned: 0,
+      matched: 0,
+      filteredOut: 0,
       source: "error",
       supplier: "cj",
       error: e instanceof Error ? e.message : "CJ scan failed",

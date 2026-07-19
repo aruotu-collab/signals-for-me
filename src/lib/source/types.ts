@@ -31,6 +31,10 @@ export type SourceOpportunity = {
 export type SourceScanResult = {
   opportunities: SourceOpportunity[];
   scanned: number;
+  /** How many CJ products had enough eBay comps to score. */
+  matched?: number;
+  /** Dropped after scoring (profit / sell-time filters). */
+  filteredOut?: number;
   source: "live" | "unconfigured" | "error";
   supplier: "cj";
   error?: string;

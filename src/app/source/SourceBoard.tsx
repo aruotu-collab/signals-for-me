@@ -85,6 +85,7 @@ export function SourceBoard() {
               <option value={7}>Within 7 days</option>
               <option value={14}>Within 14 days</option>
               <option value={30}>Within 30 days</option>
+              <option value={60}>Within 60 days</option>
             </select>
           </label>
           <button
@@ -125,6 +126,14 @@ export function SourceBoard() {
           {data.opportunities.length === 0
             ? "No listable opportunities in this window"
             : `${data.opportunities.length} opportunities · scanned ${data.scanned} CJ products`}
+          {typeof data.matched === "number" && (
+            <span className="ml-1 text-slate-500">
+              · {data.matched} matched eBay demand
+              {typeof data.filteredOut === "number" && data.filteredOut > 0
+                ? ` · ${data.filteredOut} below your filters`
+                : ""}
+            </span>
+          )}
           <span className="ml-2 text-xs uppercase tracking-wide text-slate-500">CJ · eBay GB</span>
         </div>
       )}
