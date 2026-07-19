@@ -5,9 +5,9 @@ import { FlipBoard } from "./FlipBoard";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Flip Radar — auction profit opportunities",
+  title: "Flip Radar — liquid auction profit opportunities",
   description:
-    "Scan UK eBay auctions ending soon for watches, phones and laptops. Set your profit target and see estimated net profit, ROI and max bid.",
+    "Find UK eBay auctions with profit and live demand. Rank by estimated profit per day, liquidity, competition and auction bid activity.",
   robots: { index: true, follow: true },
 };
 
@@ -18,8 +18,8 @@ export default function FlipPage() {
         <span className="chip border border-white/10 bg-white/5 text-slate-300">Auction intelligence</span>
         <h1 className="text-2xl font-bold text-white sm:text-3xl">Flip Radar</h1>
         <p className="max-w-2xl text-sm text-slate-400">
-          Every row is scored: auction bid vs resale, Deal Score, fees, and where to sell (eBay, Amazon, Chrono24,
-          Reverb, and more). Start with watches or power tools — bid only on what you&apos;d still buy without the app.
+          Find deals that can turn back into cash—not just paper profit. Every row combines profit, live auction
+          demand, active competition, estimated selling time, and expected profit per day.
         </p>
       </header>
       <Suspense fallback={<div className="card p-8 text-center text-sm text-slate-400">Loading Flip Radar…</div>}>

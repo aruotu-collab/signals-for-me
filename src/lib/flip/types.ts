@@ -78,6 +78,18 @@ export type FlipOpportunity = {
   marketValue: number;
   marketSource: "comps" | "heuristic";
   compCount: number;
+  /** Active BIN listings matching the product query (competition, not sales). */
+  activeCompetition: number;
+  /** Percentage of sampled live similar auctions that currently have bids. */
+  auctionBidRatePct: number | null;
+  auctionSampleCount: number;
+  averageBidCount: number;
+  /** Phase A liquidity proxy. This is not a sold-data sell-through rate. */
+  liquidityScore: number;
+  liquidityLabel: "fast" | "steady" | "slow" | "dead";
+  estimatedDaysToSell: number;
+  profitPerDay: number;
+  deadDemand: boolean;
   fees: number;
   totalCost: number;
   netProfit: number;

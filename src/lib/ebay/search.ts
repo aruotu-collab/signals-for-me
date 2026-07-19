@@ -12,6 +12,7 @@ export type EbayItemSummary = {
   itemLocation?: { city?: string; postalCode?: string; country?: string };
   price?: { value?: string; currency?: string };
   currentBidPrice?: { value?: string; currency?: string };
+  bidCount?: number;
   itemEndDate?: string;
   buyingOptions?: string[];
   condition?: string;

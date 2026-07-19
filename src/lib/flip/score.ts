@@ -14,6 +14,7 @@ import {
   type FlipOpportunity,
 } from "@/lib/flip/types";
 import { computeDealScore, sortByDealScore } from "@/lib/flip/dealScore";
+import { estimateLiquidity, type MarketActivitySignals } from "@/lib/flip/liquidity";
 import { estimateSellMarkets } from "@/lib/flip/marketplaces";
 import { heuristicMarketValue } from "@/lib/flip/market";
 import {
@@ -24,9 +25,8 @@ import {
 } from "@/lib/flip/risk";
 import { buildBudgetPlan, buildMonthlyPlan, type CapitalPlan } from "@/lib/flip/plan";
 import {
-  median,
-  searchBinComps,
   searchEndingAuctions,
+  searchMarketActivity,
   type FlipAuctionItem,
 } from "@/lib/flip/search";
 import { isEbayApiConfigured } from "@/lib/ebay/client";
@@ -60,6 +60,7 @@ export type FindOpportunitiesResult = {
   total: number;
   totalPages: number;
   skippedRisky: number;
+  skippedIlliquid: number;
   plan: CapitalPlan | null;
 };
 
@@ -74,7 +75,12 @@ function scoreItem(
   item: FlipAuctionItem,
   fees: FlipFeeSettings,
   minProfit: number,
-  marketOverride?: { marketValue: number; compCount: number; source: "comps" | "heuristic" },
+  marketOverride?: {
+    marketValue: number;
+    compCount: number;
+    source: "comps" | "heuristic";
+    signals: MarketActivitySignals | null;
+  },
 ): FlipOpportunity | null {
   if (isPartsOrNotWorkingCondition(item.conditionId)) return null;
 
@@ -85,12 +91,27 @@ function scoreItem(
   let marketValue = marketOverride?.marketValue ?? heuristic.marketValue;
   const marketSource: "comps" | "heuristic" = marketOverride?.source ?? "heuristic";
   const compCount = marketOverride?.compCount ?? 0;
+  const signals = marketOverride?.signals ?? null;
 
   marketValue = Math.round(marketValue * riskMarketMultiplier(flags));
 
   const buyPrice = item.currentPrice;
+  const initialNetProfit = netProfitAfterFlip(buyPrice, marketValue, fees);
+  let liquidity = estimateLiquidity({
+    category: item.category,
+    netProfit: initialNetProfit,
+    signals,
+  });
+
+  // Active BIN values are asking prices, not proof of a sale. Risk-adjust them
+  // using current auction demand and competition before calculating profit.
+  if (marketSource === "comps" && signals?.binMedian != null) {
+    marketValue = Math.round(signals.binMedian * liquidity.askPriceMultiplier);
+  }
+
   const netProfit = netProfitAfterFlip(buyPrice, marketValue, fees);
   if (netProfit < minProfit) return null;
+  liquidity = estimateLiquidity({ category: item.category, netProfit, signals });
 
   const feesOnSale = saleFees(marketValue, fees);
   const totalCost = totalAcquisitionCost(buyPrice, fees);
@@ -114,10 +135,14 @@ function scoreItem(
     confidence,
     compCount,
     marketSource,
-    endsInMinutes: endsMins,
     riskFlags: flags,
     currentPrice: buyPrice,
     marketValue,
+    liquidityScore: liquidity.score,
+    activeCompetition: liquidity.activeCompetition,
+    auctionBidRatePct: liquidity.auctionBidRatePct,
+    auctionSampleCount: signals?.auctionSampleCount ?? 0,
+    deadDemand: liquidity.deadDemand,
   });
 
   const sell = estimateSellMarkets({
@@ -133,10 +158,16 @@ function scoreItem(
     why.push(`${heuristic.brand} typically resells around £${heuristic.marketValue.toLocaleString("en-GB")}`);
   }
   if (marketSource === "comps" && compCount > 0) {
-    why.push(`Live Buy-it-now comps median £${marketValue.toLocaleString("en-GB")} (${compCount} listings)`);
+    why.push(
+      `Risk-adjusted resale £${marketValue.toLocaleString("en-GB")} from active BIN asks (not sold prices)`,
+    );
   } else {
     why.push("Market value from brand/model heuristic — treat as a lead, verify sold prices");
   }
+  why.push(
+    `Liquidity ${liquidity.score}/100 (${liquidity.label}) · ~${liquidity.estimatedDaysToSell} days · £${liquidity.profitPerDay.toLocaleString("en-GB")}/day`,
+  );
+  for (const reason of liquidity.reasons.slice(0, 2)) why.push(reason);
   why.push(
     `Current bid £${buyPrice.toLocaleString("en-GB")} → eBay net ~£${netProfit.toLocaleString("en-GB")} after fees`,
   );
@@ -169,6 +200,15 @@ function scoreItem(
     marketValue,
     marketSource,
     compCount,
+    activeCompetition: liquidity.activeCompetition,
+    auctionBidRatePct: liquidity.auctionBidRatePct,
+    auctionSampleCount: signals?.auctionSampleCount ?? 0,
+    averageBidCount: signals?.averageBidCount ?? 0,
+    liquidityScore: liquidity.score,
+    liquidityLabel: liquidity.label,
+    estimatedDaysToSell: liquidity.estimatedDaysToSell,
+    profitPerDay: liquidity.profitPerDay,
+    deadDemand: liquidity.deadDemand,
     fees: Math.round((feesOnSale + fees.outboundShipping) * 100) / 100,
     totalCost,
     netProfit,
@@ -188,16 +228,34 @@ function scoreItem(
 async function enrichWithComps(
   item: FlipAuctionItem,
   brand: string | null,
-): Promise<{ marketValue: number; compCount: number; source: "comps" | "heuristic" } | null> {
-  const prices = await searchBinComps({
+): Promise<{
+  marketValue: number;
+  compCount: number;
+  source: "comps" | "heuristic";
+  signals: MarketActivitySignals | null;
+} | null> {
+  const signals = await searchMarketActivity({
     category: item.category,
     title: item.title,
     brand,
-    limit: 8,
+    limit: 12,
   });
-  const med = median(prices);
-  if (med == null || med <= 0) return null;
-  return { marketValue: Math.round(med), compCount: prices.length, source: "comps" };
+  if (!signals) return null;
+  if (signals.binMedian == null || signals.binMedian <= 0) {
+    const heuristic = heuristicMarketValue(item.title, item.category, item.currentPrice);
+    return {
+      marketValue: heuristic.marketValue,
+      compCount: 0,
+      source: "heuristic",
+      signals,
+    };
+  }
+  return {
+    marketValue: Math.round(signals.binMedian),
+    compCount: signals.binSampleCount,
+    source: "comps",
+    signals,
+  };
 }
 
 export async function findFlipOpportunities(
@@ -214,6 +272,7 @@ export async function findFlipOpportunities(
       total: 0,
       totalPages: 1,
       skippedRisky: 0,
+      skippedIlliquid: 0,
       plan: null,
     };
   }
@@ -281,7 +340,15 @@ export async function findFlipOpportunities(
     ? [...prelim].sort((a, b) => b.opp.dealScore - a.opp.dealScore || b.opp.netProfit - a.opp.netProfit).slice(0, 24)
     : [];
 
-  const enrichMap = new Map<string, { marketValue: number; compCount: number; source: "comps" | "heuristic" }>();
+  const enrichMap = new Map<
+    string,
+    {
+      marketValue: number;
+      compCount: number;
+      source: "comps" | "heuristic";
+      signals: MarketActivitySignals | null;
+    }
+  >();
   await Promise.all(
     toEnrich.map(async ({ item, opp }) => {
       const enriched = await enrichWithComps(item, opp.brand);
@@ -290,11 +357,20 @@ export async function findFlipOpportunities(
   );
 
   let opportunities: FlipOpportunity[] = [];
+  let skippedIlliquid = 0;
   for (const { item } of prelim) {
     const override = enrichMap.get(item.id);
+    // In live mode, only recommend items that received the Phase A market
+    // activity check. It is better to show fewer verified leads than an
+    // optimistic heuristic-only "deal" that could trap capital.
+    if (enrichComps && !override) continue;
     const opp = scoreItem(item, fees, minProfit, override);
     if (!opp) continue;
     if (!input.includeRisky && opp.riskFlags.length > 0 && opp.confidence < 40) continue;
+    if (!input.includeRisky && opp.deadDemand) {
+      skippedIlliquid += 1;
+      continue;
+    }
     opportunities.push(opp);
   }
 
@@ -330,6 +406,7 @@ export async function findFlipOpportunities(
     total,
     totalPages,
     skippedRisky,
+    skippedIlliquid,
     plan,
   };
 }

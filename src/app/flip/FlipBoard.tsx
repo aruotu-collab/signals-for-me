@@ -21,6 +21,7 @@ type ApiResult = {
   total: number;
   totalPages: number;
   skippedRisky?: number;
+  skippedIlliquid?: number;
   plan?: CapitalPlan | null;
   error?: string;
 };
@@ -365,8 +366,9 @@ export function FlipBoard() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Parts / not working / replicas are auto-hidden from titles and eBay condition. Always open the listing and
-          check photos before you bid. Tap <span className="text-slate-300">Watch</span> to park deals on{" "}
+          Ranked by expected profit per day, not headline profit. Dead-demand auctions, parts, and replicas are
+          auto-hidden. Liquidity is a Phase A proxy from live bids and active competition—not confirmed sold history.
+          Always verify sold prices before bidding. Tap <span className="text-slate-300">Watch</span> to park deals on{" "}
           <Link href="/flip/desk" className="text-brand-300 hover:underline">
             My Desk
           </Link>
@@ -411,6 +413,7 @@ export function FlipBoard() {
               ? "No opportunities"
               : `Showing ${from}–${to} of ${data.total} · scanned ${data.scanned} auctions`}
             {data.skippedRisky ? ` · skipped ${data.skippedRisky} parts/risky` : ""}
+            {data.skippedIlliquid ? ` · skipped ${data.skippedIlliquid} dead-demand` : ""}
           </span>
           <span className="text-xs uppercase tracking-wide text-slate-500">{data.source}</span>
         </div>
@@ -474,6 +477,13 @@ function dealTone(band: DealScoreBand): string {
   }
 }
 
+function liquidityTone(label: FlipOpportunity["liquidityLabel"]): string {
+  if (label === "fast") return "bg-emerald-500/15 text-emerald-200";
+  if (label === "steady") return "bg-brand-500/15 text-brand-200";
+  if (label === "slow") return "bg-amber-500/15 text-amber-200";
+  return "bg-red-500/15 text-red-200";
+}
+
 function OpportunityCard({
   opp,
   isNew,
@@ -522,6 +532,9 @@ function OpportunityCard({
             <span className={`rounded px-2 py-0.5 text-xs font-medium ${dealTone(opp.dealBand)}`}>
               Deal {opp.dealScore}/100
             </span>
+            <span className={`rounded px-2 py-0.5 text-xs font-medium ${liquidityTone(opp.liquidityLabel)}`}>
+              Liquidity {opp.liquidityScore}/100
+            </span>
             {inPack && (
               <span className="rounded bg-brand-500/20 px-2 py-0.5 text-xs font-medium text-brand-200">In your pack</span>
             )}
@@ -536,12 +549,16 @@ function OpportunityCard({
             {opp.location ? ` · ${opp.location}` : ""}
           </p>
 
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Buy now" value={`£${opp.currentPrice.toLocaleString("en-GB")}`} />
-            <Stat label="eBay market" value={`£${opp.marketValue.toLocaleString("en-GB")}`} />
+            <Stat label="Risk-adj. resale" value={`£${opp.marketValue.toLocaleString("en-GB")}`} />
             <Stat label="Net profit" value={`£${opp.netProfit.toLocaleString("en-GB")}`} accent />
-            <Stat label="ROI" value={`${opp.roiPct}%`} />
-            <Stat label="Confidence" value={`${opp.confidence}%`} />
+            <Stat label="Profit / day" value={`£${opp.profitPerDay.toLocaleString("en-GB")}`} accent />
+            <Stat label="Est. sell time" value={`~${opp.estimatedDaysToSell}d`} />
+            <Stat
+              label="Auction demand"
+              value={opp.auctionBidRatePct == null ? "Unknown" : `${opp.auctionBidRatePct}% bid`}
+            />
           </div>
         </div>
       </div>

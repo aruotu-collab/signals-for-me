@@ -58,6 +58,7 @@ export async function GET(req: Request) {
         total: 0,
         totalPages: 1,
         skippedRisky: 0,
+        skippedIlliquid: 0,
         plan: null,
         error: e instanceof Error ? e.message : "Flip scan failed",
       },

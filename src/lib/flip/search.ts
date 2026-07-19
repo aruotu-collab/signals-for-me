@@ -4,6 +4,7 @@ import type { EbayItemSummary } from "@/lib/ebay/search";
 import type { FlipCategoryName } from "@/lib/flip/types";
 import { CATEGORY_SEARCH_QUERIES, compsQuery } from "@/lib/flip/market";
 import { isPartsOrNotWorkingCondition } from "@/lib/flip/risk";
+import type { MarketActivitySignals } from "@/lib/flip/liquidity";
 
 type EbaySearchResponse = {
   itemSummaries?: EbayItemSummary[];
@@ -183,6 +184,74 @@ export async function searchBinComps(opts: {
     return prices;
   } catch {
     return [];
+  }
+}
+
+/**
+ * Phase A market activity from currently active eBay listings.
+ *
+ * Important: this is not sold-history data. Active BIN total measures
+ * competition, while live auction bid counts are a proxy for current demand.
+ */
+export async function searchMarketActivity(opts: {
+  category: FlipCategoryName;
+  title: string;
+  brand: string | null;
+  limit?: number;
+}): Promise<MarketActivitySignals | null> {
+  const q = compsQuery(opts.title, opts.brand);
+  if (!q || q.length < 3) return null;
+  const limit = Math.min(20, Math.max(8, opts.limit ?? 12));
+  const shared = ["itemLocationCountry:GB", "price:[5..20000]"].join(",");
+
+  const binParams = new URLSearchParams({
+    q,
+    limit: String(limit),
+    category_ids: FLIP_CATEGORY_IDS[opts.category],
+    filter: `${shared},buyingOptions:{FIXED_PRICE},conditions:{3000|4000|5000}`,
+    sort: "price",
+  });
+  const auctionParams = new URLSearchParams({
+    q,
+    limit: String(limit),
+    category_ids: FLIP_CATEGORY_IDS[opts.category],
+    filter: `${shared},buyingOptions:{AUCTION},conditions:{1000|1500|2000|2500|3000|4000|5000|6000}`,
+    sort: "endingSoonest",
+  });
+
+  try {
+    const [binData, auctionData] = await Promise.all([
+      ebayBrowse<EbaySearchResponse>(`/buy/browse/v1/item_summary/search?${binParams}`),
+      ebayBrowse<EbaySearchResponse>(`/buy/browse/v1/item_summary/search?${auctionParams}`),
+    ]);
+
+    const binPrices: number[] = [];
+    for (const item of binData.itemSummaries ?? []) {
+      const price = item.price?.value ? Number.parseFloat(item.price.value) : NaN;
+      if (Number.isFinite(price) && price > 0) binPrices.push(price);
+    }
+
+    const auctions = auctionData.itemSummaries ?? [];
+    // Do not interpret a missing bidCount as zero; some Browse responses omit it.
+    const bidCounts = auctions
+      .filter((item) => Number.isFinite(item.bidCount))
+      .map((item) => Math.max(0, item.bidCount ?? 0));
+    const auctionsWithBids = bidCounts.filter((count) => count > 0).length;
+    const averageBidCount =
+      bidCounts.length > 0
+        ? Math.round((bidCounts.reduce((sum, count) => sum + count, 0) / bidCounts.length) * 10) / 10
+        : 0;
+
+    return {
+      activeBinCount: Math.max(binPrices.length, binData.total ?? 0),
+      binSampleCount: binPrices.length,
+      binMedian: median(binPrices),
+      auctionSampleCount: bidCounts.length,
+      auctionsWithBids,
+      averageBidCount,
+    };
+  } catch {
+    return null;
   }
 }
 

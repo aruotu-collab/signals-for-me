@@ -20,68 +20,62 @@ export function dealLabelFor(band: DealScoreBand): string {
   }
 }
 
-/**
- * Composite Deal Score from profit, ROI, confidence, comps, urgency and risk.
- * Intentionally heuristic — not sold-market ML — but ranks like a sourcing assistant.
- */
+/** Phase A liquidity-first score. Active-market signals are proxies, not sold history. */
 export function computeDealScore(input: {
   netProfit: number;
   roiPct: number;
   confidence: number;
   compCount: number;
   marketSource: "comps" | "heuristic";
-  endsInMinutes: number | null;
   riskFlags: string[];
   currentPrice: number;
   marketValue: number;
+  liquidityScore: number;
+  activeCompetition: number;
+  auctionBidRatePct: number | null;
+  auctionSampleCount: number;
+  deadDemand: boolean;
 }): { score: number; band: DealScoreBand; label: string; reasons: string[] } {
   const reasons: string[] = [];
-  let score = 35;
+  // 40% liquidity.
+  let score = input.liquidityScore * 0.4;
 
-  // Profit contribution (up to ~30)
-  if (input.netProfit >= 300) {
-    score += 30;
-    reasons.push("Strong absolute profit");
-  } else if (input.netProfit >= 150) {
-    score += 24;
-    reasons.push("Solid absolute profit");
-  } else if (input.netProfit >= 75) {
-    score += 16;
-  } else if (input.netProfit >= 40) {
-    score += 8;
+  // 30% profit: absolute net and ROI both matter.
+  const absoluteProfitScore =
+    input.netProfit >= 300 ? 100 : input.netProfit >= 150 ? 80 : input.netProfit >= 75 ? 60 : input.netProfit >= 40 ? 35 : 10;
+  const roiScore =
+    input.roiPct >= 80 ? 100 : input.roiPct >= 40 ? 80 : input.roiPct >= 20 ? 55 : input.roiPct >= 10 ? 30 : 10;
+  score += (absoluteProfitScore * 0.6 + roiScore * 0.4) * 0.3;
+  if (input.netProfit >= 75) reasons.push(`£${Math.round(input.netProfit)} estimated net profit`);
+
+  // 15% competition.
+  const competitionScore =
+    input.activeCompetition <= 10
+      ? 100
+      : input.activeCompetition <= 30
+        ? 80
+        : input.activeCompetition <= 75
+          ? 55
+          : input.activeCompetition <= 150
+            ? 30
+            : 10;
+  score += competitionScore * 0.15;
+
+  // 10% auction demand. Unknown data gets a neutral score, never a bonus.
+  const auctionDemandScore =
+    input.auctionSampleCount >= 3 && input.auctionBidRatePct != null
+      ? input.auctionBidRatePct
+      : 40;
+  score += auctionDemandScore * 0.1;
+
+  // 5% price trend reserved for sold-history Phase B; neutral in Phase A.
+  score += 2.5;
+
+  if (input.auctionBidRatePct != null && input.auctionSampleCount >= 3) {
+    reasons.push(`${input.auctionBidRatePct}% live auction bid rate`);
   }
-
-  // ROI contribution (up to ~20)
-  if (input.roiPct >= 80) {
-    score += 20;
-    reasons.push(`High ROI (${input.roiPct}%)`);
-  } else if (input.roiPct >= 40) {
-    score += 14;
-  } else if (input.roiPct >= 20) {
-    score += 8;
-  } else if (input.roiPct >= 10) {
-    score += 4;
-  }
-
-  // Confidence / comps (up to ~20)
-  score += Math.round((input.confidence / 100) * 14);
-  if (input.marketSource === "comps" && input.compCount >= 3) {
-    score += 6;
-    reasons.push(`${input.compCount} live BIN comps`);
-  } else if (input.marketSource === "comps") {
-    score += 3;
-  }
-
-  // Urgency — ending soon is good if score is otherwise solid (up to ~8)
-  if (input.endsInMinutes != null && input.endsInMinutes >= 0) {
-    if (input.endsInMinutes <= 60) {
-      score += 8;
-      reasons.push("Ending within an hour");
-    } else if (input.endsInMinutes <= 180) {
-      score += 5;
-    } else if (input.endsInMinutes <= 720) {
-      score += 2;
-    }
+  if (input.activeCompetition > 0) {
+    reasons.push(`${input.activeCompetition} active BIN competitors`);
   }
 
   // Spread sanity — huge gaps without comps are riskier
@@ -95,6 +89,13 @@ export function computeDealScore(input: {
   if (input.riskFlags.length) {
     reasons.push(`Risk flags: ${input.riskFlags.join(", ")}`);
   }
+  if (input.deadDemand) {
+    score -= 35;
+    reasons.push("Dead-demand pattern — avoid tying up capital");
+  }
+  if (input.marketSource === "heuristic" || input.compCount < 3) {
+    score -= Math.round((100 - input.confidence) * 0.08);
+  }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
   const band = dealBandFor(score);
@@ -102,7 +103,7 @@ export function computeDealScore(input: {
 }
 
 export function sortByDealScore(a: FlipOpportunity, b: FlipOpportunity): number {
-  const scoreA = a.dealScore * 0.7 + a.netProfit * 0.01 * (a.confidence / 100) * 30;
-  const scoreB = b.dealScore * 0.7 + b.netProfit * 0.01 * (b.confidence / 100) * 30;
-  return scoreB - scoreA;
+  const dailyA = a.profitPerDay * (a.confidence / 100) * (a.liquidityScore / 100);
+  const dailyB = b.profitPerDay * (b.confidence / 100) * (b.liquidityScore / 100);
+  return dailyB - dailyA || b.dealScore - a.dealScore || b.netProfit - a.netProfit;
 }
